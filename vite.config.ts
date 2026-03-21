@@ -6,6 +6,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	ssr: {
+		noExternal: ['better-auth', '@better-auth/core']
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [

@@ -15,6 +15,14 @@
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "isitfun-db",
+			"database_id": "ab123456-7890-1234-5678-abcdef123456",
+			"migrations_dir": "./src/lib/server/db/migrations"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

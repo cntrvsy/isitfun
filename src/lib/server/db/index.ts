@@ -1,10 +1,11 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import * as schema from './schema';
-import { env } from '$env/dynamic/private';
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
 
-if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
+export function getDb(db?: D1Database) {
+    if (!db) {
+        throw new Error("No database configuration found.");
+    }
+    return drizzle(db, { schema });
+}
 
-const client = new Database(env.DATABASE_URL);
-
-export const db = drizzle(client, { schema });
+export type DrizzleClient = ReturnType<typeof getDb>;

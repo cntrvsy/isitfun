@@ -3,9 +3,9 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
-import { db } from '$lib/server/db';
+import type { DrizzleClient } from '$lib/server/db';
 
-export const auth = betterAuth({
+export const getAuth = (db: DrizzleClient) => betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
@@ -18,3 +18,10 @@ export const auth = betterAuth({
 	},
 	plugins: [sveltekitCookies(getRequestEvent)] // make sure this is the last plugin in the array
 });
+
+// Used exclusively for the `auth:schema` CLI command
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-require-imports */
+export const auth = process.env.npm_lifecycle_event === 'auth:schema' 
+    ? getAuth(require('drizzle-orm/better-sqlite3').drizzle(new (require('better-sqlite3'))(':memory:'))) 
+    : (null as any);
