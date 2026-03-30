@@ -19,7 +19,7 @@
 		{
 			"binding": "DB",
 			"database_name": "isitfun-db",
-			"database_id": "ab123456-7890-1234-5678-abcdef123456",
+			"database_id": "6e84ad32-88ff-4398-98f6-2d188d5e8c71",
 			"migrations_dir": "./src/lib/server/db/migrations"
 		}
 	],
