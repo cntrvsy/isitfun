@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Footer from "$lib/components/Footer.svelte";
+
 </script>
 
 <svelte:head>
@@ -114,16 +116,5 @@
   </div>
 
   <!-- Footer -->
-  <footer class="footer items-center p-8 bg-neutral text-neutral-content">
-    <aside class="items-center grid-flow-col gap-4">
-      <span class="text-2xl font-black italic tracking-tighter">isitfun?</span>
-      <p>Copyright © {new Date().getFullYear()} - All right reserved.</p>
-    </aside> 
-    <nav class="grid-flow-col gap-4 md:place-self-center md:justify-self-end">
-      <a href="/" class="link link-hover">Twitter</a>
-      <a href="/" class="link link-hover">Discord</a>
-      <a href="/" class="link link-hover">Terms</a>
-      <a href="/" class="link link-hover">Privacy</a>
-    </nav>
-  </footer>
+<Footer />
 </div>

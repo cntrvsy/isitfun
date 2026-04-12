@@ -3,5 +3,5 @@
 @plugin '@tailwindcss/typography';
 
 @plugin 'daisyui' {
-	themes: garden;
+	themes: winter;
 }
