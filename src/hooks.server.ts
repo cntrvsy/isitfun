@@ -6,15 +6,34 @@ import { createD1Client, createLibSqlClient } from '$lib/server/db';
 import { sequence } from '@sveltejs/kit/hooks';
 import { env } from '$env/dynamic/private';
 
-const db = env.DATABASE_URL ? createLibSqlClient(env.DATABASE_URL) : null;
+import type { DrizzleClient } from '$lib/server/db';
+
+let db: DrizzleClient | null = null;
 
 const handleDb: Handle = async ({ event, resolve }) => {
-	if (event.platform?.env?.DB) {
-		event.locals.db = createD1Client(event.platform.env.DB);
-	} else if (db) {
-		event.locals.db = db;
+	const platformDb = event.platform?.env?.DB;
+
+	if (platformDb) {
+		event.locals.db = createD1Client(platformDb);
 	} else {
-		throw new Error('No database found. Check your D1 binding or DATABASE_URL.');
+		// Fallback to LibSQL (local for npm run dev, remote for production)
+		const url = env.DATABASE_URL;
+		if (url) {
+			// Prevent 'file:' scheme in production worker bundles as it's not supported by @libsql/client/web
+			if (url.startsWith('file:') && !building && !import.meta.env.DEV) {
+				throw new Error(
+					'Local SQLite (file:) is not supported in the Cloudflare Worker environment. ' +
+					'Please ensure your D1 binding is correctly configured in wrangler.jsonc or use a remote libsql:// URL.'
+				);
+			}
+
+			if (!db) {
+				db = createLibSqlClient(url);
+			}
+			event.locals.db = db;
+		} else {
+			throw new Error('No database found. Check your D1 binding or DATABASE_URL in .env');
+		}
 	}
 	return resolve(event);
 };

@@ -6,8 +6,13 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	resolve: {
+		alias: {
+			'@opentelemetry/api': './src/lib/server/stubs/otel.ts'
+		}
+	},
 	ssr: {
-		noExternal: ['better-auth', '@better-auth/core']
+		noExternal: ['better-auth', '@better-auth/core', '@better-auth/utils', 'better-call']
 	},
 	test: {
 		expect: { requireAssertions: true },
