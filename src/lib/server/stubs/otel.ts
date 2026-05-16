@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // temporary stubs for opentelemetry
 
 export const trace = {
