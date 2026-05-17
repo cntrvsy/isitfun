@@ -8,7 +8,9 @@ import type { DrizzleClient } from '$lib/server/db';
 
 export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 	betterAuth({
-		baseURL: requestURL || env.BETTER_AUTH_URL || env.ORIGIN || '',
+		baseURL: requestURL 
+			? `${requestURL}/api/auth` 
+			: (env.BETTER_AUTH_URL || (env.ORIGIN ? `${env.ORIGIN}/api/auth` : '')),
 		secret: env.BETTER_AUTH_SECRET || '',
 		database: drizzleAdapter(db, { provider: 'sqlite' }),
 		trustedOrigins: [
