@@ -6,12 +6,13 @@ import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import type { DrizzleClient } from '$lib/server/db';
 
-export const getAuth = (db: DrizzleClient) =>
+export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 	betterAuth({
-		baseURL: env.BETTER_AUTH_URL || env.ORIGIN || '',
+		baseURL: requestURL || env.BETTER_AUTH_URL || env.ORIGIN || '',
 		secret: env.BETTER_AUTH_SECRET || '',
 		database: drizzleAdapter(db, { provider: 'sqlite' }),
 		trustedOrigins: [
+			requestURL || '',
 			env.BETTER_AUTH_URL || '',
 			...(env.TRUSTED_ORIGINS?.split(',') || [])
 		].filter(Boolean),
