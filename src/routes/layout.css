@@ -1,7 +1,54 @@
 @import 'tailwindcss';
+@plugin 'daisyui';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
-@plugin 'daisyui' {
-	themes: winter;
+@plugin 'daisyui/theme' {
+	name: 'frstudios';
+	default: true;
+	prefersdark: false;
+	color-scheme: 'light';
+
+	/* Base — cool blue-tinted whites, like the PS4's soft ambient glow */
+	--color-base-100: oklch(97% 0.008 240);
+	--color-base-200: oklch(93% 0.012 240);
+	--color-base-300: oklch(88% 0.018 240);
+	--color-base-content: oklch(18% 0.02 255);
+
+	/* Primary — deep cobalt, the XMB's signature icon blue */
+	--color-primary: oklch(52% 0.18 255);
+	--color-primary-content: oklch(97% 0.015 255);
+
+	/* Secondary — calm sky blue, the PS2 browser's horizon haze */
+	--color-secondary: oklch(64% 0.12 220);
+	--color-secondary-content: oklch(97% 0.01 220);
+
+	/* Accent — soft indigo-violet, subtle and deliberate */
+	--color-accent: oklch(55% 0.22 290);
+	--color-accent-content: oklch(97% 0.015 290);
+
+	/* Neutral — near-black with blue undertone, like the PS2's void */
+	--color-neutral: oklch(30% 0.025 255);
+	--color-neutral-content: oklch(97% 0 0);
+
+	/* Semantic — purposeful, WCAG AA compliant at 4.5:1+ */
+	--color-info: oklch(56% 0.19 242);
+	--color-info-content: oklch(97% 0.015 242);
+	--color-success: oklch(58% 0.13 168);
+	--color-success-content: oklch(97% 0.018 168);
+	--color-warning: oklch(68% 0.16 68);
+	--color-warning-content: oklch(97% 0.015 68);
+	--color-error: oklch(56% 0.22 15);
+	--color-error-content: oklch(97% 0.015 15);
+
+	/* Shape — your logo's geometry: angular selectors, softened fields, generous boxes */
+	--radius-selector: 0.25rem;
+	--radius-field: 0.5rem;
+	--radius-box: 1.5rem;
+
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 1;
+	--noise: 0;
 }

@@ -8,10 +8,13 @@ import type { DrizzleClient } from '$lib/server/db';
 
 export const getAuth = (db: DrizzleClient) =>
 	betterAuth({
-		baseURL: env.ORIGIN || '',
+		baseURL: env.BETTER_AUTH_URL || env.ORIGIN || '',
 		secret: env.BETTER_AUTH_SECRET || '',
 		database: drizzleAdapter(db, { provider: 'sqlite' }),
-		trustedOrigins: env.TRUSTED_ORIGINS?.split(',') || [],
+		trustedOrigins: [
+			env.BETTER_AUTH_URL || '',
+			...(env.TRUSTED_ORIGINS?.split(',') || [])
+		].filter(Boolean),
 		emailAndPassword: { enabled: false },
 		socialProviders: {
 			github: {

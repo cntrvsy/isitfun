@@ -12,3 +12,5 @@
 		>Sign out</button
 	>
 </form>
+
+<p class="text-red-500"> can you tell this is an alpha? It's still under construction. :D</p>

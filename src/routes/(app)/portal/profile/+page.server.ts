@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { profileFormSchema } from '$lib/server/zod_schema';
+import * as v from 'valibot';
+import { profileFormSchema } from '$lib/server/schemas';
 import { profile } from '$lib/server/db/schema';
 import type { Actions } from './$types';
 
@@ -9,11 +10,11 @@ export const actions = {
       const formData = await request.formData();
       const rawData = Object.fromEntries(formData.entries());
 
-      // 2. Validate using Zod (It will fail if they forgot their name)
-      const parsed = profileFormSchema.safeParse(rawData);
+      // 2. Validate using Valibot
+      const result = v.safeParse(profileFormSchema, rawData);
       
-      if (!parsed.success) {
-         return fail(400, { issues: parsed.error.flatten() });
+      if (!result.success) {
+         return fail(400, { issues: v.flatten<typeof profileFormSchema>(result.issues) });
       }
 
       // 3. Inject the authenticated user's ID
@@ -21,7 +22,7 @@ export const actions = {
 
       // 4. Save to D1 Database
       await locals.db.insert(profile).values({
-         ...parsed.data, 
+         ...result.output, 
          userId 
       });
 
