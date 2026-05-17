@@ -19,6 +19,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
+		"db:sync": "npm run db:generate && npm run db:push && CI=true wrangler d1 migrations apply isitfun-db --local",
+		"db:sync:remote": "npm run db:generate && npm run db:push && CI=true wrangler d1 migrations apply isitfun-db --remote",
 		"auth:schema": "better-auth generate --config src/lib/server/auth.cli.ts --output src/lib/server/db/auth.schema.ts --yes",
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
@@ -63,9 +65,12 @@
 		"wrangler": "^4.76.0"
 	},
 	"dependencies": {
+		"@devmischief/shaders-svelte": "^0.0.9",
+		"@lucide/svelte": "^1.16.0",
 		"better-sqlite3": "^12.6.2",
 		"daisyui": "^5.5.19",
 		"drizzle-valibot": "^0.4.2",
+		"lucide-svelte": "^1.0.1",
 		"valibot": "^1.4.0"
 	}
 }
