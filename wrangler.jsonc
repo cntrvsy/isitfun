@@ -26,7 +26,15 @@
 	],
 	"observability": {
 		"enabled": true
+	},
+	"vars": {
+		"BETTER_AUTH_URL": "https://isitfun.frstudios.co.ke",
+		"ORIGIN": "https://isitfun.frstudios.co.ke",
+		"TRUSTED_ORIGINS": "https://isitfun.frstudios.co.ke",
+		"GITHUB_CLIENT_ID": "Ov23liKY3Bfopy0ESdDi",
+		"GOOGLE_CLIENT_ID": "643357240019-j4gr7hilgpm5g58afnluj9v6pdaj2ujj.apps.googleusercontent.com"
 	}
+
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
