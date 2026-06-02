@@ -12,7 +12,7 @@ declare global {
         }
 
         interface Locals {
-			user?: User;
+			user?: User & { role: 'game_tester' | 'game_developer' | 'admin' };
 			session?: Session;
 			db: DrizzleClient;
 			auth: ReturnType<typeof import('$lib/server/auth').getAuth>;

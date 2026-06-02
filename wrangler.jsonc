@@ -24,6 +24,22 @@
 			"migrations_dir": "./src/lib/server/db/migrations"
 		}
 	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "7f84ad32-88ff-4398-98f6-2d188d5e8c72"
+		},
+		{
+			"binding": "DRIFTER_CONTROL",
+			"id": "9e69dd1ba52b453183fe69f07b719604"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "GAMES_BUCKET",
+			"bucket_name": "isitfun-games"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}
