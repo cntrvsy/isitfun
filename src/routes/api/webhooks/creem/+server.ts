@@ -25,13 +25,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const projectId = data.request_id;
 	const status = data.status;
 
-	if (projectId && (status === 'completed' || status === 'paid' || eventType === 'checkout.completed')) {
+	if (
+		projectId &&
+		(status === 'completed' || status === 'paid' || eventType === 'checkout.completed')
+	) {
 		try {
-			await locals.db
-				.update(projects)
-				.set({ tier: 'pro' })
-				.where(eq(projects.id, projectId));
-			
+			await locals.db.update(projects).set({ tier: 'pro' }).where(eq(projects.id, projectId));
+
 			console.log(`[Creem Webhook] Upgraded project ${projectId} to Pro tier successfully.`);
 			return json({ received: true, upgraded: projectId });
 		} catch (err) {

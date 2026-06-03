@@ -5,24 +5,24 @@ import type { DrizzleClient } from '$lib/server/db';
 // for information about these interfaces
 declare global {
 	namespace App {
-        interface Platform {
-            env: Env
-            cf: CfProperties
-            ctx: ExecutionContext
-        }
+		interface Platform {
+			env: Env;
+			cf: CfProperties;
+			ctx: ExecutionContext;
+		}
 
-        interface Locals {
+		interface Locals {
 			user?: User & { role: 'game_tester' | 'game_developer' | 'admin' };
 			session?: Session;
 			db: DrizzleClient;
 			auth: ReturnType<typeof import('$lib/server/auth').getAuth>;
 		}
 
-        // interface Error {}
-        // interface PageData {}
-        // interface PageState {}
-        // interface Platform {}
-    }
+		// interface Error {}
+		// interface PageData {}
+		// interface PageState {}
+		// interface Platform {}
+	}
 }
 
 export {};

@@ -48,7 +48,7 @@ export const projects = sqliteTable('projects', {
 	tier: text('tier').default('free'), // 'free' | 'pro'
 	createdAt: integer('createdAt', { mode: 'timestamp' })
 		.notNull()
-		.$defaultFn(() => new Date()),
+		.$defaultFn(() => new Date())
 });
 
 export const telemetrySessions = sqliteTable('telemetry_sessions', {
@@ -63,7 +63,7 @@ export const telemetrySessions = sqliteTable('telemetry_sessions', {
 	duration: integer('duration').default(0), // Aggregated in-game time in seconds
 	createdAt: integer('createdAt', { mode: 'timestamp' })
 		.notNull()
-		.$defaultFn(() => new Date()),
+		.$defaultFn(() => new Date())
 });
 
 export const telemetryLogs = sqliteTable('telemetry_logs', {
@@ -78,7 +78,7 @@ export const telemetryLogs = sqliteTable('telemetry_logs', {
 	payload: text('payload').notNull(), // Text-serialized JSON object
 	timestamp: integer('timestamp', { mode: 'timestamp' })
 		.notNull()
-		.$defaultFn(() => new Date()),
+		.$defaultFn(() => new Date())
 });
 
 export * from './auth.schema';

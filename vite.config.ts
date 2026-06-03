@@ -4,11 +4,15 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+import { fileURLToPath } from 'node:url';
+
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
 	resolve: {
 		alias: {
-			'@opentelemetry/api': './src/lib/server/stubs/otel.ts'
+			'@opentelemetry/api': fileURLToPath(
+				new URL('./src/lib/server/stubs/otel.ts', import.meta.url)
+			)
 		}
 	},
 	ssr: {

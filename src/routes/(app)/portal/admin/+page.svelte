@@ -4,10 +4,30 @@
 
 	// Stats cards
 	const cards = $derived([
-		{ name: 'Total System Users', value: data.stats.totalUsers, icon: '👥', color: 'from-blue-500 to-cyan-500' },
-		{ name: 'Total Active Projects', value: data.stats.totalProjects, icon: '📦', color: 'from-purple-500 to-indigo-500' },
-		{ name: 'Telemetry Sessions', value: data.stats.totalSessions, icon: '⚡', color: 'from-pink-500 to-rose-500' },
-		{ name: 'Telemetry Log Records', value: data.stats.totalLogs, icon: '📊', color: 'from-emerald-500 to-teal-500' }
+		{
+			name: 'Total System Users',
+			value: data.stats.totalUsers,
+			icon: '👥',
+			color: 'from-blue-500 to-cyan-500'
+		},
+		{
+			name: 'Total Active Projects',
+			value: data.stats.totalProjects,
+			icon: '📦',
+			color: 'from-purple-500 to-indigo-500'
+		},
+		{
+			name: 'Telemetry Sessions',
+			value: data.stats.totalSessions,
+			icon: '⚡',
+			color: 'from-pink-500 to-rose-500'
+		},
+		{
+			name: 'Telemetry Log Records',
+			value: data.stats.totalLogs,
+			icon: '📊',
+			color: 'from-emerald-500 to-teal-500'
+		}
 	]);
 </script>
 
@@ -15,63 +35,88 @@
 	<title>Admin System Console | IsItFun</title>
 </svelte:head>
 
-<div class="max-w-6xl mx-auto px-6 mt-12 relative z-10">
+<div class="relative z-10 mx-auto mt-12 max-w-6xl px-6">
 	<!-- Admin Header -->
-	<header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+	<header class="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-center">
 		<div>
-			<span class="text-xs uppercase font-extrabold tracking-widest text-indigo-400">Security & Analytics Console</span>
-			<h1 id="main-title" class="text-4xl md:text-5xl font-black tracking-tight mb-2 bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+			<span class="text-xs font-extrabold tracking-widest text-indigo-400 uppercase"
+				>Security & Analytics Console</span
+			>
+			<h1
+				id="main-title"
+				class="mb-2 bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+			>
 				System Admin Console
 			</h1>
-			<p class="text-slate-400 text-base">Global platform analytics, observer metrics, and system diagnostics.</p>
+			<p class="text-base text-slate-400">
+				Global platform analytics, observer metrics, and system diagnostics.
+			</p>
 		</div>
-		
+
 		<div class="flex items-center gap-3">
-			<a href={resolve('/portal/dashboard')} class="btn bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-xl">
+			<a
+				href={resolve('/portal/dashboard')}
+				class="btn rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
+			>
 				Developer Portal
 			</a>
 		</div>
 	</header>
 
 	<!-- Stats Grid -->
-	<section class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+	<section class="mb-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
 		{#each cards as c (c.name)}
-			<div class="backdrop-blur-md bg-slate-900/40 border border-slate-800/80 rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:border-slate-700 hover:shadow-2xl">
+			<div
+				class="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-md transition-all duration-300 hover:border-slate-700 hover:shadow-2xl"
+			>
 				<!-- Ambient accent glow -->
-				<div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-tr {c.color} opacity-[0.03] rounded-full blur-2xl"></div>
-				<div class="flex items-center justify-between mb-4">
+				<div
+					class="absolute top-0 right-0 h-24 w-24 bg-gradient-to-tr {c.color} rounded-full opacity-[0.03] blur-2xl"
+				></div>
+				<div class="mb-4 flex items-center justify-between">
 					<span class="text-3xl">{c.icon}</span>
-					<span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-mono text-[9px] uppercase tracking-wider">Edge-Synced</span>
+					<span
+						class="rounded bg-indigo-500/10 px-2 py-0.5 font-mono text-[9px] tracking-wider text-indigo-400 uppercase"
+						>Edge-Synced</span
+					>
 				</div>
-				<h3 class="text-3xl font-black text-white tracking-tight mb-1">{c.value}</h3>
-				<p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">{c.name}</p>
+				<h3 class="mb-1 text-3xl font-black tracking-tight text-white">{c.value}</h3>
+				<p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">{c.name}</p>
 			</div>
 		{/each}
 	</section>
 
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+	<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
 		<!-- Left main panel: User Role breakdown -->
-		<section class="lg:col-span-2 space-y-6">
-			<div class="backdrop-blur-md bg-slate-900/30 border border-slate-800 rounded-3xl p-8">
-				<h3 class="text-xl font-extrabold tracking-tight text-white mb-6">User Accounts & Roles</h3>
-				
+		<section class="space-y-6 lg:col-span-2">
+			<div class="rounded-3xl border border-slate-800 bg-slate-900/30 p-8 backdrop-blur-md">
+				<h3 class="mb-6 text-xl font-extrabold tracking-tight text-white">User Accounts & Roles</h3>
+
 				<div class="overflow-x-auto">
-					<table class="table w-full text-slate-300 border-collapse">
+					<table class="table w-full border-collapse text-slate-300">
 						<thead>
-							<tr class="border-b border-slate-800/80 text-slate-400 text-xs uppercase font-extrabold tracking-wider">
+							<tr
+								class="border-b border-slate-800/80 text-xs font-extrabold tracking-wider text-slate-400 uppercase"
+							>
 								<th class="py-4 text-left">Role Profile</th>
 								<th class="py-4 text-center">Description</th>
 								<th class="py-4 text-right">Count</th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-slate-850">
+						<tbody class="divide-slate-850 divide-y">
 							{#each data.roleDistribution as item (item.role)}
-								<tr class="hover:bg-slate-900/20 transition-all">
-									<td class="py-4 font-bold text-white capitalize flex items-center gap-2">
-										<span class="w-2.5 h-2.5 rounded-full {item.role === 'admin' ? 'bg-indigo-500' : item.role === 'game_developer' ? 'bg-purple-500' : 'bg-pink-500'}"></span>
+								<tr class="transition-all hover:bg-slate-900/20">
+									<td class="flex items-center gap-2 py-4 font-bold text-white capitalize">
+										<span
+											class="h-2.5 w-2.5 rounded-full {item.role === 'admin'
+												? 'bg-indigo-500'
+												: item.role === 'game_developer'
+													? 'bg-purple-500'
+													: 'bg-pink-500'}"
+										></span>
 										{item.role.replace('_', ' ')}
 									</td>
-									<td class="py-4 text-center text-xs text-slate-400 font-medium">
+									<td class="py-4 text-center text-xs font-medium text-slate-400">
 										{#if item.role === 'admin'}
 											Core platform administration and metrics scrutiny.
 										{:else if item.role === 'game_developer'}
@@ -80,7 +125,7 @@
 											Frictionless playtester account.
 										{/if}
 									</td>
-									<td class="py-4 text-right font-mono font-bold text-white text-base">
+									<td class="py-4 text-right font-mono text-base font-bold text-white">
 										{item.count}
 									</td>
 								</tr>
@@ -99,39 +144,55 @@
 
 		<!-- Right sidebar: System diagnostic status -->
 		<section class="space-y-6">
-			<div class="backdrop-blur-md bg-slate-900/30 border border-slate-800 rounded-3xl p-8 relative overflow-hidden">
+			<div
+				class="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/30 p-8 backdrop-blur-md"
+			>
 				<!-- High-tech top line -->
-				<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-				
-				<h3 class="text-xl font-extrabold tracking-tight text-white mb-6">Diagnostic State</h3>
-				
+				<div
+					class="absolute top-0 right-0 left-0 h-[2px] bg-gradient-to-r from-blue-500 to-indigo-500"
+				></div>
+
+				<h3 class="mb-6 text-xl font-extrabold tracking-tight text-white">Diagnostic State</h3>
+
 				<div class="space-y-6">
-					<div class="flex items-center justify-between p-4 bg-slate-950/40 border border-slate-850 rounded-2xl">
+					<div
+						class="border-slate-850 flex items-center justify-between rounded-2xl border bg-slate-950/40 p-4"
+					>
 						<div>
-							<h4 class="font-bold text-white text-sm">D1 SQLite Database</h4>
-							<span class="text-[10px] text-slate-500 font-mono">isitfun-db</span>
+							<h4 class="text-sm font-bold text-white">D1 SQLite Database</h4>
+							<span class="font-mono text-[10px] text-slate-500">isitfun-db</span>
 						</div>
-						<span class="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-extrabold uppercase tracking-widest text-emerald-400 rounded-full">
+						<span
+							class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-extrabold tracking-widest text-emerald-400 uppercase"
+						>
 							Online
 						</span>
 					</div>
 
-					<div class="flex items-center justify-between p-4 bg-slate-950/40 border border-slate-850 rounded-2xl">
+					<div
+						class="border-slate-850 flex items-center justify-between rounded-2xl border bg-slate-950/40 p-4"
+					>
 						<div>
-							<h4 class="font-bold text-white text-sm">R2 Asset Storage</h4>
-							<span class="text-[10px] text-slate-500 font-mono">GAMES_BUCKET</span>
+							<h4 class="text-sm font-bold text-white">R2 Asset Storage</h4>
+							<span class="font-mono text-[10px] text-slate-500">GAMES_BUCKET</span>
 						</div>
-						<span class="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-extrabold uppercase tracking-widest text-emerald-400 rounded-full">
+						<span
+							class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-extrabold tracking-widest text-emerald-400 uppercase"
+						>
 							Online
 						</span>
 					</div>
 
-					<div class="flex items-center justify-between p-4 bg-slate-950/40 border border-slate-850 rounded-2xl">
+					<div
+						class="border-slate-850 flex items-center justify-between rounded-2xl border bg-slate-950/40 p-4"
+					>
 						<div>
-							<h4 class="font-bold text-white text-sm">Better Auth Service</h4>
-							<span class="text-[10px] text-slate-500 font-mono">v1.6.9 minimal</span>
+							<h4 class="text-sm font-bold text-white">Better Auth Service</h4>
+							<span class="font-mono text-[10px] text-slate-500">v1.6.9 minimal</span>
 						</div>
-						<span class="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-extrabold uppercase tracking-widest text-emerald-400 rounded-full">
+						<span
+							class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-extrabold tracking-widest text-emerald-400 uppercase"
+						>
 							Active
 						</span>
 					</div>

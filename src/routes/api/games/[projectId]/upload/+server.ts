@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 	// Determine content-type based on file extension
 	let contentType = 'application/octet-stream';
 	const ext = filePath.split('.').pop()?.toLowerCase();
-	
+
 	switch (ext) {
 		case 'html':
 		case 'htm':

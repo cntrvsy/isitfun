@@ -5,15 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { projects } from '$lib/server/db/schema';
 import { generateNanoID } from '$lib/server/db/schema';
 import { env } from '$env/dynamic/private';
-
-// Helper to hash passwords using native Edge Web Crypto
-async function hashPassword(password: string): Promise<string> {
-	const encoder = new TextEncoder();
-	const data = encoder.encode(password);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+import { hashPassword } from '$lib/server/crypto';
 
 export const createProject = form(
 	v.object({
@@ -25,7 +17,7 @@ export const createProject = form(
 		const event = getRequestEvent();
 		const { locals } = event;
 		const { session, user, db } = locals;
-		
+
 		if (!session || !user) {
 			error(401, 'Unauthorized');
 		}
@@ -38,7 +30,10 @@ export const createProject = form(
 			.all();
 
 		if (activeFreeProjects.length >= 1) {
-			error(400, 'Free tier is limited to 1 active project. Please delete your existing project or upgrade to a Project Pass to create more.');
+			error(
+				400,
+				'Free tier is limited to 1 active project. Please delete your existing project or upgrade to a Project Pass to create more.'
+			);
 		}
 
 		let passwordHash: string | null = null;
@@ -74,7 +69,7 @@ export const deleteProject = form(
 		const event = getRequestEvent();
 		const { locals, platform } = event;
 		const { session, user, db } = locals;
-		
+
 		if (!session || !user) {
 			error(401, 'Unauthorized');
 		}
@@ -130,7 +125,7 @@ export const upgradeProject = form(
 		const event = getRequestEvent();
 		const { locals } = event;
 		const { session, user, db } = locals;
-		
+
 		if (!session || !user) {
 			error(401, 'Unauthorized');
 		}
@@ -151,7 +146,9 @@ export const upgradeProject = form(
 		const isTestMode = env.CREEM_TEST_MODE !== 'false';
 
 		if (creemApiKey && creemProductId) {
-			const baseUrl = isTestMode ? 'https://test-api.creem.io/v1/checkouts' : 'https://api.creem.io/v1/checkouts';
+			const baseUrl = isTestMode
+				? 'https://test-api.creem.io/v1/checkouts'
+				: 'https://api.creem.io/v1/checkouts';
 			try {
 				const res = await fetch(baseUrl, {
 					method: 'POST',
@@ -165,13 +162,13 @@ export const upgradeProject = form(
 						success_url: `${event.url.origin}/portal/dashboard?upgrade_success=true&project_id=${data.id}`
 					})
 				});
-				
+
 				if (!res.ok) {
 					const errorText = await res.text();
 					throw new Error(`Creem API returned ${res.status}: ${errorText}`);
 				}
-				
-				const checkoutData = await res.json() as { checkout_url: string };
+
+				const checkoutData = (await res.json()) as { checkout_url: string };
 				return { redirectUrl: checkoutData.checkout_url };
 			} catch (err) {
 				console.error('Failed to create Creem checkout:', err);

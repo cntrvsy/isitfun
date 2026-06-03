@@ -27,11 +27,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		throw error(400, 'Missing required fields: projectId, sessionId, logType');
 	}
 
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Project not found');
@@ -109,7 +105,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
 	const deviceHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-		// 3. Zero Performance Penalty: Wrap DB processing inside Edge waitUntil
+	// 3. Zero Performance Penalty: Wrap DB processing inside Edge waitUntil
 	const waitUntil = platform?.ctx?.waitUntil;
 
 	const saveTelemetryPromise = async () => {

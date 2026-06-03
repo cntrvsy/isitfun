@@ -6,7 +6,7 @@ import { projects, telemetryLogs } from '$lib/server/db/schema';
 export const load: PageServerLoad = async ({ locals, platform }) => {
 	const session = locals.session;
 	const user = locals.user;
-	
+
 	if (!session || !user) {
 		throw redirect(302, '/auth/login');
 	}

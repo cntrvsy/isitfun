@@ -1,27 +1,27 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1774108629000,
-      "tag": "0000_tidy_magma",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1780415709837,
-      "tag": "0001_simple_impossible_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1780418270506,
-      "tag": "0002_spooky_thunderbolt",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1774108629000,
+			"tag": "0000_tidy_magma",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1780415709837,
+			"tag": "0001_simple_impossible_man",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1780418270506,
+			"tag": "0002_spooky_thunderbolt",
+			"breakpoints": true
+		}
+	]
 }

@@ -10,10 +10,14 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="relative min-h-screen text-[#1a1e26] antialiased overflow-x-hidden selection:bg-[#2b66d9]/20 selection:text-[#2b66d9]">
+<div
+	class="relative min-h-screen overflow-x-hidden text-[#1a1e26] antialiased selection:bg-[#2b66d9]/20 selection:text-[#2b66d9]"
+>
 	<!-- Fixed background shader layer -->
-	<div class="fixed inset-0 -z-50 pointer-events-none w-screen h-screen overflow-hidden flex items-center justify-center bg-[#f4f6f8]">
-		<div class="w-full h-full opacity-60 md:opacity-75">
+	<div
+		class="pointer-events-none fixed inset-0 -z-50 flex h-screen w-screen items-center justify-center overflow-hidden bg-[#f4f6f8]"
+	>
+		<div class="h-full w-full opacity-60 md:opacity-75">
 			<Dithering
 				width={1280}
 				height={720}
@@ -32,13 +36,16 @@
 			/>
 		</div>
 		<!-- Ambient lighting / Vignette overlays to enhance depth and contrast -->
-		<div class="absolute inset-0 bg-radial-[circle_at_center,transparent_10%,#f4f6f8_95%] opacity-85 pointer-events-none"></div>
-		<div class="absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-[#f4f6f8] to-transparent pointer-events-none"></div>
+		<div
+			class="pointer-events-none absolute inset-0 bg-radial-[circle_at_center,transparent_10%,#f4f6f8_95%] opacity-85"
+		></div>
+		<div
+			class="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-linear-to-t from-[#f4f6f8] to-transparent"
+		></div>
 	</div>
 
 	<!-- Layout Main Content Container -->
-	<div class="relative z-10 flex flex-col min-h-screen">
+	<div class="relative z-10 flex min-h-screen flex-col">
 		{@render children()}
 	</div>
 </div>
-

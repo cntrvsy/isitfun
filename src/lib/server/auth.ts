@@ -8,9 +8,9 @@ import type { DrizzleClient } from '$lib/server/db';
 
 export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 	betterAuth({
-		baseURL: requestURL 
-			? `${requestURL}/api/auth` 
-			: (env.BETTER_AUTH_URL || (env.ORIGIN ? `${env.ORIGIN}/api/auth` : '')),
+		baseURL: requestURL
+			? `${requestURL}/api/auth`
+			: env.BETTER_AUTH_URL || (env.ORIGIN ? `${env.ORIGIN}/api/auth` : ''),
 		secret: env.BETTER_AUTH_SECRET || '',
 		database: drizzleAdapter(db, { provider: 'sqlite' }),
 		trustedOrigins: [
@@ -41,5 +41,3 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 			sveltekitCookies(getRequestEvent)
 		] // make sure this is the last plugin in the array
 	});
-
-

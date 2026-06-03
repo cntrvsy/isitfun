@@ -23,7 +23,7 @@ const handleDb: Handle = async ({ event, resolve }) => {
 			if (url.startsWith('file:') && !building && !import.meta.env.DEV) {
 				throw new Error(
 					'Local SQLite (file:) is not supported in the Cloudflare Worker environment. ' +
-					'Please ensure your D1 binding is correctly configured in wrangler.jsonc or use a remote libsql:// URL.'
+						'Please ensure your D1 binding is correctly configured in wrangler.jsonc or use a remote libsql:// URL.'
 				);
 			}
 
@@ -41,7 +41,7 @@ const handleDb: Handle = async ({ event, resolve }) => {
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	const auth = getAuth(event.locals.db, event.url.origin);
 	event.locals.auth = auth;
-	
+
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
 	if (session) {

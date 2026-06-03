@@ -39,10 +39,13 @@ export const actions = {
 			return fail(400, { title, missing: true });
 		}
 
-		await locals.db.update(task).set({
-			title,
-			priority: priority ? parseInt(priority.toString()) : 1
-		}).where(eq(task.id, id));
+		await locals.db
+			.update(task)
+			.set({
+				title,
+				priority: priority ? parseInt(priority.toString()) : 1
+			})
+			.where(eq(task.id, id));
 
 		return { success: true };
 	},

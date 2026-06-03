@@ -27,66 +27,77 @@ import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // Better-Auth Core Tables
 export const user = sqliteTable('user', {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    email: text('email').notNull().unique(),
-    emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull(),
-    image: text('image'),
-    role: text('role').default('developer'), // 'admin' | 'developer'
-    createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	email: text('email').notNull().unique(),
+	emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull(),
+	image: text('image'),
+	role: text('role').default('developer'), // 'admin' | 'developer'
+	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull()
 });
 
 export const session = sqliteTable('session', {
-    id: text('id').primaryKey(),
-    expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
-    token: text('token').notNull().unique(),
-    createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
-    updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
-    userId: text('userId').notNull().references(() => user.id),
+	id: text('id').primaryKey(),
+	expiresAt: integer('expiresAt', { mode: 'timestamp' }).notNull(),
+	token: text('token').notNull().unique(),
+	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+	updatedAt: integer('updatedAt', { mode: 'timestamp' }).notNull(),
+	userId: text('userId')
+		.notNull()
+		.references(() => user.id)
 });
 
 export const account = sqliteTable('account', {
-    id: text('id').primaryKey(),
-    accountId: text('accountId').notNull(),
-    providerId: text('providerId').notNull(),
-    userId: text('userId').notNull().references(() => user.id),
-    accessToken: text('accessToken'),
-    refreshToken: text('refreshToken'),
-    idToken: text('idToken'),
-    expiresAt: integer('expiresAt'),
-    password: text('password'),
+	id: text('id').primaryKey(),
+	accountId: text('accountId').notNull(),
+	providerId: text('providerId').notNull(),
+	userId: text('userId')
+		.notNull()
+		.references(() => user.id),
+	accessToken: text('accessToken'),
+	refreshToken: text('refreshToken'),
+	idToken: text('idToken'),
+	expiresAt: integer('expiresAt'),
+	password: text('password')
 });
 
 // IsItFun Platform Tables
 export const projects = sqliteTable('projects', {
-    id: text('id').primaryKey(), // Generated NanoID string
-    userId: text('userId').notNull().references(() => user.id),
-    name: text('name').notNull(),
-    passwordProtected: integer('passwordProtected', { mode: 'boolean' }).default(false),
-    passwordHash: text('passwordHash'),
-    tier: text('tier').default('free'), // 'free' | 'pro'
-    createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+	id: text('id').primaryKey(), // Generated NanoID string
+	userId: text('userId')
+		.notNull()
+		.references(() => user.id),
+	name: text('name').notNull(),
+	passwordProtected: integer('passwordProtected', { mode: 'boolean' }).default(false),
+	passwordHash: text('passwordHash'),
+	tier: text('tier').default('free'), // 'free' | 'pro'
+	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull()
 });
 
 export const telemetrySessions = sqliteTable('telemetry_sessions', {
-    id: text('id').primaryKey(), // Generated per testing game initialization
-    projectId: text('projectId').notNull().references(() => projects.id),
-    deviceHash: text('deviceHash').notNull(), // Salted SHA256 IP for GDPR anonymity
-    browserInfo: text('browserInfo'),
-    duration: integer('duration').default(0), // Aggregated in-game time in seconds
-    createdAt: integer('createdAt', { mode: 'timestamp' }).notNull(),
+	id: text('id').primaryKey(), // Generated per testing game initialization
+	projectId: text('projectId')
+		.notNull()
+		.references(() => projects.id),
+	deviceHash: text('deviceHash').notNull(), // Salted SHA256 IP for GDPR anonymity
+	browserInfo: text('browserInfo'),
+	duration: integer('duration').default(0), // Aggregated in-game time in seconds
+	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull()
 });
 
 export const telemetryLogs = sqliteTable('telemetry_logs', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    sessionId: text('sessionId').notNull().references(() => telemetrySessions.id),
-    projectId: text('projectId').notNull().references(() => projects.id),
-    logType: text('logType').notNull(), // 'error' | 'log' | 'heartbeat' | 'bug_report'
-    payload: text('payload').notNull(), // Text-serialized JSON object
-    timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	sessionId: text('sessionId')
+		.notNull()
+		.references(() => telemetrySessions.id),
+	projectId: text('projectId')
+		.notNull()
+		.references(() => projects.id),
+	logType: text('logType').notNull(), // 'error' | 'log' | 'heartbeat' | 'bug_report'
+	payload: text('payload').notNull(), // Text-serialized JSON object
+	timestamp: integer('timestamp', { mode: 'timestamp' }).notNull()
 });
-
 ```
 
 ---
@@ -120,11 +131,12 @@ This unified catch-all routing file handles dynamic game execution and proxy ope
 
 ```typescript
 new HTMLRewriter().on('body', {
-    element(el) {
-        el.append(`<script src="/assets/overlay-widget.js" data-project="${projectId}"></script>`, { html: true });
-    }
-})
-
+	element(el) {
+		el.append(`<script src="/assets/overlay-widget.js" data-project="${projectId}"></script>`, {
+			html: true
+		});
+	}
+});
 ```
 
 ````

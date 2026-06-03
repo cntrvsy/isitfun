@@ -18,11 +18,7 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 		throw error(400, 'Missing projectId parameter');
 	}
 
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Playtest project not found');
@@ -54,11 +50,7 @@ export const actions: Actions = {
 			return fail(400, { missing: true });
 		}
 
-		const project = await locals.db
-			.select()
-			.from(projects)
-			.where(eq(projects.id, projectId))
-			.get();
+		const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 		if (!project) {
 			return fail(404, { error: 'Project not found' });

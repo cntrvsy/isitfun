@@ -13,11 +13,7 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies })
 	}
 
 	// 1. Fetch project to verify existence and check security protection
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Playtest project not found');
@@ -47,7 +43,7 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies })
 
 	// 4. Construct response and apply COOP/COEP headers
 	const headers = new Headers();
-	
+
 	// Apply Content-Type from R2 metadata or evaluate based on extension
 	if (object.httpMetadata?.contentType) {
 		headers.set('Content-Type', object.httpMetadata.contentType);

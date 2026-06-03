@@ -19,4 +19,6 @@ export function getDb(db?: D1Database) {
 	return createD1Client(db);
 }
 
-export type DrizzleClient = ReturnType<typeof createD1Client> | ReturnType<typeof createLibSqlClient>;
+export type DrizzleClient =
+	| ReturnType<typeof createD1Client>
+	| ReturnType<typeof createLibSqlClient>;
