@@ -11,11 +11,13 @@ export const load: PageServerLoad = async ({ locals, platform }) => {
 		throw redirect(302, '/auth/login');
 	}
 
-	const userProjects = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.userId, user.id))
-		.all();
+	const userProjects = await locals.db.query.projects.findMany({
+		where: eq(projects.userId, user.id),
+		with: {
+			projectQuotas: true,
+			payments: true
+		}
+	});
 
 	// Defensive Shield 2: 7-Day Log Decay Protocol for Free tier projects
 	const wait = platform?.ctx?.waitUntil;

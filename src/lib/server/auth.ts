@@ -29,6 +29,11 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 				clientSecret: env.GOOGLE_CLIENT_SECRET || ''
 			}
 		},
+		advanced: {
+			cookieOptions: {
+				path: '/portal'
+			}
+		},
 		plugins: [
 			emailOTP({
 				async sendVerificationOTP({ email, otp, type }) {

@@ -248,6 +248,14 @@
 									>
 										{p.tier}
 									</span>
+									{#if p.payments && p.payments.length > 0}
+										<span
+											class="badge rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-400 uppercase"
+											title="Creem Order ID: {p.payments[0].creemOrderId || 'Local'}"
+										>
+											💳 Paid
+										</span>
+									{/if}
 								</div>
 							</div>
 
@@ -255,11 +263,28 @@
 							<div
 								class="relative z-10 mb-6 flex justify-between divide-x divide-slate-800/60 rounded-2xl border border-slate-900 bg-slate-950/60 p-4 text-center"
 							>
-								<div class="flex-1">
-									<span class="mb-1 block text-[10px] tracking-wider text-slate-500 uppercase"
+								<div class="flex-1 px-1">
+									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
 										>Telemetry ID</span
 									>
 									<code class="font-mono text-xs font-bold text-purple-400">{p.id}</code>
+								</div>
+								<div class="flex-1 px-1">
+									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
+										>Writes</span
+									>
+									<span class="text-xs font-bold text-slate-300">
+										{p.projectQuotas?.[0]?.monthlyWriteCount || 0} / {p.projectQuotas?.[0]
+											?.maxWriteLimit || (p.tier === 'free' ? 5000 : 100000)}
+									</span>
+								</div>
+								<div class="flex-1 px-1">
+									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
+										>Storage</span
+									>
+									<span class="text-xs font-bold text-slate-300">
+										{((p.projectQuotas?.[0]?.storageBytesUsed || 0) / (1024 * 1024)).toFixed(2)} MB
+									</span>
 								</div>
 							</div>
 

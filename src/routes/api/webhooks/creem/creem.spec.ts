@@ -11,6 +11,7 @@ describe('POST /api/webhooks/creem', () => {
 		const request = new Request('http://localhost/api/webhooks/creem', {
 			method: 'POST',
 			body: JSON.stringify({
+				id: 'evt_1',
 				event: 'checkout.completed',
 				request_id: 'proj_1',
 				status: 'paid'
@@ -18,9 +19,20 @@ describe('POST /api/webhooks/creem', () => {
 		});
 
 		const mockDb = {
+			select: vi.fn().mockReturnThis(),
+			from: vi.fn().mockReturnThis(),
+			where: vi.fn().mockReturnThis(),
+			get: vi
+				.fn()
+				.mockResolvedValueOnce(null) // idempotency check
+				.mockResolvedValueOnce({ id: 'proj_1', userId: 'user_1' }), // project lookup
+			insert: vi.fn().mockReturnThis(),
+			values: vi.fn().mockResolvedValue({}),
 			update: vi.fn().mockReturnThis(),
 			set: vi.fn().mockReturnThis(),
-			where: vi.fn().mockResolvedValue({})
+			transaction: vi.fn().mockImplementation(async (callback) => {
+				return callback(mockDb);
+			})
 		};
 
 		const res = await POST({
@@ -33,6 +45,7 @@ describe('POST /api/webhooks/creem', () => {
 		expect(body).toEqual({ received: true, upgraded: 'proj_1' });
 		expect(mockDb.update).toHaveBeenCalled();
 		expect(mockDb.set).toHaveBeenCalledWith({ tier: 'pro' });
+		expect(mockDb.insert).toHaveBeenCalledTimes(2); // processedWebhooks and payments
 	});
 
 	it('does not upgrade project if status is pending', async () => {
@@ -46,9 +59,13 @@ describe('POST /api/webhooks/creem', () => {
 		});
 
 		const mockDb = {
+			select: vi.fn().mockReturnThis(),
+			from: vi.fn().mockReturnThis(),
+			where: vi.fn().mockReturnThis(),
+			get: vi.fn().mockResolvedValue(null),
 			update: vi.fn(),
 			set: vi.fn(),
-			where: vi.fn()
+			where_update: vi.fn()
 		};
 
 		const res = await POST({
