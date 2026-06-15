@@ -86,9 +86,9 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies })
 	headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 	headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
 
-	// Set caching controls - Cache static assets, but do not cache index.html
+	// Set caching controls - Cache static assets privately to browser, but do not cache index.html
 	if (filePath !== 'index.html' && !filePath.endsWith('/index.html')) {
-		headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+		headers.set('Cache-Control', 'private, max-age=3600, must-revalidate');
 	} else {
 		headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 	}

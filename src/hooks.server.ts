@@ -46,7 +46,17 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 
 	if (session) {
 		event.locals.session = session.session;
-		event.locals.user = session.user as any; // Cast for role safety
+		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
+
+		// Redirect authenticated users trying to access login/auth pages to their dashboards
+		const path = event.url.pathname;
+		if (path === '/auth' || path === '/auth/login') {
+			if (event.locals.user.role === 'admin') {
+				return redirect(302, '/portal/admin');
+			} else if (event.locals.user.role === 'game_developer') {
+				return redirect(302, '/portal/dashboard');
+			}
+		}
 	}
 
 	// 🔐 Centralized Sub-tree Route & RBAC Guards
@@ -70,16 +80,33 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 				return error(403, 'Forbidden: Developer access required');
 			}
 		}
-
-		// 3. User/Tester dashboard guard
-		if (event.url.pathname.startsWith('/portal/user')) {
-			if (userRole !== 'admin' && userRole !== 'game_developer' && userRole !== 'game_tester') {
-				return error(403, 'Forbidden: Registered tester access required');
-			}
-		}
 	}
 
 	return svelteKitHandler({ event, resolve, auth, building });
+};
+
+const handleSecurity: Handle = async ({ event, resolve }) => {
+	const referer = event.request.headers.get('referer');
+	if (referer) {
+		try {
+			const refererUrl = new URL(referer);
+			if (refererUrl.origin === event.url.origin && refererUrl.pathname.startsWith('/play/')) {
+				const destPath = event.url.pathname;
+				if (
+					destPath.startsWith('/portal') ||
+					(destPath.startsWith('/api') && !destPath.startsWith('/api/telemetry'))
+				) {
+					return new Response(
+						'Forbidden: Direct access to developer portal or management APIs from game playtest environments is blocked.',
+						{ status: 403 }
+					);
+				}
+			}
+		} catch {
+			// Ignore invalid URLs in referer header
+		}
+	}
+	return resolve(event);
 };
 
 const handleDrifter: Handle = async ({ event, resolve }) => {
@@ -101,4 +128,4 @@ const handleDrifter: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleDrifter, handleDb, handleBetterAuth);
+export const handle: Handle = sequence(handleDrifter, handleSecurity, handleDb, handleBetterAuth);

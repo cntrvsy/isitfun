@@ -38,7 +38,11 @@ describe('POST /api/games/[projectId]/upload', () => {
 			select: vi.fn().mockReturnThis(),
 			from: vi.fn().mockReturnThis(),
 			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({ id: 'proj_free', userId: 'user_1', tier: 'free' })
+			get: vi.fn().mockResolvedValue({ id: 'proj_free', userId: 'user_1', tier: 'free' }),
+			insert: vi.fn().mockReturnThis(),
+			values: vi.fn().mockResolvedValue({}),
+			update: vi.fn().mockReturnThis(),
+			set: vi.fn().mockReturnThis()
 		};
 
 		try {
@@ -69,7 +73,11 @@ describe('POST /api/games/[projectId]/upload', () => {
 			select: vi.fn().mockReturnThis(),
 			from: vi.fn().mockReturnThis(),
 			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({ id: 'proj_free', userId: 'user_1', tier: 'free' })
+			get: vi.fn().mockResolvedValue({ id: 'proj_free', userId: 'user_1', tier: 'free' }),
+			insert: vi.fn().mockReturnThis(),
+			values: vi.fn().mockResolvedValue({}),
+			update: vi.fn().mockReturnThis(),
+			set: vi.fn().mockReturnThis()
 		};
 
 		const mockBucket = {

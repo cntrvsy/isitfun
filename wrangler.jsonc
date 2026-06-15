@@ -23,7 +23,7 @@
 	],
 	"kv_namespaces": [
 		{
-			"binding": "KV",
+			"binding": "ISITFUN_KV",
 			"id": "7f84ad32-88ff-4398-98f6-2d188d5e8c72"
 		},
 		{

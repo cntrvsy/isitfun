@@ -24,37 +24,55 @@
 		language: navigator.language
 	};
 
-	// 3. Dispatch telemetry payloads to edge API
-	async function sendTelemetry(logType, payload) {
-		try {
-			// Use sendBeacon for robustness if window is unloading, otherwise fetch
-			const url = '/api/telemetry';
-			const body = JSON.stringify({
-				projectId,
-				sessionId,
-				logType,
-				payload,
-				browserInfo: JSON.stringify(browserInfo)
-			});
+	// 3. Dispatch telemetry payloads to edge API with batching
+	let logQueue = [];
+	const MAX_QUEUE_SIZE = 15;
 
-			if (logType === 'unload' && navigator.sendBeacon) {
+	function flushTelemetry() {
+		if (logQueue.length === 0) return;
+
+		const url = '/api/telemetry';
+		const payload = {
+			projectId,
+			sessionId,
+			browserInfo: JSON.stringify(browserInfo),
+			logs: logQueue
+		};
+		const body = JSON.stringify(payload);
+
+		try {
+			if (navigator.sendBeacon) {
 				navigator.sendBeacon(url, body);
 			} else {
-				await fetch(url, {
+				fetch(url, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body
+					body,
+					keepalive: true
 				});
 			}
 		} catch {
-			// Fail silently to avoid breaking game logs
+			// Fail silently
+		}
+		logQueue = [];
+	}
+
+	function queueTelemetry(logType, payload, flushImmediately = false) {
+		logQueue.push({
+			logType,
+			payload,
+			timestamp: new Date().toISOString()
+		});
+
+		if (flushImmediately || logQueue.length >= MAX_QUEUE_SIZE) {
+			flushTelemetry();
 		}
 	}
 
 	// 4. Hook window error handlers and console log output
 	if (tier !== 'free') {
 		window.addEventListener('error', function (event) {
-			sendTelemetry('error', {
+			queueTelemetry('error', {
 				message: event.message,
 				filename: event.filename,
 				lineno: event.lineno,
@@ -64,7 +82,7 @@
 		});
 
 		window.addEventListener('unhandledrejection', function (event) {
-			sendTelemetry('error', {
+			queueTelemetry('error', {
 				message: 'Unhandled Promise Rejection',
 				reason: event.reason ? String(event.reason.stack || event.reason) : 'Unknown'
 			});
@@ -77,33 +95,67 @@
 
 		console.log = function (...args) {
 			originalConsoleLog.apply(console, args);
-			sendTelemetry('log', { level: 'log', message: args.map(String).join(' ') });
+			queueTelemetry('log', { level: 'log', message: args.map(String).join(' ') });
 		};
 
 		console.warn = function (...args) {
 			originalConsoleWarn.apply(console, args);
-			sendTelemetry('log', { level: 'warn', message: args.map(String).join(' ') });
+			queueTelemetry('log', { level: 'warn', message: args.map(String).join(' ') });
 		};
 
 		console.error = function (...args) {
 			originalConsoleError.apply(console, args);
-			sendTelemetry('log', { level: 'error', message: args.map(String).join(' ') });
+			queueTelemetry('log', { level: 'error', message: args.map(String).join(' ') });
 		};
 	}
 
 	// 5. Active Heartbeat pulse (fires every 10 seconds to aggregate game time)
 	if (tier !== 'free') {
 		setInterval(() => {
-			sendTelemetry('heartbeat', { pulse: true });
+			queueTelemetry('heartbeat', { pulse: true });
 		}, 10000);
 	}
 
 	// Start initial session heartbeat immediately
-	sendTelemetry('heartbeat', { init: true });
+	queueTelemetry('heartbeat', { init: true });
 
-	// Register window unload event to send final heartbeat exit signal
+	// Register window visibility change and pagehide events to flush buffered telemetry
+	window.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden' && logQueue.length > 0) {
+			flushTelemetry();
+		}
+	});
+
+	window.addEventListener('pagehide', () => {
+		if (logQueue.length > 0) {
+			flushTelemetry();
+		}
+	});
+
 	window.addEventListener('beforeunload', () => {
-		sendTelemetry('unload', { exit: true });
+		queueTelemetry('unload', { exit: true }, true);
+	});
+
+	window.IsItFun = {
+		log: function (logType, payload) {
+			if (!logType) return;
+			// Pass false to buffer standard custom events, allowing maximum queue efficiency
+			queueTelemetry(logType, payload || {});
+		},
+		track: function (eventName, properties) {
+			if (!eventName) return;
+			window.dispatchEvent(new CustomEvent('isitfun:telemetry', {
+				detail: { eventName, properties: properties || {} }
+			}));
+		}
+	};
+
+	window.addEventListener('isitfun:telemetry', function (event) {
+		const detail = event.detail || {};
+		queueTelemetry('gameplay_event', {
+			eventName: detail.eventName,
+			properties: detail.properties || {}
+		});
 	});
 
 	// 6. Build and inject Floating Feedback UI
@@ -501,8 +553,8 @@
 			timestamp: new Date().toISOString()
 		};
 
-		// 1. Submit as a direct bug_report/telemetry log entry
-		await sendTelemetry('bug_report', reportPayload);
+		// 1. Submit as a direct bug_report/telemetry log entry and flush immediately
+		queueTelemetry('bug_report', reportPayload, true);
 
 		// 2. Transmute UI to success screen state
 		const originalBodyHTML = drawerBody.innerHTML;

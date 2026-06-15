@@ -31,7 +31,7 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 		},
 		advanced: {
 			cookieOptions: {
-				path: '/portal'
+				path: '/'
 			}
 		},
 		plugins: [

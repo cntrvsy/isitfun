@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	try {
 		// Aggregate global platform stats
-		const db = locals.db as any;
+		const db = locals.db as ReturnType<typeof import('$lib/server/db').createD1Client>;
 
 		const projectsCountResult = await db
 			.select({ count: sql<number>`count(*)` })
@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			})
 			.from(user)
 			.groupBy(user.role)
-			.all()) as unknown as { role: 'game_tester' | 'game_developer' | 'admin'; count: number }[];
+			.all()) as unknown as { role: 'game_developer' | 'admin'; count: number }[];
 
 		return {
 			stats: {

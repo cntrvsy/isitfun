@@ -2,15 +2,7 @@ import { error, redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { eq } from 'drizzle-orm';
 import { projects } from '$lib/server/db/schema';
-
-// Helper to hash passwords using native Edge Web Crypto
-async function hashPassword(password: string): Promise<string> {
-	const encoder = new TextEncoder();
-	const data = encoder.encode(password);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+import { hashPassword } from '$lib/server/crypto';
 
 export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	const projectId = url.searchParams.get('projectId');
@@ -56,7 +48,7 @@ export const actions: Actions = {
 			return fail(404, { error: 'Project not found' });
 		}
 
-		const hashed = await hashPassword(password);
+		const hashed = await hashPassword(password, projectId);
 		if (hashed === project.passwordHash) {
 			// Set play auth cookie valid for 7 days, scoped strictly to `/play` to keep game proxy secure
 			cookies.set(`play_auth_${projectId}`, project.passwordHash, {

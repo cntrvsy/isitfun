@@ -52,7 +52,7 @@ describe('POST /api/telemetry', () => {
 		const res = await POST({
 			request,
 			locals: { db: mockDb } as any,
-			platform: { env: { KV: { get: vi.fn().mockResolvedValue('0') } } } as any,
+			platform: { env: { ISITFUN_KV: { get: vi.fn().mockResolvedValue('0') } } } as any,
 			getClientAddress: () => '127.0.0.1',
 			url: new URL('http://localhost/api/telemetry')
 		} as any);
@@ -86,7 +86,7 @@ describe('POST /api/telemetry', () => {
 		const res = await POST({
 			request,
 			locals: { db: mockDb } as any,
-			platform: { env: { KV: { get: vi.fn().mockResolvedValue('0') } } } as any,
+			platform: { env: { ISITFUN_KV: { get: vi.fn().mockResolvedValue('0') } } } as any,
 			getClientAddress: () => '127.0.0.1',
 			url: new URL('http://localhost/api/telemetry')
 		} as any);
@@ -118,13 +118,18 @@ describe('POST /api/telemetry', () => {
 		};
 
 		const mockKv = {
-			get: vi.fn().mockResolvedValue('5000')
+			get: vi.fn().mockImplementation(async (key: string) => {
+				if (key.startsWith('quota:project:')) {
+					return '5000';
+				}
+				return null;
+			})
 		};
 
 		const res = await POST({
 			request,
 			locals: { db: mockDb } as any,
-			platform: { env: { KV: mockKv } } as any,
+			platform: { env: { ISITFUN_KV: mockKv } } as any,
 			getClientAddress: () => '127.0.0.1',
 			url: new URL('http://localhost/api/telemetry')
 		} as any);

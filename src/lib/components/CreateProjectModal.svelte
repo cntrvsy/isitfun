@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createProject } from '../../routes/(app)/portal/dashboard/dashboard.remote';
 
-	let { show = $bindable(false) } = $props();
+	let { show = $bindable(false), organizationId = '' } = $props();
 </script>
 
 {#if show}
@@ -32,6 +32,9 @@
 				})}
 				class="space-y-6 p-8"
 			>
+				{#if organizationId}
+					<input type="hidden" name="organizationId" value={organizationId} />
+				{/if}
 				<div class="form-control">
 					<label class="label mb-2" for="project-name">
 						<span class="label-text text-xs font-bold tracking-wider text-slate-300 uppercase"

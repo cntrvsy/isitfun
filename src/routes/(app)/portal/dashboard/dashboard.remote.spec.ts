@@ -33,9 +33,10 @@ describe('dashboard.remote', () => {
 	});
 
 	describe('hashPassword', () => {
-		it('should hash password to SHA-256 hex string', async () => {
-			const hash = await hashPassword('my-test-password');
-			expect(hash).toBe('7de9fde7c9530395854d7e3e41bb2c64a74e606782611f2d1baa1c2365b276de');
+		it('should hash password to PBKDF2 hex string', async () => {
+			const hash = await hashPassword('my-test-password', 'test-salt');
+			expect(hash).toHaveLength(64);
+			expect(hash).toMatch(/^[0-9a-f]{64}$/);
 		});
 	});
 
