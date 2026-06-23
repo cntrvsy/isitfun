@@ -57,6 +57,13 @@
 			"when": 1781508488438,
 			"tag": "0007_fuzzy_ezekiel",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1781828698737,
+			"tag": "0008_pivot",
+			"breakpoints": true
 		}
 	]
 }

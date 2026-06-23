@@ -1,6 +1,6 @@
 import { relations, sql } from 'drizzle-orm';
 import { integer, sqliteTable, text, index } from 'drizzle-orm/sqlite-core';
-import { user } from './auth.schema';
+import { user } from './auth-schema';
 
 // Helper for generating URL-safe NanoIDs on the edge
 export function generateNanoID(size = 12): string {
@@ -14,7 +14,7 @@ export function generateNanoID(size = 12): string {
 }
 
 /**
- * @strata {"target":"d1","x":-150,"y":-15}
+ * @strata {"target":"d1","x":2176,"y":1176}
  */
 export const profile = sqliteTable('profile', {
 	id: text('id')
@@ -29,7 +29,7 @@ export const profile = sqliteTable('profile', {
 });
 
 /**
- * @strata {"target":"d1","x":220,"y":-200}
+ * @strata {"target":"d1","x":2152,"y":850}
  */
 export const organizations = sqliteTable('organizations', {
 	id: text('id')
@@ -47,7 +47,7 @@ export const organizations = sqliteTable('organizations', {
 });
 
 /**
- * @strata {"target":"d1","x":-220,"y":-200}
+ * @strata {"target":"d1","x":1666,"y":582}
  */
 export const organizationMemberships = sqliteTable(
 	'organization_memberships',
@@ -73,7 +73,7 @@ export const organizationMemberships = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":-450,"y":-200}
+ * @strata {"target":"d1","x":1700,"y":205}
  */
 export const organizationInvites = sqliteTable(
 	'organization_invites',
@@ -101,7 +101,7 @@ export const organizationInvites = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":375,"y":-15}
+ * @strata {"target":"d1","x":1679,"y":921}
  */
 export const projects = sqliteTable(
 	'projects',
@@ -130,7 +130,7 @@ export const projects = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":210,"y":-435}
+ * @strata {"target":"d1","x":1244,"y":905}
  */
 export const gameBuilds = sqliteTable(
 	'game_builds',
@@ -153,7 +153,7 @@ export const gameBuilds = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":690,"y":375}
+ * @strata {"target":"d1","x":1232,"y":528}
  */
 export const projectQuotas = sqliteTable('project_quotas', {
 	id: text('id')
@@ -171,7 +171,7 @@ export const projectQuotas = sqliteTable('project_quotas', {
 });
 
 /**
- * @strata {"target":"d1","x":-300,"y":270}
+ * @strata {"target":"d1","x":1248,"y":50}
  */
 export const payments = sqliteTable('payments', {
 	id: text('id')
@@ -193,7 +193,7 @@ export const payments = sqliteTable('payments', {
 });
 
 /**
- * @strata {"target":"d1","x":-90,"y":-195}
+ * @strata {"target":"d1","x":750,"y":135}
  */
 export const processedWebhooks = sqliteTable('processed_webhooks', {
 	id: text('id').primaryKey(),
@@ -203,7 +203,7 @@ export const processedWebhooks = sqliteTable('processed_webhooks', {
 });
 
 /**
- * @strata {"target":"d1","x":-45,"y":660}
+ * @strata {"target":"d1","x":797,"y":916}
  */
 export const telemetrySessions = sqliteTable(
 	'telemetry_sessions',
@@ -229,84 +229,30 @@ export const telemetrySessions = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":435,"y":690}
+ * @strata {"target":"d1","x":495,"y":735}
  */
-export const telemetryLogs = sqliteTable(
-	'telemetry_logs',
+/**
+ * @strata {"target":"d1","x":495,"y":735}
+ */
+export const customDeveloperLogs = sqliteTable(
+	'custom_developer_logs',
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
-		sessionId: text('session_id')
-			.notNull()
-			.references(() => telemetrySessions.id, { onDelete: 'cascade' }),
 		projectId: text('project_id')
 			.notNull()
 			.references(() => projects.id, { onDelete: 'cascade' }),
-		logType: text('log_type').notNull(), // 'error' | 'log' | 'heartbeat'
-		payload: text('payload').notNull(), // Text-serialized payload block
-		timestamp: integer('timestamp', { mode: 'timestamp' })
-			.notNull()
-			.$defaultFn(() => new Date())
-	},
-	(table) => [
-		index('telemetry_logs_sessionId_idx').on(table.sessionId),
-		index('telemetry_logs_projectId_idx').on(table.projectId)
-	]
-);
-
-/**
- * @strata {"target":"d1","x":930,"y":555}
- */
-export const bugReports = sqliteTable(
-	'bug_reports',
-	{
-		id: text('id')
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
 		sessionId: text('session_id')
 			.notNull()
 			.references(() => telemetrySessions.id, { onDelete: 'cascade' }),
-		projectId: text('project_id')
-			.notNull()
-			.references(() => projects.id, { onDelete: 'cascade' }),
-		userComment: text('user_comment').notNull(),
-		screenshotR2Key: text('screenshot_r2_key'), // Storage object path in R2
-		logsSnapshot: text('logs_snapshot'), // Bundled contextual text strings
-		status: text('status')
-			.$type<'open' | 'in_progress' | 'resolved' | 'ignored'>()
-			.notNull()
-			.default('open'),
-		timestamp: integer('timestamp', { mode: 'timestamp' })
-			.notNull()
-			.$defaultFn(() => new Date())
-	},
-	(table) => [
-		index('bug_reports_sessionId_idx').on(table.sessionId),
-		index('bug_reports_projectId_idx').on(table.projectId)
-	]
-);
-
-/**
- * @strata {"target":"d1","x":450,"y":500}
- */
-export const gameplayEvents = sqliteTable(
-	'gameplay_events',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		sessionId: text('session_id')
-			.notNull()
-			.references(() => telemetrySessions.id, { onDelete: 'cascade' }),
-		projectId: text('project_id')
-			.notNull()
-			.references(() => projects.id, { onDelete: 'cascade' }),
 		eventName: text('event_name').notNull(),
-		properties: text('properties').notNull().default('{}'),
-		timestamp: integer('timestamp', { mode: 'timestamp_ms' })
+		payload: text('payload').notNull().default('{}'),
+		createdAt: integer('created_at', { mode: 'timestamp_ms' })
 			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
 			.notNull()
 	},
 	(table) => [
-		index('gameplay_events_projectId_idx').on(table.projectId),
-		index('gameplay_events_eventName_idx').on(table.eventName)
+		index('log_project_event_idx').on(table.projectId, table.eventName),
+		index('log_session_idx').on(table.sessionId)
 	]
 );
 
@@ -332,9 +278,7 @@ export const projectsRelations = relations(projects, ({ many, one }) => ({
 	projectQuotas: many(projectQuotas),
 	payments: many(payments),
 	telemetrySessions: many(telemetrySessions),
-	telemetryLogs: many(telemetryLogs),
-	bugReports: many(bugReports),
-	gameplayEvents: many(gameplayEvents)
+	customDeveloperLogs: many(customDeveloperLogs)
 }));
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -402,42 +346,18 @@ export const telemetrySessionsRelations = relations(telemetrySessions, ({ many, 
 		fields: [telemetrySessions.gameBuildId],
 		references: [gameBuilds.id]
 	}),
-	telemetryLogs: many(telemetryLogs),
-	bugReports: many(bugReports),
-	gameplayEvents: many(gameplayEvents)
+	customDeveloperLogs: many(customDeveloperLogs)
 }));
 
-export const telemetryLogsRelations = relations(telemetryLogs, ({ one }) => ({
-	session: one(telemetrySessions, {
-		fields: [telemetryLogs.sessionId],
-		references: [telemetrySessions.id]
-	}),
+export const customDeveloperLogsRelations = relations(customDeveloperLogs, ({ one }) => ({
 	project: one(projects, {
-		fields: [telemetryLogs.projectId],
+		fields: [customDeveloperLogs.projectId],
 		references: [projects.id]
+	}),
+	session: one(telemetrySessions, {
+		fields: [customDeveloperLogs.sessionId],
+		references: [telemetrySessions.id]
 	})
 }));
 
-export const bugReportsRelations = relations(bugReports, ({ one }) => ({
-	session: one(telemetrySessions, {
-		fields: [bugReports.sessionId],
-		references: [telemetrySessions.id]
-	}),
-	project: one(projects, {
-		fields: [bugReports.projectId],
-		references: [projects.id]
-	})
-}));
-
-export const gameplayEventsRelations = relations(gameplayEvents, ({ one }) => ({
-	session: one(telemetrySessions, {
-		fields: [gameplayEvents.sessionId],
-		references: [telemetrySessions.id]
-	}),
-	project: one(projects, {
-		fields: [gameplayEvents.projectId],
-		references: [projects.id]
-	})
-}));
-
-export * from './auth.schema';
+export * from './auth-schema';

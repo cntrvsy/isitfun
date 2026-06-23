@@ -4,13 +4,12 @@ import type { PageServerLoad } from './$types';
 import { eq, lt, and, inArray, desc, or, isNull } from 'drizzle-orm';
 import {
 	projects,
-	telemetryLogs,
 	telemetrySessions,
-	gameplayEvents,
+	customDeveloperLogs,
 	organizations,
 	organizationMemberships,
 	organizationInvites
-} from '$lib/server/db/schema';
+} from '$lib/server/db/db-schema';
 
 // Helper to sync seats with Creem subscription (inline duplicate of the helper for safety)
 async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: string) {
@@ -67,7 +66,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		throw redirect(302, '/auth/login');
 	}
 
-	const db = locals.db;
+	const db = locals.db as ReturnType<typeof import('$lib/server/db').createD1Client>;
 
 	// Resolve pending organization invites
 	const inviteToken = cookies.get('pending_invite_token');
@@ -154,54 +153,50 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		}
 	});
 
-	// Fetch telemetry sessions and gameplay events for user's projects
+	// Fetch session and log counts along with recent events for live tail inspector
 	const projectIds = userProjects.map((p) => p.id);
-	let sessions: Array<typeof telemetrySessions.$inferSelect> = [];
-	let events: Array<typeof gameplayEvents.$inferSelect> = [];
+	let recentLogs: Array<typeof customDeveloperLogs.$inferSelect> = [];
+	const sessionCounts: Record<string, number> = {};
+	const logCounts: Record<string, number> = {};
 
 	if (projectIds.length > 0) {
-		sessions = await db
+		recentLogs = await db
 			.select()
-			.from(telemetrySessions)
-			.where(inArray(telemetrySessions.projectId, projectIds))
-			.orderBy(desc(telemetrySessions.createdAt))
+			.from(customDeveloperLogs)
+			.where(inArray(customDeveloperLogs.projectId, projectIds))
+			.orderBy(desc(customDeveloperLogs.createdAt))
+			.limit(50)
 			.all();
 
-		events = await db
-			.select()
-			.from(gameplayEvents)
-			.where(inArray(gameplayEvents.projectId, projectIds))
-			.orderBy(desc(gameplayEvents.timestamp))
+		const sessionList = await db
+			.select({ projectId: telemetrySessions.projectId })
+			.from(telemetrySessions)
+			.where(inArray(telemetrySessions.projectId, projectIds))
 			.all();
+		for (const s of sessionList) {
+			sessionCounts[s.projectId] = (sessionCounts[s.projectId] || 0) + 1;
+		}
+
+		const logList = await db
+			.select({ projectId: customDeveloperLogs.projectId })
+			.from(customDeveloperLogs)
+			.where(inArray(customDeveloperLogs.projectId, projectIds))
+			.all();
+		for (const l of logList) {
+			logCounts[l.projectId] = (logCounts[l.projectId] || 0) + 1;
+		}
 	}
 
 	const projectsWithStats = userProjects.map((project) => {
-		const projectSessions = sessions.filter((s) => s.projectId === project.id);
-		const projectEvents = events.filter((e) => e.projectId === project.id);
-
-		const totalSessions = projectSessions.length;
-		const totalDuration = projectSessions.reduce((acc, s) => acc + (s.duration || 0), 0);
-		const averageDuration = totalSessions > 0 ? Math.round(totalDuration / totalSessions) : 0;
-		const totalEvents = projectEvents.length;
-
-		const eventCountsMap: Record<string, number> = {};
-		for (const e of projectEvents) {
-			eventCountsMap[e.eventName] = (eventCountsMap[e.eventName] || 0) + 1;
-		}
-		const eventBreakdown = Object.entries(eventCountsMap)
-			.map(([eventName, count]) => ({ eventName, count }))
-			.sort((a, b) => b.count - a.count);
+		const totalSessions = sessionCounts[project.id] || 0;
+		const totalEvents = logCounts[project.id] || 0;
 
 		return {
 			...project,
 			stats: {
 				totalSessions,
-				averageDuration,
-				totalEvents,
-				eventBreakdown
-			},
-			recentSessions: projectSessions.slice(0, 15),
-			recentEvents: projectEvents.slice(0, 100)
+				totalEvents
+			}
 		};
 	});
 
@@ -213,11 +208,11 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 			const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 			wait(
 				db
-					.delete(telemetryLogs)
+					.delete(customDeveloperLogs)
 					.where(
 						and(
-							lt(telemetryLogs.timestamp, oneWeekAgo),
-							inArray(telemetryLogs.projectId, freeProjectIds)
+							lt(customDeveloperLogs.createdAt, oneWeekAgo),
+							inArray(customDeveloperLogs.projectId, freeProjectIds)
 						)
 					)
 			);
@@ -227,6 +222,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 	return {
 		projects: projectsWithStats,
 		organizations: userOrgs,
+		recentLogs,
 		user
 	};
 };

@@ -66,7 +66,7 @@ CREATE TABLE `__new_projects` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-INSERT INTO `__new_projects`("id", "user_id", "name", "password_protected", "password_hash", "tier", "created_at") SELECT "id", "user_id", "name", "password_protected", "password_hash", "tier", "created_at" FROM `projects`;--> statement-breakpoint
+INSERT INTO `__new_projects`("id", "user_id", "name", "password_protected", "password_hash", "tier", "created_at") SELECT "id", "userId", "name", "passwordProtected", "passwordHash", "tier", "createdAt" FROM `projects`;--> statement-breakpoint
 DROP TABLE `projects`;--> statement-breakpoint
 ALTER TABLE `__new_projects` RENAME TO `projects`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
@@ -81,7 +81,7 @@ CREATE TABLE `__new_telemetry_logs` (
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-INSERT INTO `__new_telemetry_logs`("id", "session_id", "project_id", "log_type", "payload", "timestamp") SELECT "id", "session_id", "project_id", "log_type", "payload", "timestamp" FROM `telemetry_logs`;--> statement-breakpoint
+INSERT INTO `__new_telemetry_logs`("id", "session_id", "project_id", "log_type", "payload", "timestamp") SELECT "id", "sessionId", "projectId", "logType", "payload", "timestamp" FROM `telemetry_logs`;--> statement-breakpoint
 DROP TABLE `telemetry_logs`;--> statement-breakpoint
 ALTER TABLE `__new_telemetry_logs` RENAME TO `telemetry_logs`;--> statement-breakpoint
 CREATE TABLE `__new_telemetry_sessions` (
@@ -94,6 +94,6 @@ CREATE TABLE `__new_telemetry_sessions` (
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-INSERT INTO `__new_telemetry_sessions`("id", "project_id", "device_hash", "browser_info", "duration", "created_at") SELECT "id", "project_id", "device_hash", "browser_info", "duration", "created_at" FROM `telemetry_sessions`;--> statement-breakpoint
+INSERT INTO `__new_telemetry_sessions`("id", "project_id", "device_hash", "browser_info", "duration", "created_at") SELECT "id", "projectId", "deviceHash", "browserInfo", "duration", "createdAt" FROM `telemetry_sessions`;--> statement-breakpoint
 DROP TABLE `telemetry_sessions`;--> statement-breakpoint
 ALTER TABLE `__new_telemetry_sessions` RENAME TO `telemetry_sessions`;

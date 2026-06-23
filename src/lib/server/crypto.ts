@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/private';
+
 // Helper to hash passwords using PBKDF2 with a project salt on native Edge Web Crypto
 export async function hashPassword(password: string, salt: string): Promise<string> {
 	const encoder = new TextEncoder();
@@ -57,4 +59,53 @@ export async function verifyWebhookSignature(
 		result |= computedSignature.charCodeAt(i) ^ signature.charCodeAt(i);
 	}
 	return result === 0;
+}
+
+async function getSessionSecretKey(): Promise<CryptoKey> {
+	const secret = env.SESSION_SECRET || 'fallback-secret-for-dev-only-change-in-prod';
+	const encoder = new TextEncoder();
+	const keyData = encoder.encode(secret);
+	return await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, [
+		'sign',
+		'verify'
+	]);
+}
+
+export async function signSession(
+	projectId: string,
+	maxAgeMs: number = 24 * 60 * 60 * 1000
+): Promise<string> {
+	const expiry = Date.now() + maxAgeMs;
+	const data = `${projectId}:${expiry}`;
+	const encoder = new TextEncoder();
+	const key = await getSessionSecretKey();
+	const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+	const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+	const signatureHex = signatureArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+	return `${data}:${signatureHex}`;
+}
+
+export async function verifySession(token: string, projectId: string): Promise<boolean> {
+	try {
+		const parts = token.split(':');
+		if (parts.length !== 3) return false;
+		const [pId, expiryStr, signatureHex] = parts;
+		if (pId !== projectId) return false;
+
+		const expiry = parseInt(expiryStr, 10);
+		if (Date.now() > expiry) return false;
+
+		const data = `${pId}:${expiryStr}`;
+		const encoder = new TextEncoder();
+		const key = await getSessionSecretKey();
+
+		// Re-sign to compare
+		const expectedBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
+		const expectedArray = Array.from(new Uint8Array(expectedBuffer));
+		const expectedHex = expectedArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+		return signatureHex === expectedHex;
+	} catch {
+		return false;
+	}
 }

@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects, processedWebhooks, payments, organizations } from '$lib/server/db/schema';
+import { projects, processedWebhooks, payments, organizations } from '$lib/server/db/db-schema';
 import { env } from '$env/dynamic/private';
 import { verifyWebhookSignature } from '$lib/server/crypto';
 
@@ -66,8 +66,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		...(objectData.metadata || {}),
 		...(orderData.metadata || {})
 	};
-	const organizationId = metadata.organizationId || metadata.organization_id || null;
-	const activeOrgId = organizationId || projectId;
+	const organizationId = (metadata.organizationId || metadata.organization_id || null) as
+		| string
+		| null;
+	const activeOrgId = (organizationId || projectId) as string | null | undefined;
 
 	// 1. Idempotency Check: prevent duplicate webhook processing
 	if (webhookId) {

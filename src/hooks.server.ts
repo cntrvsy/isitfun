@@ -49,7 +49,7 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
 
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
-		const path = event.url.pathname;
+		const path = event.url.pathname.replace(/\/$/, '');
 		if (path === '/auth' || path === '/auth/login') {
 			if (event.locals.user.role === 'admin') {
 				return redirect(302, '/portal/admin');

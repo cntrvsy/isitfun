@@ -8,8 +8,8 @@ import {
 	organizations,
 	organizationMemberships,
 	organizationInvites
-} from '$lib/server/db/schema';
-import { generateNanoID } from '$lib/server/db/schema';
+} from '$lib/server/db/db-schema';
+import { generateNanoID } from '$lib/server/db/db-schema';
 import { env } from '$env/dynamic/private';
 import { hashPassword } from '$lib/server/crypto';
 

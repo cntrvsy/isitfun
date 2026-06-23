@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and, gt } from 'drizzle-orm';
-import { telemetrySessions, telemetryLogs, gameplayEvents, projects } from '$lib/server/db/schema';
+import { telemetrySessions, customDeveloperLogs, projects } from '$lib/server/db/db-schema';
 
 // Secure salt for GDPR device hashing
 const GDPR_SALT = 'isitfun-gdpr-anonymity-salt-2026';
@@ -11,14 +11,15 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	let body: {
 		projectId: string;
 		sessionId: string;
-		logType?: string;
-		payload?: unknown;
+		event?: string;
+		data?: unknown;
+		timestamp?: number;
 		browserInfo?: string;
 		gameBuildId?: string;
 		logs?: Array<{
-			logType: string;
-			payload: unknown;
-			timestamp?: string;
+			event: string;
+			data: unknown;
+			timestamp?: number;
 		}>;
 	};
 	try {
@@ -27,7 +28,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		throw error(400, 'Invalid JSON body');
 	}
 
-	const { projectId, sessionId, logType, payload, browserInfo, gameBuildId, logs } = body;
+	const { projectId, sessionId, event, data, timestamp, browserInfo, gameBuildId, logs } = body;
 
 	if (!projectId || !sessionId) {
 		throw error(400, 'Missing required fields: projectId, sessionId');
@@ -57,15 +58,15 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 
 	// Structure telemetry items
 	type LogItem = {
-		logType: string;
-		payload: unknown;
-		timestamp?: string;
+		event: string;
+		data: unknown;
+		timestamp?: number;
 	};
 	let logsArray: LogItem[] = [];
 	if (logs && Array.isArray(logs)) {
 		logsArray = logs;
-	} else if (logType) {
-		logsArray = [{ logType, payload, timestamp: new Date().toISOString() }];
+	} else if (event) {
+		logsArray = [{ event, data: data || {}, timestamp }];
 	}
 
 	// Enforce Free Jammer Tier boundaries
@@ -89,20 +90,6 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 				status: 429
 			});
 		}
-
-		// 2. Reject detailed logs or automated errors to save D1 row count
-		logsArray = logsArray.filter((l) => l.logType !== 'log' && l.logType !== 'error');
-
-		// 3. Ignore 10s heartbeat pulses
-		logsArray = logsArray.filter((l) => {
-			if (l.logType === 'heartbeat') {
-				const parsedPayload = typeof l.payload === 'string' ? JSON.parse(l.payload) : l.payload;
-				if (parsedPayload && parsedPayload.pulse) {
-					return false;
-				}
-			}
-			return true;
-		});
 	}
 
 	// If no logs left to process after filtering, exit early
@@ -118,7 +105,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 			currentQuota = parseInt(quotaStr, 10);
 		}
 
-		// Define quota limit per tier (Free is limited to 5000 logs/heartbeats per project)
+		// Define quota limit per tier (Free is limited to 5000 logs per project)
 		const quotaLimit = project.tier === 'free' ? 5000 : 500000;
 		if (currentQuota >= quotaLimit) {
 			return new Response('Telemetry quota exceeded for this playtest', {
@@ -167,13 +154,13 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 					duration: 0,
 					createdAt: new Date()
 				});
-				// Refresh the session value
+				// Refresh local session representation
 				session = {
 					id: sessionId,
 					projectId,
 					gameBuildId: gameBuildId || null,
 					deviceHash,
-					browserInfo: browserInfo || 'Unknown',
+					browserInfo: browserInfo || request.headers.get('user-agent') || 'Unknown',
 					duration: 0,
 					createdAt: new Date()
 				};
@@ -183,46 +170,22 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 				throw new Error('Telemetry session could not be resolved');
 			}
 
-			// Aggregate heartbeats from batch to update duration once
-			const heartbeatCount = logsArray.filter((l) => l.logType === 'heartbeat').length;
-			if (heartbeatCount > 0) {
-				const activeDuration = session.duration || 0;
-				await locals.db
-					.update(telemetrySessions)
-					.set({ duration: activeDuration + heartbeatCount * 10 })
-					.where(eq(telemetrySessions.id, sessionId));
-			}
+			// Update session duration dynamically based on elapsed time since session creation
+			const durationSec = Math.floor((Date.now() - session.createdAt.getTime()) / 1000);
+			await locals.db
+				.update(telemetrySessions)
+				.set({ duration: durationSec })
+				.where(eq(telemetrySessions.id, sessionId));
 
-			// Separate system logs and gameplay events
-			const gameplayLogs = logsArray.filter((l) => l.logType === 'gameplay_event');
-			const systemLogs = logsArray.filter((l) => l.logType !== 'gameplay_event');
-
-			if (gameplayLogs.length > 0) {
-				await locals.db.insert(gameplayEvents).values(
-					gameplayLogs.map((l) => {
-						const data = (typeof l.payload === 'string' ? JSON.parse(l.payload) : l.payload) || {};
-						return {
-							sessionId,
-							projectId,
-							eventName: data.eventName || 'unknown',
-							properties:
-								typeof data.properties === 'string'
-									? data.properties
-									: JSON.stringify(data.properties || {}),
-							timestamp: l.timestamp ? new Date(l.timestamp) : new Date()
-						};
-					})
-				);
-			}
-
-			if (systemLogs.length > 0) {
-				await locals.db.insert(telemetryLogs).values(
-					systemLogs.map((l) => ({
-						sessionId,
+			// Ingest custom developer logs
+			if (logsArray.length > 0) {
+				await locals.db.insert(customDeveloperLogs).values(
+					logsArray.map((l) => ({
 						projectId,
-						logType: l.logType,
-						payload: typeof l.payload === 'string' ? l.payload : JSON.stringify(l.payload),
-						timestamp: l.timestamp ? new Date(l.timestamp) : new Date()
+						sessionId,
+						eventName: l.event,
+						payload: typeof l.data === 'string' ? l.data : JSON.stringify(l.data || {}),
+						createdAt: l.timestamp ? new Date(l.timestamp) : new Date()
 					}))
 				);
 			}

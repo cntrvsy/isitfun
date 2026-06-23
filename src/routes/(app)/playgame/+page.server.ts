@@ -1,7 +1,7 @@
 import { error, redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects } from '$lib/server/db/schema';
+import { projects } from '$lib/server/db/db-schema';
 import { hashPassword } from '$lib/server/crypto';
 
 export const load: PageServerLoad = async ({ url, locals, cookies }) => {

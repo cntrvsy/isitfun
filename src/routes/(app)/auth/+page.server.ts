@@ -6,6 +6,11 @@ export const load: PageServerLoad = async (event) => {
 	if (!event.locals.user) {
 		return redirect(302, '/auth/login');
 	}
+	if (event.locals.user.role === 'admin') {
+		return redirect(302, '/portal/admin');
+	} else if (event.locals.user.role === 'game_developer') {
+		return redirect(302, '/portal/dashboard');
+	}
 	return { user: event.locals.user };
 };
 

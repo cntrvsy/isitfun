@@ -2,6 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from './+server';
 
+import { telemetrySessions, customDeveloperLogs, projects } from '$lib/server/db/db-schema';
+
 describe('POST /api/telemetry', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -32,8 +34,7 @@ describe('POST /api/telemetry', () => {
 		const requestBody = {
 			projectId: 'proj_free',
 			sessionId: 'sess_new',
-			logType: 'heartbeat',
-			payload: { pulse: false }
+			logs: [{ event: 'heartbeat', data: { pulse: false } }]
 		};
 
 		const request = new Request('http://localhost/api/telemetry', {
@@ -62,12 +63,14 @@ describe('POST /api/telemetry', () => {
 		expect(text).toContain('Concurrent playtest session limit of 3 exceeded for Free Jammer Tier.');
 	});
 
-	it('ignores detailed logs for free tier', async () => {
+	it('inserts custom developer logs and updates session', async () => {
 		const requestBody = {
 			projectId: 'proj_free',
 			sessionId: 'sess_1',
-			logType: 'log',
-			payload: { message: 'detailed log message' }
+			logs: [
+				{ event: 'coin_collected', data: { amount: 5 } },
+				{ event: 'level_complete', data: { level: 2 } }
+			]
 		};
 
 		const request = new Request('http://localhost/api/telemetry', {
@@ -75,33 +78,63 @@ describe('POST /api/telemetry', () => {
 			body: JSON.stringify(requestBody)
 		});
 
+		let lastTable: any = null;
 		const mockDb = {
 			select: vi.fn().mockReturnThis(),
-			from: vi.fn().mockReturnThis(),
+			from: vi.fn().mockImplementation((table) => {
+				lastTable = table;
+				return mockDb;
+			}),
 			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({ id: 'proj_free', tier: 'free' }),
-			all: vi.fn().mockResolvedValue([])
+			get: vi.fn().mockImplementation(() => {
+				if (lastTable === projects) {
+					return { id: 'proj_free', tier: 'free' };
+				}
+				if (lastTable === telemetrySessions) {
+					// Return an existing session to test update
+					return {
+						id: 'sess_1',
+						projectId: 'proj_free',
+						createdAt: new Date(Date.now() - 30 * 1000)
+					};
+				}
+				return null;
+			}),
+			all: vi.fn().mockResolvedValue([]),
+			insert: vi.fn().mockReturnThis(),
+			values: vi.fn().mockResolvedValue({}),
+			update: vi.fn().mockReturnThis(),
+			set: vi.fn().mockReturnThis()
+		};
+
+		const mockKv = {
+			get: vi.fn().mockResolvedValue('10'),
+			put: vi.fn().mockResolvedValue(null)
 		};
 
 		const res = await POST({
 			request,
 			locals: { db: mockDb } as any,
-			platform: { env: { ISITFUN_KV: { get: vi.fn().mockResolvedValue('0') } } } as any,
+			platform: { env: { ISITFUN_KV: mockKv } } as any,
 			getClientAddress: () => '127.0.0.1',
 			url: new URL('http://localhost/api/telemetry')
 		} as any);
 
 		expect(res.status).toBe(200);
 		const body = await res.json();
-		expect(body).toEqual({ status: 'ignored', success: true });
+		expect(body).toEqual({ status: 'queued', success: true });
+
+		// Verify database calls
+		expect(mockDb.insert).toHaveBeenCalledWith(customDeveloperLogs);
+		expect(mockDb.update).toHaveBeenCalledWith(telemetrySessions);
+		expect(mockKv.put).toHaveBeenCalledWith('quota:project:proj_free', '12', expect.any(Object));
 	});
 
 	it('enforces total quota limit in KV', async () => {
 		const requestBody = {
 			projectId: 'proj_free',
 			sessionId: 'sess_1',
-			logType: 'heartbeat',
-			payload: { pulse: false }
+			logs: [{ event: 'heartbeat', data: { pulse: false } }]
 		};
 
 		const request = new Request('http://localhost/api/telemetry', {

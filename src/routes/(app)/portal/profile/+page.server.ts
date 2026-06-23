@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import * as v from 'valibot';
-import { profileFormSchema } from '$lib/server/schemas';
-import { profile } from '$lib/server/db/schema';
+import { profileFormSchema } from '$lib/server/validation';
+import { profile } from '$lib/server/db/db-schema';
 import type { Actions } from './$types';
 
 export const actions = {

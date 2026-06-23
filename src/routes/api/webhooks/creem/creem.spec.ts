@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { projects, processedWebhooks, organizations } from '$lib/server/db/schema';
+import { projects, processedWebhooks, organizations } from '$lib/server/db/db-schema';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {

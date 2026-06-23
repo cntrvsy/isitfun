@@ -22,7 +22,7 @@ Better Auth typically expects a single initialized global Database Adapter. Howe
 
 ## 🗄️ Database Migrations
 
-Whenever you modify your database models in `src/lib/server/db/schema.ts`, you need to generate migrations and apply them locally or to your production D1 instance.
+Whenever you modify your database models in `src/lib/server/db/db-schema.ts`, you need to generate migrations and apply them locally or to your production D1 instance.
 
 ### Generating Migrations
 

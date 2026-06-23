@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { sql } from 'drizzle-orm';
-import { projects, telemetrySessions, telemetryLogs, user } from '$lib/server/db/schema';
+import { projects, telemetrySessions, customDeveloperLogs, user } from '$lib/server/db/db-schema';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Double check admin role authorization (even though hooks guards this, defense-in-depth is excellent)
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 		const logsCountResult = await db
 			.select({ count: sql<number>`count(*)` })
-			.from(telemetryLogs)
+			.from(customDeveloperLogs)
 			.get();
 
 		const usersCountResult = await db

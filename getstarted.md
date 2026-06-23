@@ -18,7 +18,7 @@ To maintain an near-zero cost signature and minimize structural friction, the sy
 
 ---
 
-## 2. Core Relational Schema (`src/lib/server/db/schema.ts`)
+## 2. Core Relational Schema (`src/lib/server/db/db-schema.ts`)
 
 When interacting with the database, strictly implement the following architectural map:
 
@@ -86,17 +86,17 @@ export const telemetrySessions = sqliteTable('telemetry_sessions', {
 	createdAt: integer('createdAt', { mode: 'timestamp' }).notNull()
 });
 
-export const telemetryLogs = sqliteTable('telemetry_logs', {
+export const customDeveloperLogs = sqliteTable('custom_developer_logs', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
-	sessionId: text('sessionId')
+	projectId: text('project_id')
 		.notNull()
-		.references(() => telemetrySessions.id),
-	projectId: text('projectId')
+		.references(() => projects.id, { onDelete: 'cascade' }),
+	sessionId: text('session_id')
 		.notNull()
-		.references(() => projects.id),
-	logType: text('logType').notNull(), // 'error' | 'log' | 'heartbeat' | 'bug_report'
-	payload: text('payload').notNull(), // Text-serialized JSON object
-	timestamp: integer('timestamp', { mode: 'timestamp' }).notNull()
+		.references(() => telemetrySessions.id, { onDelete: 'cascade' }),
+	eventName: text('event_name').notNull(),
+	payload: text('payload').notNull().default('{}'),
+	createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
 });
 ```
 
@@ -146,7 +146,7 @@ new HTMLRewriter().on('body', {
 *   **Zero Performance Penalties:** Playtesters must not experience dropped frame counts due to tracking round-trips. Wrap incoming database operations inside an active context tracking method:
     ```typescript
 platform?.context.waitUntil(
-    db.insert(telemetryLogs).values({ ... })
+    db.insert(customDeveloperLogs).values({ ... })
 );
 
 ````

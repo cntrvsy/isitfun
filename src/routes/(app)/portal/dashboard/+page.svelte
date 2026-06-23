@@ -29,31 +29,12 @@
 	let orgNameInput = $state('');
 
 	let activeProjectAnalyticsId = $state<string | null>(null);
-	let activeEventTab = $state<'events' | 'sessions'>('events');
-	let selectedEventNameState = $state<string | null>(null);
+	let activeGuideTab = $state<'js' | 'godot' | 'unity' | 'phaser'>('js');
 
 	const activeProject = $derived(data.projects.find((p) => p.id === activeProjectAnalyticsId));
 
-	const selectedEventName = $derived(
-		selectedEventNameState || activeProject?.stats.eventBreakdown[0]?.eventName || null
-	);
-
-	const filteredEvents = $derived(
-		activeProject ? activeProject.recentEvents.filter((e) => e.eventName === selectedEventName) : []
-	);
-
-	const propKeys = $derived(
-		Array.from(
-			new Set(
-				filteredEvents.flatMap((e) => {
-					try {
-						return Object.keys(JSON.parse(e.properties));
-					} catch {
-						return [];
-					}
-				})
-			)
-		)
+	const projectLogs = $derived(
+		activeProject ? data.recentLogs.filter((log) => log.projectId === activeProject.id) : []
 	);
 
 	// Derived Workspace variables
@@ -268,7 +249,6 @@
 									placeholder="teammate@studio.com"
 									class="input flex-1 rounded-xl border border-slate-800 bg-slate-950 text-sm text-white placeholder-slate-700 focus:border-purple-500 focus:outline-none"
 									required
-									type="email"
 									bind:value={inviteEmail}
 									{...inviteMember.fields.email.as('email')}
 								/>
@@ -488,11 +468,11 @@
 						</div>
 
 						<!-- Telemetry Aggregation Stats -->
-						<div class="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
+						<div class="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
 							<div class="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5">
 								<span
 									class="mb-1 block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
-									>Total Sessions</span
+									>Total Play Sessions</span
 								>
 								<span class="text-3xl font-black text-purple-400"
 									>{activeProject.stats.totalSessions}</span
@@ -501,21 +481,7 @@
 							<div class="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5">
 								<span
 									class="mb-1 block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
-									>Avg. Play Duration</span
-								>
-								<span class="text-3xl font-black text-indigo-400">
-									{#if activeProject.stats.averageDuration >= 60}
-										{Math.floor(activeProject.stats.averageDuration / 60)}m {activeProject.stats
-											.averageDuration % 60}s
-									{:else}
-										{activeProject.stats.averageDuration}s
-									{/if}
-								</span>
-							</div>
-							<div class="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5">
-								<span
-									class="mb-1 block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
-									>Gameplay Events</span
+									>Total Custom Logs</span
 								>
 								<span class="text-3xl font-black text-emerald-400"
 									>{activeProject.stats.totalEvents}</span
@@ -523,187 +489,107 @@
 							</div>
 						</div>
 
-						<!-- Tab Bar -->
-						<div class="mb-6 flex border-b border-slate-800">
-							<button
-								onclick={() => (activeEventTab = 'events')}
-								class="border-b-2 px-6 py-3 text-sm font-bold transition-all {activeEventTab ===
-								'events'
-									? 'border-purple-500 text-purple-400'
-									: 'border-transparent text-slate-400 hover:text-slate-200'}"
-							>
-								🎯 Custom Gameplay Events
-							</button>
-							<button
-								onclick={() => (activeEventTab = 'sessions')}
-								class="border-b-2 px-6 py-3 text-sm font-bold transition-all {activeEventTab ===
-								'sessions'
-									? 'border-purple-500 text-purple-400'
-									: 'border-transparent text-slate-400 hover:text-slate-200'}"
-							>
-								⏱️ Recent Sessions
-							</button>
+						<!-- Export Data Options -->
+						<div
+							class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
+						>
+							<div>
+								<h4 class="text-sm font-bold text-slate-200">Export Raw Playtest Data</h4>
+								<p class="text-xs text-slate-500">
+									Download the complete dataset of playtest logs to feed into custom visualization
+									tools, LLMs, or spreadsheets.
+								</p>
+							</div>
+							<div class="flex gap-3">
+								<a
+									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/json`)}
+									download
+									class="btn rounded-xl border border-purple-500/25 bg-purple-500/10 px-6 font-bold text-purple-400 transition-all btn-sm hover:bg-purple-600 hover:text-white"
+								>
+									📥 Download JSON
+								</a>
+								<a
+									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/csv`)}
+									download
+									class="btn rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-6 font-bold text-indigo-400 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
+								>
+									📥 Download CSV
+								</a>
+							</div>
 						</div>
 
-						<!-- Tab Contents -->
-						{#if activeEventTab === 'events'}
-							{#if activeProject.stats.eventBreakdown.length === 0}
-								<div class="py-12 text-center">
+						<!-- Live event log inspector -->
+						<div class="space-y-4">
+							<div class="flex items-center justify-between">
+								<h4 class="text-sm font-bold tracking-wider text-slate-400 uppercase">
+									Live Event Inspector (Latest 50 events)
+								</h4>
+								<span class="badge border-none bg-slate-800 font-mono text-xs text-slate-400"
+									>{projectLogs.length} events loaded</span
+								>
+							</div>
+
+							{#if projectLogs.length === 0}
+								<div
+									class="rounded-2xl border border-slate-800/80 bg-slate-950/20 py-16 text-center"
+								>
 									<div
-										class="bg-slate-850 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full text-2xl"
+										class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-2xl"
 									>
-										💡
+										⏳
 									</div>
-									<h4 class="mb-1 font-bold text-slate-300">No custom gameplay events yet</h4>
+									<h4 class="text-slate-350 mb-1 font-bold">Waiting for events...</h4>
 									<p class="mx-auto max-w-md text-xs leading-relaxed text-slate-500">
-										Integrate custom tracking in your code to record specific action points:
+										No logs have been received for this project yet. Use the code templates in the
+										guide below to start sending data from your game.
 									</p>
-									<div
-										class="border-slate-850 mx-auto mt-4 max-w-md overflow-x-auto rounded-xl border bg-slate-950 p-3 text-left font-mono text-[10px] text-slate-400"
-									>
-										window.IsItFun.track('level-complete', &#123; level: 1, score: 5000 &#125;);
-									</div>
 								</div>
-							{:else}
-								<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-									<!-- Event Names Selector -->
-									<div class="space-y-2 lg:col-span-1">
-										<span
-											class="mb-2 block text-xs font-bold tracking-wider text-slate-500 uppercase"
-											>Event Schema</span
-										>
-										{#each activeProject.stats.eventBreakdown as eb (eb.eventName)}
-											<button
-												onclick={() => (selectedEventNameState = eb.eventName)}
-												class="flex w-full items-center justify-between rounded-xl border p-3 text-left transition-all {selectedEventName ===
-												eb.eventName
-													? 'border-purple-500/50 bg-purple-500/10 text-white'
-													: 'border-slate-800 bg-slate-950/20 text-slate-400 hover:border-slate-700 hover:text-slate-200'}"
-											>
-												<span class="font-mono text-xs font-bold">{eb.eventName}</span>
-												<span
-													class="badge border-none bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400"
-													>{eb.count}</span
-												>
-											</button>
-										{/each}
-									</div>
-
-									<!-- Event Instances Table / JSON Extraction -->
-									<div class="lg:col-span-2">
-										<div class="mb-3 flex items-center justify-between">
-											<span class="text-xs font-bold tracking-wider text-slate-500 uppercase">
-												Event Instances: <span class="font-mono text-purple-400"
-													>{selectedEventName}</span
-												>
-											</span>
-										</div>
-
-										<div
-											class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40"
-										>
-											<table class="w-full border-collapse text-left text-xs">
-												<thead>
-													<tr
-														class="border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold tracking-wider text-slate-400 uppercase"
-													>
-														<th class="p-4">Time</th>
-														<th class="p-4">Session ID</th>
-														{#each propKeys as pk (pk)}
-															<th class="p-4">{pk}</th>
-														{/each}
-													</tr>
-												</thead>
-												<tbody class="divide-y divide-slate-800/55 font-medium text-slate-300">
-													{#each filteredEvents as ev (ev.id)}
-														{@const props = (() => {
-															try {
-																return JSON.parse(ev.properties);
-															} catch {
-																return {};
-															}
-														})()}
-														<tr class="hover:bg-slate-900/20">
-															<td class="text-slate-450 p-4 font-mono text-[10px]">
-																{new Date(ev.timestamp).toLocaleTimeString(undefined, {
-																	hour: '2-digit',
-																	minute: '2-digit',
-																	second: '2-digit'
-																})}
-															</td>
-															<td
-																class="p-4 font-mono text-[10px] text-purple-400/80"
-																title={ev.sessionId}
-															>
-																{ev.sessionId.slice(0, 8)}...
-															</td>
-															{#each propKeys as pk (pk)}
-																<td class="p-4">
-																	{#if props[pk] !== undefined}
-																		<span
-																			class="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] text-slate-200"
-																		>
-																			{typeof props[pk] === 'object'
-																				? JSON.stringify(props[pk])
-																				: props[pk]}
-																		</span>
-																	{:else}
-																		<span class="text-slate-600">-</span>
-																	{/if}
-																</td>
-															{/each}
-														</tr>
-													{/each}
-												</tbody>
-											</table>
-										</div>
-									</div>
-								</div>
-							{/if}
-						{:else if activeEventTab === 'sessions'}
-							{#if activeProject.recentSessions.length === 0}
-								<p class="py-12 text-center text-sm text-slate-500">
-									No playtest sessions recorded yet.
-								</p>
 							{:else}
 								<div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40">
 									<table class="w-full border-collapse text-left text-xs">
 										<thead>
 											<tr
-												class="border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold tracking-wider text-slate-400 uppercase"
+												class="text-slate-450 border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold tracking-wider uppercase"
 											>
+												<th class="p-4">Time</th>
+												<th class="p-4">Event Name</th>
 												<th class="p-4">Session ID</th>
-												<th class="p-4">Date & Time</th>
-												<th class="p-4">Duration</th>
-												<th class="p-4">Device & Browser</th>
+												<th class="p-4">Data Payload</th>
 											</tr>
 										</thead>
-										<tbody class="text-slate-350 divide-y divide-slate-800/55">
-											{#each activeProject.recentSessions as sess (sess.id)}
+										<tbody class="text-slate-350 divide-y divide-slate-800/55 font-medium">
+											{#each projectLogs as log (log.id)}
 												<tr class="hover:bg-slate-900/20">
-													<td class="p-4 font-mono text-[10px] text-purple-400" title={sess.id}>
-														{sess.id}
+													<td class="p-4 font-mono text-[10px] whitespace-nowrap text-slate-500">
+														{new Date(log.createdAt).toLocaleTimeString()}
 													</td>
-													<td class="p-4 font-medium">
-														{new Date(sess.createdAt).toLocaleString(undefined, {
-															month: 'short',
-															day: 'numeric',
-															hour: '2-digit',
-															minute: '2-digit'
-														})}
-													</td>
-													<td class="p-4 font-bold text-slate-200">
-														{#if sess.duration >= 60}
-															{Math.floor(sess.duration / 60)}m {sess.duration % 60}s
-														{:else}
-															{sess.duration || 0}s
-														{/if}
+													<td class="p-4">
+														<span
+															class="rounded border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300"
+														>
+															{log.eventName}
+														</span>
 													</td>
 													<td
-														class="text-slate-450 max-w-[200px] truncate p-4 text-[10px]"
-														title={sess.browserInfo}
+														class="p-4 font-mono text-[10px] text-indigo-400"
+														title={log.sessionId}
 													>
-														{sess.browserInfo || 'Unknown'}
+														{log.sessionId.slice(0, 8)}...
+													</td>
+													<td class="max-w-sm p-4">
+														<details class="group cursor-pointer">
+															<summary
+																class="text-xs text-slate-500 select-none hover:text-slate-300"
+															>
+																Expand Payload ({Object.keys(JSON.parse(log.payload)).length} keys)
+															</summary>
+															<pre
+																class="border-slate-850 mt-2 overflow-x-auto rounded-xl border bg-slate-950 p-3 font-mono text-[10px] text-emerald-400">{JSON.stringify(
+																	JSON.parse(log.payload),
+																	null,
+																	2
+																)}</pre>
+														</details>
 													</td>
 												</tr>
 											{/each}
@@ -711,7 +597,7 @@
 									</table>
 								</div>
 							{/if}
-						{/if}
+						</div>
 					</div>
 				{/if}
 			{:else if activeWorkspaceProjects.length === 0}
@@ -846,10 +732,7 @@
 										{/if}
 									</button>
 									<button
-										onclick={() => {
-											activeProjectAnalyticsId = p.id;
-											selectedEventNameState = null;
-										}}
+										onclick={() => (activeProjectAnalyticsId = p.id)}
 										class="btn rounded-lg border border-indigo-500/20 bg-indigo-600/20 px-4 font-bold text-indigo-300 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
 										aria-label="View Telemetry"
 									>
@@ -935,106 +818,143 @@
 					<span>🛠️ Telemetry Integration Guide</span>
 				</h2>
 				<p class="mb-6 text-sm leading-relaxed text-slate-400">
-					IsItFun automatically injects a floating feedback widget and hooks into browser console
-					events, but you can also log custom diagnostics directly from your game code.
+					IsItFun exposes a simple window-level logging API. Embed the script and call our logging
+					function from any HTML5 engine.
 				</p>
 
-				<div class="grid grid-cols-1 gap-8 md:grid-cols-2">
+				<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
 					<!-- Setup Snippet -->
-					<div class="flex flex-col justify-between">
+					<div class="space-y-6 lg:col-span-2">
 						<div>
 							<h3 class="mb-3 text-sm font-bold tracking-wider text-purple-400 uppercase">
-								1. Script Integration
+								1. Include script (Automatically injected on hosted builds)
 							</h3>
-							<p class="mb-4 text-xs leading-relaxed text-slate-400">
-								If you upload a ZIP bundle, our edge router injects this automatically. If you're
-								hosting the game elsewhere, embed this script in your game's HTML:
-							</p>
 							<div
 								class="relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300"
 							>
 								<pre><code
 										>&lt;script 
   src="{origin}/assets/overlay-widget.js" 
-  data-project="YOUR_PROJECT_ID" 
-  data-tier="free"&gt;&lt;/script&gt;</code
+  data-project="YOUR_PROJECT_ID"&gt;&lt;/script&gt;</code
 									></pre>
 							</div>
 						</div>
 
-						<div class="mt-6">
-							<h3 class="mb-3 text-sm font-bold tracking-wider text-indigo-400 uppercase">
-								2. Custom Event Logging
-							</h3>
-							<p class="mb-4 text-xs leading-relaxed text-slate-400">
-								Log key game loop occurrences (deaths, checkpoints, level completions) from Phaser,
-								Unity WebGL, Godot, or raw JS:
-							</p>
+						<div>
+							<div class="mb-4 flex items-center justify-between">
+								<h3 class="text-sm font-bold tracking-wider text-indigo-400 uppercase">
+									2. Call Log API from your game engine
+								</h3>
+							</div>
+
+							<!-- Guide Tabs -->
+							<div class="mb-4 flex border-b border-slate-800 text-xs font-bold">
+								<button
+									onclick={() => (activeGuideTab = 'js')}
+									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'js'
+										? 'border-indigo-500 text-indigo-400'
+										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+								>
+									JavaScript
+								</button>
+								<button
+									onclick={() => (activeGuideTab = 'godot')}
+									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'godot'
+										? 'border-indigo-500 text-indigo-400'
+										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+								>
+									Godot 4
+								</button>
+								<button
+									onclick={() => (activeGuideTab = 'unity')}
+									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'unity'
+										? 'border-indigo-500 text-indigo-400'
+										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+								>
+									Unity WebGL
+								</button>
+								<button
+									onclick={() => (activeGuideTab = 'phaser')}
+									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'phaser'
+										? 'border-indigo-500 text-indigo-400'
+										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+								>
+									Phaser
+								</button>
+							</div>
+
 							<div
-								class="relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300"
+								class="text-slate-350 relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs font-medium"
 							>
-								<pre><code
-										>// Send custom analytics events
-window.IsItFun?.log("checkpoint-reached", &#123;
-  level: "Chapter 1",
-  durationSeconds: 120,
-  healthRemaining: 85
+								{#if activeGuideTab === 'js'}
+									<pre><code
+											>window.IsItFun.log("level_complete", &#123;
+  level_id: "world_1_1",
+  score: 12500,
+  coins: 42
 &#125;);</code
-									></pre>
+										></pre>
+								{:else if activeGuideTab === 'godot'}
+									<pre><code
+											># GDScript Web Bridge
+func log_event(event_name: String, data: Dictionary):
+    if OS.has_feature("web"):
+        JavaScriptBridge.eval("window.IsItFun.log('" + event_name + "', " + JSON.stringify(data) + ")")</code
+										></pre>
+								{:else if activeGuideTab === 'unity'}
+									<pre><code
+											>// C# WebGL Plugin Method
+public void LogEvent(string eventName, string jsonPayload) &#123;
+    #if !UNITY_EDITOR && UNITY_WEBGL
+    Application.ExternalCall("window.IsItFun.log", eventName, jsonPayload);
+    #endif
+&#125;</code
+										></pre>
+								{:else if activeGuideTab === 'phaser'}
+									<pre><code
+											>// Log collection in Phaser scene
+this.registry.events.on('changedata', (parent, key, value) => &#123;
+    window.IsItFun?.log("state_change", &#123; key: key, val: value &#125;);
+&#125;);</code
+										></pre>
+								{/if}
 							</div>
 						</div>
 					</div>
 
-					<!-- Tier capabilities and expectations -->
-					<div class="rounded-2xl border border-slate-800 bg-slate-950/40 p-6">
-						<h3 class="mb-4 text-sm font-bold tracking-wider text-amber-400 uppercase">
-							Tier Capabilities & Abuse Prevention
+					<!-- Limits and retention -->
+					<div class="h-fit space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-6">
+						<h3 class="text-sm font-bold tracking-wider text-amber-400 uppercase">
+							Security & Rate Limits
 						</h3>
 
-						<div class="space-y-4">
-							<div class="flex items-start gap-3">
-								<div
-									class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
-								>
-									🛡️
-								</div>
-								<div>
-									<h4 class="text-xs font-bold text-slate-200">Edge Rate Limiting</h4>
-									<p class="text-[11px] leading-relaxed text-slate-400">
-										All projects are limited to a daily firewall cap of 5,000 logs/day to protect
-										our database quotas. High-frequency loops will get auto-throttled.
-									</p>
-								</div>
+						<div class="flex items-start gap-3">
+							<div
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
+							>
+								🛡️
 							</div>
-
-							<div class="flex items-start gap-3">
-								<div
-									class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
-								>
-									🆓
-								</div>
-								<div>
-									<h4 class="text-xs font-bold text-slate-200">Free Jammer Limits</h4>
-									<p class="text-[11px] leading-relaxed text-slate-400">
-										Filters out verbose <code>console.log</code>, <code>error</code> events, and high-frequency
-										10-second heartbeat pings. Capped at 3 concurrent active sessions.
-									</p>
-								</div>
+							<div>
+								<h4 class="text-xs font-bold text-slate-200">Daily Cap Check</h4>
+								<p class="text-[11px] leading-relaxed text-slate-500">
+									All projects are limited to a daily firewall cap of 5,000 logs/day to protect D1
+									storage from loop overhead.
+								</p>
 							</div>
+						</div>
 
-							<div class="flex items-start gap-3">
-								<div
-									class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
-								>
-									⚡
-								</div>
-								<div>
-									<h4 class="text-xs font-bold text-slate-200">Pro Project Pass</h4>
-									<p class="text-[11px] leading-relaxed text-slate-400">
-										Unlocks complete exception tracking, high-frequency active play session duration
-										tracking, full console trace replication, and up to 500 unique playtest runs.
-									</p>
-								</div>
+						<div class="flex items-start gap-3">
+							<div
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
+							>
+								🆓
+							</div>
+							<div>
+								<h4 class="text-xs font-bold text-slate-200">Free Tier Log decay</h4>
+								<p class="text-slate-550 text-[11px] leading-relaxed">
+									Free projects have a 7-day logs decay protocol. Clean records are retained for
+									week-long prototype sessions.
+								</p>
 							</div>
 						</div>
 					</div>

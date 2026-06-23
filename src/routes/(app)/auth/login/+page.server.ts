@@ -1,6 +1,15 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions } from './$types';
-// import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async (event) => {
+	if (event.locals.user) {
+		if (event.locals.user.role === 'admin') {
+			return redirect(302, '/portal/admin');
+		} else if (event.locals.user.role === 'game_developer') {
+			return redirect(302, '/portal/dashboard');
+		}
+	}
+};
 export const actions: Actions = {
 	signInSocial: async (event) => {
 		const formData = await event.request.formData();

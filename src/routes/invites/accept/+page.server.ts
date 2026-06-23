@@ -1,7 +1,7 @@
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { eq } from 'drizzle-orm';
-import { organizationInvites } from '$lib/server/db/schema';
+import { organizationInvites } from '$lib/server/db/db-schema';
 
 export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 	const token = url.searchParams.get('token');
