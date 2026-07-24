@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and, gt } from 'drizzle-orm';
-import { telemetrySessions, customDeveloperLogs, projects } from '$lib/server/db/db-schema';
+import { telemetrySessions, projects } from '$lib/server/db/db-schema';
 
 // Secure salt for GDPR device hashing
 const GDPR_SALT = 'isitfun-gdpr-anonymity-salt-2026';
@@ -16,6 +16,8 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		timestamp?: number;
 		browserInfo?: string;
 		gameBuildId?: string;
+		hasCrashed?: boolean;
+		isExiting?: boolean;
 		logs?: Array<{
 			event: string;
 			data: unknown;
@@ -28,23 +30,51 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		throw error(400, 'Invalid JSON body');
 	}
 
-	const { projectId, sessionId, event, data, timestamp, browserInfo, gameBuildId, logs } = body;
+	const { projectId, sessionId, event, data, timestamp, browserInfo, gameBuildId, logs, isExiting } = body;
 
 	if (!projectId || !sessionId) {
 		throw error(400, 'Missing required fields: projectId, sessionId');
 	}
 
-	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+	const kv = platform?.env.ISITFUN_KV;
 
-	if (!project) {
-		throw error(404, 'Project not found');
+	// 1. Fetch project tier & configuration (checking KV cache first to save D1 selects)
+	let project: { id: string; tier: string; passwordProtected: boolean; passwordHash: string | null } | null = null;
+	const projectCacheKey = `project:config:${projectId}`;
+
+	if (kv) {
+		const cached = await kv.get(projectCacheKey);
+		if (cached) {
+			try {
+				project = JSON.parse(cached);
+			} catch {
+				project = null;
+			}
+		}
 	}
 
-	// 1. Edge Firewall: Global Daily Project Rate Limit Check
+	if (!project) {
+		const dbProject = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+		if (!dbProject) {
+			throw error(404, 'Project not found');
+		}
+		project = {
+			id: dbProject.id,
+			tier: dbProject.tier || 'free',
+			passwordProtected: !!dbProject.passwordProtected,
+			passwordHash: dbProject.passwordHash || null
+		};
+		if (kv) {
+			await kv.put(projectCacheKey, JSON.stringify(project), {
+				expirationTtl: 300 // 5 minutes cache
+			});
+		}
+	}
+
+	// 2. Rate-Limiter Checks (Daily Project Telemetry Quota)
 	const today = new Date().toISOString().split('T')[0];
 	const dailyProjectKey = `rate:${projectId}:${today}`;
 	let currentDailyCount = 0;
-	const kv = platform?.env.ISITFUN_KV;
 
 	if (kv) {
 		const countStr = await kv.get(dailyProjectKey);
@@ -69,55 +99,55 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		logsArray = [{ event, data: data || {}, timestamp }];
 	}
 
-	// Enforce Free Jammer Tier boundaries
+	// Enforce Free Jammer Tier concurrent session boundaries
 	if (project.tier === 'free') {
-		// 1. Rate-limiting concurrent sessions to max 3 (active in last 10 minutes)
-		const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-		const activeSessions = await locals.db
-			.select()
-			.from(telemetrySessions)
-			.where(
-				and(
-					eq(telemetrySessions.projectId, projectId),
-					gt(telemetrySessions.createdAt, tenMinutesAgo)
-				)
-			)
-			.all();
+		let isExistingSession = false;
+		if (kv) {
+			const activeFlag = await kv.get(`session:active:${sessionId}`);
+			if (activeFlag) {
+				isExistingSession = true;
+			}
+		}
 
-		const isExistingSession = activeSessions.some((s) => s.id === sessionId);
-		if (!isExistingSession && activeSessions.length >= 3) {
-			return new Response('Concurrent playtest session limit of 3 exceeded for Free Jammer Tier.', {
-				status: 429
-			});
+		if (!isExistingSession) {
+			// Query D1 active sessions in the last 10 minutes
+			const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+			const activeSessions = await locals.db
+				.select()
+				.from(telemetrySessions)
+				.where(
+					and(
+						eq(telemetrySessions.projectId, projectId),
+						gt(telemetrySessions.createdAt, tenMinutesAgo)
+					)
+				)
+				.all();
+
+			if (activeSessions.length >= 3) {
+				return new Response('Concurrent playtest session limit of 3 exceeded for Free Jammer Tier.', {
+					status: 429
+				});
+			}
 		}
 	}
 
-	// If no logs left to process after filtering, exit early
-	if (logsArray.length === 0) {
-		return json({ status: 'ignored', success: true });
-	}
-
-	// 2. Edge Security Checks: Sub-millisecond KV Lookup for Quotas
+	// 3. Billing Quota Check
 	let currentQuota = 0;
 	if (kv) {
 		const quotaStr = await kv.get(`quota:project:${projectId}`);
 		if (quotaStr) {
 			currentQuota = parseInt(quotaStr, 10);
 		}
-
-		// Define quota limit per tier (Free is limited to 5000 logs per project)
 		const quotaLimit = project.tier === 'free' ? 5000 : 500000;
 		if (currentQuota >= quotaLimit) {
 			return new Response('Telemetry quota exceeded for this playtest', {
 				status: 429,
-				headers: {
-					'Retry-After': '3600'
-				}
+				headers: { 'Retry-After': '3600' }
 			});
 		}
 	}
 
-	// 3. GDPR Anonymity: Salted IP SHA-256 device hashing
+	// 4. GDPR Device Hashing (Salted IP SHA-256)
 	let clientIp = '127.0.0.1';
 	try {
 		clientIp = getClientAddress();
@@ -131,80 +161,64 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
 	const deviceHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-	// 4. Zero Performance Penalty: Wrap DB processing inside Edge waitUntil
-	const waitUntil = platform?.ctx?.waitUntil;
+	// 5. Forward Telemetry payload to Durable Object
+	const doBinding = platform?.env.TELEMETRY_BUFFER;
+	if (!doBinding) {
+		throw error(500, 'TELEMETRY_BUFFER Durable Object binding is missing');
+	}
+
+	const doId = doBinding.idFromName(sessionId);
+	const doStub = doBinding.get(doId);
+
+	const doPayload = {
+		projectId,
+		sessionId,
+		logs: logsArray,
+		hasCrashed: !!body.hasCrashed,
+		isExiting: !!isExiting,
+		deviceHash,
+		browserInfo: browserInfo || request.headers.get('user-agent') || 'Unknown',
+		gameBuildId: gameBuildId || null,
+		avgFps: typeof body.avgFps === 'number' ? body.avgFps : null,
+		minFps: typeof body.minFps === 'number' ? body.minFps : null,
+		deviceSpecs: body.deviceSpecs || null,
+		feedback: body.feedback || null
+	};
 
 	const saveTelemetryPromise = async () => {
 		try {
-			// Check if telemetry session already exists
-			let session = await locals.db
-				.select()
-				.from(telemetrySessions)
-				.where(eq(telemetrySessions.id, sessionId))
-				.get();
+			const doResponse = await doStub.fetch('http://do/telemetry', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(doPayload)
+			});
 
-			if (!session) {
-				// Insert new telemetry session
-				await locals.db.insert(telemetrySessions).values({
-					id: sessionId,
-					projectId,
-					gameBuildId: gameBuildId || null,
-					deviceHash,
-					browserInfo: browserInfo || request.headers.get('user-agent') || 'Unknown',
-					duration: 0,
-					createdAt: new Date()
-				});
-				// Refresh local session representation
-				session = {
-					id: sessionId,
-					projectId,
-					gameBuildId: gameBuildId || null,
-					deviceHash,
-					browserInfo: browserInfo || request.headers.get('user-agent') || 'Unknown',
-					duration: 0,
-					createdAt: new Date()
-				};
+			if (!doResponse.ok) {
+				console.error('Failed to forward telemetry to DO:', await doResponse.text());
+				return;
 			}
 
-			if (!session) {
-				throw new Error('Telemetry session could not be resolved');
-			}
-
-			// Update session duration dynamically based on elapsed time since session creation
-			const durationSec = Math.floor((Date.now() - session.createdAt.getTime()) / 1000);
-			await locals.db
-				.update(telemetrySessions)
-				.set({ duration: durationSec })
-				.where(eq(telemetrySessions.id, sessionId));
-
-			// Ingest custom developer logs
-			if (logsArray.length > 0) {
-				await locals.db.insert(customDeveloperLogs).values(
-					logsArray.map((l) => ({
-						projectId,
-						sessionId,
-						eventName: l.event,
-						payload: typeof l.data === 'string' ? l.data : JSON.stringify(l.data || {}),
-						createdAt: l.timestamp ? new Date(l.timestamp) : new Date()
-					}))
-				);
-			}
-
-			// Increment active Cloudflare KV quota count and daily count
+			// If successful and session is new, save active status to KV cache
 			if (kv) {
+				const activeFlag = await kv.get(`session:active:${sessionId}`);
+				if (!activeFlag) {
+					await kv.put(`session:active:${sessionId}`, 'true', { expirationTtl: 600 });
+				}
+				// Increment KV daily/billing counters
 				const totalLogsCount = logsArray.length;
 				await kv.put(`quota:project:${projectId}`, (currentQuota + totalLogsCount).toString(), {
-					expirationTtl: 60 * 60 * 24 * 30 // Expiry in 30 days
+					expirationTtl: 60 * 60 * 24 * 30
 				});
 				await kv.put(dailyProjectKey, (currentDailyCount + totalLogsCount).toString(), {
-					expirationTtl: 60 * 60 * 48 // Expiry in 48 hours
+					expirationTtl: 60 * 60 * 48
 				});
 			}
 		} catch (err) {
-			console.error('Failed to process telemetry in background:', err);
+			console.error('Failed to process telemetry in DO wrapper:', err);
 		}
 	};
 
+	const waitUntil = platform?.ctx?.waitUntil;
 	if (waitUntil) {
 		waitUntil(saveTelemetryPromise());
 	} else {

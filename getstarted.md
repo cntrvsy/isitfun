@@ -110,7 +110,7 @@ To prevent untrusted web games executing on the same domain from fetching develo
 
 ```typescript
 advanced: {
-    cookieOptions: {
+    defaultCookieAttributes: {
         path: "/dashboard", // Isolates administration sessions away from public game streams
     }
 }

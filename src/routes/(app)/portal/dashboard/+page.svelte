@@ -11,8 +11,9 @@
 	} from './dashboard.remote';
 	import CreateProjectModal from '$lib/components/CreateProjectModal.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
+	import PlaytestChart from '$lib/components/charts/PlaytestChart.svelte';
+	import ConsoleInspectorModal from '$lib/components/dashboard/ConsoleInspectorModal.svelte';
 	import { onMount } from 'svelte';
-
 	let { data } = $props();
 
 	// Svelte 5 Reactive States
@@ -33,9 +34,17 @@
 
 	const activeProject = $derived(data.projects.find((p) => p.id === activeProjectAnalyticsId));
 
-	const projectLogs = $derived(
-		activeProject ? data.recentLogs.filter((log) => log.projectId === activeProject.id) : []
+	const projectSessions = $derived(
+		activeProject ? data.recentSessions.filter((session) => session.projectId === activeProject.id) : []
 	);
+
+	let showInspectorModal = $state(false);
+	let inspectorSessionId = $state('');
+
+	function inspectSession(session: typeof data.recentSessions[number]) {
+		inspectorSessionId = session.id;
+		showInspectorModal = true;
+	}
 
 	// Derived Workspace variables
 	const activeWorkspaceProjects = $derived(
@@ -489,6 +498,11 @@
 							</div>
 						</div>
 
+						<!-- Layerchart Visual Analytics -->
+						<div class="mb-8">
+							<PlaytestChart sessions={projectSessions} />
+						</div>
+
 						<!-- Export Data Options -->
 						<div
 							class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
@@ -500,36 +514,43 @@
 									tools, LLMs, or spreadsheets.
 								</p>
 							</div>
-							<div class="flex gap-3">
+							<div class="flex flex-wrap gap-3">
 								<a
 									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/json`)}
 									download
-									class="btn rounded-xl border border-purple-500/25 bg-purple-500/10 px-6 font-bold text-purple-400 transition-all btn-sm hover:bg-purple-600 hover:text-white"
+									class="btn rounded-xl border border-purple-500/25 bg-purple-500/10 px-5 font-bold text-purple-400 transition-all btn-sm hover:bg-purple-600 hover:text-white"
 								>
-									📥 Download JSON
+									📥 JSON
 								</a>
 								<a
 									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/csv`)}
 									download
-									class="btn rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-6 font-bold text-indigo-400 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
+									class="btn rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-5 font-bold text-indigo-400 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
 								>
-									📥 Download CSV
+									📥 CSV
+								</a>
+								<a
+									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/zip`)}
+									download
+									class="btn rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 font-bold text-emerald-400 transition-all btn-sm hover:bg-emerald-600 hover:text-white"
+								>
+									📦 Download ZIP
 								</a>
 							</div>
 						</div>
 
-						<!-- Live event log inspector -->
+						<!-- Playtest session list inspector -->
 						<div class="space-y-4">
 							<div class="flex items-center justify-between">
 								<h4 class="text-sm font-bold tracking-wider text-slate-400 uppercase">
-									Live Event Inspector (Latest 50 events)
+									Recent Playtest Sessions (Latest 30)
 								</h4>
 								<span class="badge border-none bg-slate-800 font-mono text-xs text-slate-400"
-									>{projectLogs.length} events loaded</span
+									>{projectSessions.length} sessions loaded</span
 								>
 							</div>
 
-							{#if projectLogs.length === 0}
+							{#if projectSessions.length === 0}
 								<div
 									class="rounded-2xl border border-slate-800/80 bg-slate-950/20 py-16 text-center"
 								>
@@ -538,9 +559,9 @@
 									>
 										⏳
 									</div>
-									<h4 class="text-slate-350 mb-1 font-bold">Waiting for events...</h4>
+									<h4 class="text-slate-350 mb-1 font-bold">Waiting for playtests...</h4>
 									<p class="mx-auto max-w-md text-xs leading-relaxed text-slate-500">
-										No logs have been received for this project yet. Use the code templates in the
+										No playtest sessions have been received for this project yet. Use the code templates in the
 										guide below to start sending data from your game.
 									</p>
 								</div>
@@ -551,45 +572,77 @@
 											<tr
 												class="text-slate-450 border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold tracking-wider uppercase"
 											>
-												<th class="p-4">Time</th>
-												<th class="p-4">Event Name</th>
+												<th class="p-4">Started At</th>
 												<th class="p-4">Session ID</th>
-												<th class="p-4">Data Payload</th>
+												<th class="p-4">Duration</th>
+												<th class="p-4">Total Logs</th>
+												<th class="p-4">Avg FPS</th>
+												<th class="p-4">Sentiment</th>
+												<th class="p-4">Status</th>
+												<th class="p-4 text-right">Actions</th>
 											</tr>
 										</thead>
 										<tbody class="text-slate-350 divide-y divide-slate-800/55 font-medium">
-											{#each projectLogs as log (log.id)}
+											{#each projectSessions as session (session.id)}
 												<tr class="hover:bg-slate-900/20">
 													<td class="p-4 font-mono text-[10px] whitespace-nowrap text-slate-500">
-														{new Date(log.createdAt).toLocaleTimeString()}
+														{new Date(session.createdAt).toLocaleString()}
+													</td>
+													<td class="p-4 font-mono text-[10px] text-indigo-400" title={session.gpuRenderer ? `GPU: ${session.gpuRenderer}` : session.id}>
+														{session.id.slice(0, 8)}...
+													</td>
+													<td class="p-4 whitespace-nowrap">
+														{session.duration}s
 													</td>
 													<td class="p-4">
-														<span
-															class="rounded border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300"
-														>
-															{log.eventName}
+														<span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-300">
+															{session.logCount}
 														</span>
 													</td>
-													<td
-														class="p-4 font-mono text-[10px] text-indigo-400"
-														title={log.sessionId}
-													>
-														{log.sessionId.slice(0, 8)}...
+													<td class="p-4">
+														{#if session.avgFps}
+															<span class="rounded border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300">
+																{session.avgFps} FPS
+															</span>
+														{:else}
+															<span class="text-[10px] text-slate-600">--</span>
+														{/if}
 													</td>
-													<td class="max-w-sm p-4">
-														<details class="group cursor-pointer">
-															<summary
-																class="text-xs text-slate-500 select-none hover:text-slate-300"
-															>
-																Expand Payload ({Object.keys(JSON.parse(log.payload)).length} keys)
-															</summary>
-															<pre
-																class="border-slate-850 mt-2 overflow-x-auto rounded-xl border bg-slate-950 p-3 font-mono text-[10px] text-emerald-400">{JSON.stringify(
-																	JSON.parse(log.payload),
-																	null,
-																	2
-																)}</pre>
-														</details>
+													<td class="p-4">
+														{#if session.sentiment === 'fun'}
+															<span class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400" title={session.userComment || 'Playtest rated Fun'}>
+																😀 FUN
+															</span>
+														{:else if session.sentiment === 'neutral'}
+															<span class="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400" title={session.userComment || 'Playtest rated Neutral'}>
+																😐 OKAY
+															</span>
+														{:else if session.sentiment === 'unfun'}
+															<span class="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400" title={session.userComment || 'Playtest rated Unfun'}>
+																🙁 UNFUN
+															</span>
+														{:else}
+															<span class="text-[10px] text-slate-600">--</span>
+														{/if}
+													</td>
+													<td class="p-4">
+														{#if session.hasCrashed}
+															<span class="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400">
+																💥 CRASHED
+															</span>
+														{:else}
+															<span class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+																✅ ACTIVE / OK
+															</span>
+														{/if}
+													</td>
+													<td class="p-4 text-right">
+														<button
+															onclick={() => inspectSession(session)}
+															class="btn rounded-lg border border-purple-500/30 bg-purple-500/15 px-3 py-1 font-bold text-purple-300 transition-all text-[10px] hover:bg-purple-600 hover:text-white"
+														>
+															🔍 Inspect Logs
+														</button>
 													</td>
 												</tr>
 											{/each}
@@ -1032,5 +1085,14 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 				</form>
 			</div>
 		</div>
+	{/if}
+
+	{#if activeProjectAnalyticsId}
+		<ConsoleInspectorModal
+			isOpen={showInspectorModal}
+			sessionId={inspectorSessionId}
+			projectId={activeProjectAnalyticsId}
+			onClose={() => (showInspectorModal = false)}
+		/>
 	{/if}
 </main>

@@ -19,14 +19,13 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"db:sync": "npm run db:generate && npm run db:push && CI=true wrangler d1 migrations apply isitfun-db --local",
-		"db:sync:remote": "npm run db:generate && npm run db:push && CI=true wrangler d1 migrations apply isitfun-db --remote",
-		"auth:schema": "better-auth generate --config src/lib/server/auth.cli.ts --output src/lib/server/db/auth-schema.ts --yes",
+		"db:sync": "npm run db:generate && CI=true wrangler d1 migrations apply isitfun-db --local",
+		"db:sync:remote": "npm run db:generate && CI=true wrangler d1 migrations apply isitfun-db --remote",
+		"auth:schema": "npx auth generate --config src/lib/server/auth.cli.ts --output src/lib/server/db/auth-schema.ts --yes",
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
 	},
 	"devDependencies": {
-		"@better-auth/cli": "^1.4.21",
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
 		"@libsql/client": "^0.17.2",
@@ -40,9 +39,10 @@
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/better-sqlite3": "^7.6.13",
+		"@types/d3-scale": "^4.0.9",
 		"@types/node": "^22.19.15",
 		"@vitest/browser-playwright": "^4.0.18",
-		"better-auth": "^1.6.9",
+		"better-auth": "^1.6.23",
 		"drizzle-kit": "^0.31.8",
 		"drizzle-orm": "^0.45.1",
 		"eslint": "^9.39.2",
@@ -55,6 +55,7 @@
 		"prettier-plugin-tailwindcss": "^0.7.2",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",
+		"sveltekit-cloudflare-durable-objects": "^0.1.1",
 		"tailwindcss": "^4.2.2",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.54.0",
@@ -68,10 +69,15 @@
 		"@devmischief/shaders-svelte": "^0.0.9",
 		"@lucide/svelte": "^1.16.0",
 		"better-sqlite3": "^12.6.2",
+		"d3-scale": "^4.0.2",
 		"daisyui": "^5.5.19",
 		"drizzle-valibot": "^0.4.2",
 		"fflate": "^0.8.3",
+		"layerchart": "^2.0.2",
 		"lucide-svelte": "^1.0.1",
 		"valibot": "^1.4.0"
+	},
+	"allowScripts": {
+		"better-sqlite3@12.10.0": true
 	}
 }

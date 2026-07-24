@@ -1,4 +1,4 @@
-import { relations, sql } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 import { integer, sqliteTable, text, index } from 'drizzle-orm/sqlite-core';
 import { user } from './auth-schema';
 
@@ -14,7 +14,7 @@ export function generateNanoID(size = 12): string {
 }
 
 /**
- * @strata {"target":"d1","x":2176,"y":1176}
+ * @strata {"target":"d1","x":1881,"y":1316}
  */
 export const profile = sqliteTable('profile', {
 	id: text('id')
@@ -29,7 +29,7 @@ export const profile = sqliteTable('profile', {
 });
 
 /**
- * @strata {"target":"d1","x":2152,"y":850}
+ * @strata {"target":"d1","x":1857,"y":990}
  */
 export const organizations = sqliteTable('organizations', {
 	id: text('id')
@@ -47,7 +47,7 @@ export const organizations = sqliteTable('organizations', {
 });
 
 /**
- * @strata {"target":"d1","x":1666,"y":582}
+ * @strata {"target":"d1","x":1371,"y":722}
  */
 export const organizationMemberships = sqliteTable(
 	'organization_memberships',
@@ -68,12 +68,13 @@ export const organizationMemberships = sqliteTable(
 	},
 	(table) => [
 		index('org_mem_orgId_idx').on(table.organizationId),
-		index('org_mem_userId_idx').on(table.userId)
+		index('org_mem_userId_idx').on(table.userId),
+		index('org_mem_orgId_userId_idx').on(table.organizationId, table.userId)
 	]
 );
 
 /**
- * @strata {"target":"d1","x":1700,"y":205}
+ * @strata {"target":"d1","x":1405,"y":345}
  */
 export const organizationInvites = sqliteTable(
 	'organization_invites',
@@ -101,7 +102,7 @@ export const organizationInvites = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1679,"y":921}
+ * @strata {"target":"d1","x":1384,"y":1061}
  */
 export const projects = sqliteTable(
 	'projects',
@@ -130,7 +131,35 @@ export const projects = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1244,"y":905}
+ * @strata {"target":"d1","x":1384,"y":1200}
+ */
+export const projectAccessKeys = sqliteTable(
+	'project_access_keys',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => projects.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		code: text('code').notNull().unique(),
+		maxUses: integer('max_uses').notNull().default(20),
+		usedCount: integer('used_count').notNull().default(0),
+		expiresAt: integer('expires_at', { mode: 'timestamp' }),
+		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [
+		index('proj_keys_projectId_idx').on(table.projectId),
+		index('proj_keys_code_idx').on(table.code)
+	]
+);
+
+/**
+ * @strata {"target":"d1","x":949,"y":1045}
  */
 export const gameBuilds = sqliteTable(
 	'game_builds',
@@ -153,7 +182,7 @@ export const gameBuilds = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1232,"y":528}
+ * @strata {"target":"d1","x":937,"y":668}
  */
 export const projectQuotas = sqliteTable('project_quotas', {
 	id: text('id')
@@ -171,7 +200,7 @@ export const projectQuotas = sqliteTable('project_quotas', {
 });
 
 /**
- * @strata {"target":"d1","x":1248,"y":50}
+ * @strata {"target":"d1","x":953,"y":190}
  */
 export const payments = sqliteTable('payments', {
 	id: text('id')
@@ -193,7 +222,7 @@ export const payments = sqliteTable('payments', {
 });
 
 /**
- * @strata {"target":"d1","x":750,"y":135}
+ * @strata {"target":"d1","x":820,"y":50}
  */
 export const processedWebhooks = sqliteTable('processed_webhooks', {
 	id: text('id').primaryKey(),
@@ -203,7 +232,7 @@ export const processedWebhooks = sqliteTable('processed_webhooks', {
 });
 
 /**
- * @strata {"target":"d1","x":797,"y":916}
+ * @strata {"target":"d1","x":502,"y":1056}
  */
 export const telemetrySessions = sqliteTable(
 	'telemetry_sessions',
@@ -218,41 +247,20 @@ export const telemetrySessions = sqliteTable(
 		deviceHash: text('device_hash').notNull(), // Salted SHA256 IP signature for UK GDPR
 		browserInfo: text('browser_info'),
 		duration: integer('duration').default(0), // Length of play in seconds
+		logCount: integer('log_count').notNull().default(0),
+		hasCrashed: integer('has_crashed', { mode: 'boolean' }).notNull().default(false),
+		sentiment: text('sentiment').$type<'fun' | 'neutral' | 'unfun'>(),
+		avgFps: integer('avg_fps'),
+		userComment: text('user_comment'),
+		gpuRenderer: text('gpu_renderer'),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
 	(table) => [
 		index('telemetry_sessions_projectId_idx').on(table.projectId),
-		index('telemetry_sessions_gameBuildId_idx').on(table.gameBuildId)
-	]
-);
-
-/**
- * @strata {"target":"d1","x":495,"y":735}
- */
-/**
- * @strata {"target":"d1","x":495,"y":735}
- */
-export const customDeveloperLogs = sqliteTable(
-	'custom_developer_logs',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		projectId: text('project_id')
-			.notNull()
-			.references(() => projects.id, { onDelete: 'cascade' }),
-		sessionId: text('session_id')
-			.notNull()
-			.references(() => telemetrySessions.id, { onDelete: 'cascade' }),
-		eventName: text('event_name').notNull(),
-		payload: text('payload').notNull().default('{}'),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' })
-			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-			.notNull()
-	},
-	(table) => [
-		index('log_project_event_idx').on(table.projectId, table.eventName),
-		index('log_session_idx').on(table.sessionId)
+		index('telemetry_sessions_gameBuildId_idx').on(table.gameBuildId),
+		index('telemetry_sessions_projectId_createdAt_idx').on(table.projectId, table.createdAt)
 	]
 );
 
@@ -278,7 +286,14 @@ export const projectsRelations = relations(projects, ({ many, one }) => ({
 	projectQuotas: many(projectQuotas),
 	payments: many(payments),
 	telemetrySessions: many(telemetrySessions),
-	customDeveloperLogs: many(customDeveloperLogs)
+	accessKeys: many(projectAccessKeys)
+}));
+
+export const projectAccessKeysRelations = relations(projectAccessKeys, ({ one }) => ({
+	project: one(projects, {
+		fields: [projectAccessKeys.projectId],
+		references: [projects.id]
+	})
 }));
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -337,7 +352,7 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 
 export const processedWebhooksRelations = relations(processedWebhooks, () => ({}));
 
-export const telemetrySessionsRelations = relations(telemetrySessions, ({ many, one }) => ({
+export const telemetrySessionsRelations = relations(telemetrySessions, ({ one }) => ({
 	project: one(projects, {
 		fields: [telemetrySessions.projectId],
 		references: [projects.id]
@@ -345,19 +360,27 @@ export const telemetrySessionsRelations = relations(telemetrySessions, ({ many, 
 	gameBuild: one(gameBuilds, {
 		fields: [telemetrySessions.gameBuildId],
 		references: [gameBuilds.id]
-	}),
-	customDeveloperLogs: many(customDeveloperLogs)
-}));
-
-export const customDeveloperLogsRelations = relations(customDeveloperLogs, ({ one }) => ({
-	project: one(projects, {
-		fields: [customDeveloperLogs.projectId],
-		references: [projects.id]
-	}),
-	session: one(telemetrySessions, {
-		fields: [customDeveloperLogs.sessionId],
-		references: [telemetrySessions.id]
 	})
 }));
 
 export * from './auth-schema';
+
+/**
+ * @strata {"target":"project","wranglerPath":"../../../../wrangler.jsonc"}
+ */
+export const strataConfig = {};
+
+/** 
+ * @strata {"target":"kv","x":50,"y":50,"binding":"ISITFUN_KV"} 
+ */
+export const ISITFUN_KV = {};
+
+/** 
+ * @strata {"target":"kv","x":542,"y":50,"binding":"DRIFTER_CONTROL"} 
+ */
+export const DRIFTER_CONTROL = {};
+
+/** 
+ * @strata {"target":"r2","x":290,"y":50,"binding":"GAMES_BUCKET"} 
+ */
+export const GAMES_BUCKET = {};

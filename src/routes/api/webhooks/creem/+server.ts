@@ -55,17 +55,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const eventType = body.eventType || 'checkout.completed';
-	const objectData = body.object || {};
+	const objectData = (body as any).object || (body as any).data || {};
 	const orderData = objectData.order || {};
-
-	const projectId = objectData.request_id;
-	const status = orderData.status || objectData.status;
-	const webhookId = body.id;
 
 	const metadata = {
 		...(objectData.metadata || {}),
 		...(orderData.metadata || {})
 	};
+	const projectId = (metadata.projectId || metadata.project_id || objectData.request_id) as
+		| string
+		| null
+		| undefined;
+	const status = orderData.status || objectData.status;
+	const webhookId = body.id || objectData.id;
+
 	const organizationId = (metadata.organizationId || metadata.organization_id || null) as
 		| string
 		| null;

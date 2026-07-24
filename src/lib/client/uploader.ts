@@ -23,7 +23,15 @@ export class UploadManager {
 	async uploadZip(file: File): Promise<void> {
 		const { projectId, isFree, onProgress, onSuccess, onError } = this.options;
 
-		// 1. Free tier size check (40MB)
+		// 1. Hard maximum limit for game vertical slices (100MB)
+		if (file.size > 100 * 1024 * 1024) {
+			onError(
+				`File size exceeds maximum 100 MB limit (${(file.size / (1024 * 1024)).toFixed(1)} MB). isitfun is tailored for web game vertical slices and small playtest builds.`
+			);
+			return;
+		}
+
+		// 2. Free tier size check (40MB)
 		if (isFree && file.size > 40 * 1024 * 1024) {
 			onError(
 				`Free Jammer Tier projects are limited to a maximum ZIP file size of 40 MB. Selected file is ${(

@@ -37,6 +37,20 @@
 			"bucket_name": "isitfun-games"
 		}
 	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "TELEMETRY_BUFFER",
+				"class_name": "TelemetrySessionDO"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_classes": ["TelemetrySessionDO"]
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

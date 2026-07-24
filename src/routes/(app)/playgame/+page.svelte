@@ -81,12 +81,19 @@
 						<div class="absolute top-1/2 right-3 -translate-y-1/2 text-slate-600">🗝️</div>
 					</div>
 
-					{#if form?.incorrect}
+					{#if data.urlError || form?.error}
+						<p
+							id="error-message"
+							class="mt-2 text-center text-xs font-bold text-rose-400 bg-rose-950/40 p-3 rounded-lg border border-rose-800/50"
+						>
+							⚠️ {data.urlError || form?.error}
+						</p>
+					{:else if form?.incorrect}
 						<p
 							id="error-message"
 							class="mt-2 animate-pulse text-center text-xs font-bold text-rose-500"
 						>
-							⚠️ Incorrect password! Please check with the developer.
+							⚠️ Incorrect password or access key! Please check with the developer.
 						</p>
 					{/if}
 				</div>

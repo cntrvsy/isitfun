@@ -1,10 +1,11 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { eq } from 'drizzle-orm';
-import { projects } from '$lib/server/db/db-schema';
+import { eq, and, sql } from 'drizzle-orm';
+import { projects, projectAccessKeys } from '$lib/server/db/db-schema';
+import { validateAccessKey } from '$lib/server/db/access-keys';
 import { verifySession, signSession } from '$lib/server/crypto';
 
-export const GET: RequestHandler = async ({ params, locals, platform, cookies }) => {
+export const GET: RequestHandler = async ({ params, locals, platform, cookies, url }) => {
 	const projectId = params.projectId;
 	let filePath = params.file || 'index.html';
 
@@ -55,10 +56,41 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies })
 		throw error(404, 'Playtest project not found');
 	}
 
-	// Perform authentication check if the playtest is password protected
-	if (project.passwordProtected) {
-		const authCookie = cookies.get(`play_auth_${projectId}`);
-		if (authCookie !== project.passwordHash) {
+	// Perform authentication check if the playtest requires access keys or password
+	const keyParam = url.searchParams.get('key');
+	const keyCookie = cookies.get(`play_key_${projectId}`);
+	const legacyCookie = cookies.get(`play_auth_${projectId}`);
+
+	// Check if any keys exist for this project
+	const keys = await locals.db
+		.select()
+		.from(projectAccessKeys)
+		.where(and(eq(projectAccessKeys.projectId, projectId), eq(projectAccessKeys.isActive, true)))
+		.all();
+
+	if (keys.length > 0) {
+		const targetCode = keyParam || keyCookie;
+		const matchingKey = keys.find((k) => k.code.toUpperCase() === (targetCode || '').toUpperCase());
+
+		const validation = validateAccessKey(matchingKey);
+		if (!validation.valid) {
+			throw redirect(302, `/playgame?projectId=${projectId}&error=${validation.reason || 'invalid_key'}`);
+		}
+
+		// Increment usedCount if starting a fresh session with keyParam
+		if (keyParam && matchingKey) {
+			await locals.db
+				.update(projectAccessKeys)
+				.set({ usedCount: sql`${projectAccessKeys.usedCount} + 1` })
+				.where(eq(projectAccessKeys.id, matchingKey.id));
+
+			cookies.set(`play_key_${projectId}`, matchingKey.code, {
+				path: `/play/${projectId}`,
+				maxAge: 60 * 60 * 24
+			});
+		}
+	} else if (project.passwordProtected) {
+		if (legacyCookie !== project.passwordHash) {
 			throw redirect(302, `/playgame?projectId=${projectId}`);
 		}
 	}

@@ -29,8 +29,17 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 				clientSecret: env.GOOGLE_CLIENT_SECRET || ''
 			}
 		},
+		user: {
+			additionalFields: {
+				role: {
+					type: 'string',
+					defaultValue: 'game_developer',
+					input: false
+				}
+			}
+		},
 		advanced: {
-			cookieOptions: {
+			defaultCookieAttributes: {
 				path: '/'
 			}
 		},

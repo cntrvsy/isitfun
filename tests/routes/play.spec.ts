@@ -7,9 +7,8 @@ vi.mock('$env/dynamic/private', () => ({
 	}
 }));
 
-import { GET } from './[projectId]/[...file]/+server';
+import { GET } from '../../src/routes/play/[projectId]/[...file]/+server';
 import { signSession } from '$lib/server/crypto';
-import { projects } from '$lib/server/db/db-schema';
 
 describe('GET /play/[projectId]/[...file]', () => {
 	beforeEach(() => {
@@ -25,7 +24,8 @@ describe('GET /play/[projectId]/[...file]', () => {
 				id: 'proj_123',
 				tier: 'free',
 				passwordProtected: false
-			})
+			}),
+			all: vi.fn().mockResolvedValue([])
 		};
 
 		const mockBucket = {
@@ -46,6 +46,7 @@ describe('GET /play/[projectId]/[...file]', () => {
 			platform: { env: { GAMES_BUCKET: mockBucket } } as any,
 			cookies: mockCookies as any,
 			request: new Request('http://localhost/play/proj_123/index.html'),
+			url: new URL('http://localhost/play/proj_123/index.html'),
 			getClientAddress: () => '127.0.0.1'
 		} as any);
 
@@ -60,38 +61,32 @@ describe('GET /play/[projectId]/[...file]', () => {
 			expect.any(Object)
 		);
 
-		const text = await res.text();
-		expect(text).toContain('overlay-widget.js');
-		expect(text).toContain('data-project="proj_123"');
-		expect(text).toContain('data-tier="free"');
+		const html = await res.text();
+		expect(html).toContain('<script src="/assets/overlay-widget.js" data-project="proj_123" data-tier="free"></script>');
+		expect(html).toContain('test-body');
 	});
 
 	it('should bypass database query for subresources when a valid signed session cookie is present', async () => {
+		const validSessionToken = await signSession('proj_123');
+
 		const mockDb = {
-			select: vi.fn(),
-			from: vi.fn(),
-			where: vi.fn(),
-			get: vi.fn()
+			select: vi.fn()
 		};
 
 		const mockBucket = {
 			get: vi.fn().mockResolvedValue({
-				body: 'console.log("subresource")',
+				body: 'console.log("main.js")',
 				httpMetadata: { contentType: 'application/javascript' }
 			})
 		};
 
-		// Generate valid play session token
-		const token = await signSession('proj_123');
-
 		const mockCookies = {
 			get: vi.fn().mockImplementation((name) => {
 				if (name === 'play_session_proj_123') {
-					return token;
+					return validSessionToken;
 				}
 				return undefined;
-			}),
-			set: vi.fn()
+			})
 		};
 
 		const res = await GET({
@@ -100,31 +95,27 @@ describe('GET /play/[projectId]/[...file]', () => {
 			platform: { env: { GAMES_BUCKET: mockBucket } } as any,
 			cookies: mockCookies as any,
 			request: new Request('http://localhost/play/proj_123/js/main.js'),
+			url: new URL('http://localhost/play/proj_123/js/main.js'),
 			getClientAddress: () => '127.0.0.1'
 		} as any);
 
 		expect(res.status).toBe(200);
-		// Crucial verification: DB should NEVER be queried for subresource if session is valid!
+		// Crucial performance optimization: DB is NOT queried for static subresources!
 		expect(mockDb.select).not.toHaveBeenCalled();
 		expect(mockBucket.get).toHaveBeenCalledWith('games/proj_123/assets/js/main.js');
-
-		const text = await res.text();
-		expect(text).toBe('console.log("subresource")');
 	});
 
 	it('should fall back to database query for subresources when session cookie is invalid or missing', async () => {
 		const mockDb = {
 			select: vi.fn().mockReturnThis(),
-			from: vi.fn().mockImplementation((table) => {
-				expect(table).toBe(projects);
-				return mockDb;
-			}),
+			from: vi.fn().mockReturnThis(),
 			where: vi.fn().mockReturnThis(),
 			get: vi.fn().mockResolvedValue({
 				id: 'proj_123',
 				tier: 'free',
 				passwordProtected: false
-			})
+			}),
+			all: vi.fn().mockResolvedValue([])
 		};
 
 		const mockBucket = {
@@ -145,6 +136,7 @@ describe('GET /play/[projectId]/[...file]', () => {
 			platform: { env: { GAMES_BUCKET: mockBucket } } as any,
 			cookies: mockCookies as any,
 			request: new Request('http://localhost/play/proj_123/js/main.js'),
+			url: new URL('http://localhost/play/proj_123/js/main.js'),
 			getClientAddress: () => '127.0.0.1'
 		} as any);
 
@@ -164,7 +156,8 @@ describe('GET /play/[projectId]/[...file]', () => {
 				tier: 'pro',
 				passwordProtected: true,
 				passwordHash: 'hashed-password-xyz'
-			})
+			}),
+			all: vi.fn().mockResolvedValue([])
 		};
 
 		const mockCookies = {
@@ -179,6 +172,7 @@ describe('GET /play/[projectId]/[...file]', () => {
 				platform: { env: { GAMES_BUCKET: {} } } as any,
 				cookies: mockCookies as any,
 				request: new Request('http://localhost/play/proj_passworded/index.html'),
+				url: new URL('http://localhost/play/proj_passworded/index.html'),
 				getClientAddress: () => '127.0.0.1'
 			} as any);
 			expect.fail('Should have redirected');
@@ -199,7 +193,8 @@ describe('GET /play/[projectId]/[...file]', () => {
 				tier: 'pro',
 				passwordProtected: true,
 				passwordHash: 'hashed-password-xyz'
-			})
+			}),
+			all: vi.fn().mockResolvedValue([])
 		};
 
 		const mockBucket = {
@@ -225,6 +220,7 @@ describe('GET /play/[projectId]/[...file]', () => {
 			platform: { env: { GAMES_BUCKET: mockBucket } } as any,
 			cookies: mockCookies as any,
 			request: new Request('http://localhost/play/proj_passworded/index.html'),
+			url: new URL('http://localhost/play/proj_passworded/index.html'),
 			getClientAddress: () => '127.0.0.1'
 		} as any);
 

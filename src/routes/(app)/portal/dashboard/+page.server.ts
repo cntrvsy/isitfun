@@ -5,7 +5,6 @@ import { eq, lt, and, inArray, desc, or, isNull } from 'drizzle-orm';
 import {
 	projects,
 	telemetrySessions,
-	customDeveloperLogs,
 	organizations,
 	organizationMemberships,
 	organizationInvites
@@ -155,35 +154,27 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 
 	// Fetch session and log counts along with recent events for live tail inspector
 	const projectIds = userProjects.map((p) => p.id);
-	let recentLogs: Array<typeof customDeveloperLogs.$inferSelect> = [];
+	let recentSessions: Array<typeof telemetrySessions.$inferSelect> = [];
 	const sessionCounts: Record<string, number> = {};
 	const logCounts: Record<string, number> = {};
 
 	if (projectIds.length > 0) {
-		recentLogs = await db
+		recentSessions = await db
 			.select()
-			.from(customDeveloperLogs)
-			.where(inArray(customDeveloperLogs.projectId, projectIds))
-			.orderBy(desc(customDeveloperLogs.createdAt))
-			.limit(50)
+			.from(telemetrySessions)
+			.where(inArray(telemetrySessions.projectId, projectIds))
+			.orderBy(desc(telemetrySessions.createdAt))
+			.limit(30)
 			.all();
 
 		const sessionList = await db
-			.select({ projectId: telemetrySessions.projectId })
+			.select({ projectId: telemetrySessions.projectId, logCount: telemetrySessions.logCount })
 			.from(telemetrySessions)
 			.where(inArray(telemetrySessions.projectId, projectIds))
 			.all();
 		for (const s of sessionList) {
 			sessionCounts[s.projectId] = (sessionCounts[s.projectId] || 0) + 1;
-		}
-
-		const logList = await db
-			.select({ projectId: customDeveloperLogs.projectId })
-			.from(customDeveloperLogs)
-			.where(inArray(customDeveloperLogs.projectId, projectIds))
-			.all();
-		for (const l of logList) {
-			logCounts[l.projectId] = (logCounts[l.projectId] || 0) + 1;
+			logCounts[s.projectId] = (logCounts[s.projectId] || 0) + s.logCount;
 		}
 	}
 
@@ -200,29 +191,76 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		};
 	});
 
-	// Defensive Shield 2: 7-Day Log Decay Protocol for Free tier projects
+	// Defensive Shield 2: Multi-Tiered Log Decay Protocol & R2 Storage Cleanup
 	const wait = platform?.ctx?.waitUntil;
 	if (wait) {
-		const freeProjectIds = userProjects.filter((p) => p.tier === 'free').map((p) => p.id);
-		if (freeProjectIds.length > 0) {
-			const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-			wait(
-				db
-					.delete(customDeveloperLogs)
-					.where(
-						and(
-							lt(customDeveloperLogs.createdAt, oneWeekAgo),
-							inArray(customDeveloperLogs.projectId, freeProjectIds)
+		const bucket = platform?.env?.GAMES_BUCKET;
+		const now = Date.now();
+		const freeProjectIds = userProjects
+			.filter((p) => !p.organizationId && (p.tier || 'free') === 'free')
+			.map((p) => p.id);
+		const proProjectIds = userProjects
+			.filter((p) => !p.organizationId && p.tier === 'pro')
+			.map((p) => p.id);
+		const teamProjectIds = userProjects
+			.filter((p) => Boolean(p.organizationId))
+			.map((p) => p.id);
+
+		const cleanupRoutine = async () => {
+			try {
+				const thresholds: Array<{ ids: string[]; date: Date }> = [];
+				if (freeProjectIds.length > 0) {
+					thresholds.push({ ids: freeProjectIds, date: new Date(now - 7 * 24 * 60 * 60 * 1000) });
+				}
+				if (proProjectIds.length > 0) {
+					thresholds.push({ ids: proProjectIds, date: new Date(now - 30 * 24 * 60 * 60 * 1000) });
+				}
+				if (teamProjectIds.length > 0) {
+					thresholds.push({ ids: teamProjectIds, date: new Date(now - 90 * 24 * 60 * 60 * 1000) });
+				}
+
+				for (const item of thresholds) {
+					const expiredSessions = await db
+						.select({ id: telemetrySessions.id, projectId: telemetrySessions.projectId })
+						.from(telemetrySessions)
+						.where(
+							and(
+								lt(telemetrySessions.createdAt, item.date),
+								inArray(telemetrySessions.projectId, item.ids)
+							)
 						)
-					)
-			);
-		}
+						.all();
+
+					if (expiredSessions.length > 0) {
+						if (bucket) {
+							for (const sess of expiredSessions) {
+								try {
+									await bucket.delete(`games/${sess.projectId}/sessions/${sess.id}.json`);
+								} catch (r2Err) {
+									console.error(
+										`[R2 Session Cleanup] Failed to delete R2 log file for session ${sess.id}:`,
+										r2Err
+									);
+								}
+							}
+						}
+
+						const expiredIds = expiredSessions.map((s) => s.id);
+						await db.delete(telemetrySessions).where(inArray(telemetrySessions.id, expiredIds));
+					}
+				}
+			} catch (err) {
+				console.error('[Log Decay Cleanup Routine] Failed:', err);
+			}
+		};
+
+		wait(cleanupRoutine());
 	}
 
 	return {
 		projects: projectsWithStats,
 		organizations: userOrgs,
-		recentLogs,
+		recentSessions,
 		user
 	};
 };

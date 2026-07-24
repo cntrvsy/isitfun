@@ -7,9 +7,11 @@ import {
 	projects,
 	organizations,
 	organizationMemberships,
-	organizationInvites
+	organizationInvites,
+	projectAccessKeys,
+	generateNanoID
 } from '$lib/server/db/db-schema';
-import { generateNanoID } from '$lib/server/db/db-schema';
+import { getMaxUsesCapForTier } from '$lib/server/db/access-keys';
 import { env } from '$env/dynamic/private';
 import { hashPassword } from '$lib/server/crypto';
 
@@ -625,3 +627,115 @@ export const removeMember = form(
 		}
 	}
 );
+
+export const createAccessKey = form(
+	v.object({
+		projectId: v.pipe(v.string(), v.nonEmpty('Project ID is required')),
+		name: v.pipe(v.string(), v.nonEmpty('Key name is required')),
+		maxUses: v.pipe(v.number(), v.minValue(1, 'Max uses must be at least 1'))
+	}),
+	async (data) => {
+		const event = getRequestEvent();
+		if (!event) error(500, 'Request event missing');
+
+		const user = event.locals.user;
+		if (!user) error(401, 'Unauthorized');
+
+		const db = event.locals.db;
+
+		// Verify project ownership
+		const project = await db
+			.select()
+			.from(projects)
+			.where(and(eq(projects.id, data.projectId), eq(projects.userId, user.id)))
+			.get();
+
+		if (!project) {
+			error(403, 'Forbidden: You do not have permission to add access keys for this project');
+		}
+
+		// Enforce tier hard cap
+		const tier = project.tier || 'free';
+		const cap = getMaxUsesCapForTier(tier);
+
+		if (user.role !== 'admin' && data.maxUses > cap) {
+			error(
+				400,
+				`Max uses (${data.maxUses}) exceeds your ${tier.toUpperCase()} tier cap of ${cap} uses per key. Upgrade your plan for higher limits.`
+			);
+		}
+
+		try {
+			const code = `${project.id.slice(0, 4)}-${generateNanoID(6)}`.toUpperCase();
+			const newKey = await db
+				.insert(projectAccessKeys)
+				.values({
+					projectId: data.projectId,
+					name: data.name,
+					code,
+					maxUses: data.maxUses,
+					usedCount: 0,
+					isActive: true
+				})
+				.returning()
+				.get();
+
+			return { success: true, key: newKey };
+		} catch (err) {
+			console.error('Failed to create access key:', err);
+			error(500, 'Failed to create access key');
+		}
+	}
+);
+
+export const toggleAccessKey = form(
+	v.object({
+		keyId: v.pipe(v.string(), v.nonEmpty('Key ID is required')),
+		isActive: v.boolean()
+	}),
+	async (data) => {
+		const event = getRequestEvent();
+		if (!event) error(500, 'Request event missing');
+
+		const user = event.locals.user;
+		if (!user) error(401, 'Unauthorized');
+
+		const db = event.locals.db;
+
+		try {
+			await db
+				.update(projectAccessKeys)
+				.set({ isActive: data.isActive })
+				.where(eq(projectAccessKeys.id, data.keyId));
+
+			return { success: true };
+		} catch (err) {
+			console.error('Failed to toggle access key:', err);
+			error(500, 'Failed to update access key status');
+		}
+	}
+);
+
+export const deleteAccessKey = form(
+	v.object({
+		keyId: v.pipe(v.string(), v.nonEmpty('Key ID is required'))
+	}),
+	async (data) => {
+		const event = getRequestEvent();
+		if (!event) error(500, 'Request event missing');
+
+		const user = event.locals.user;
+		if (!user) error(401, 'Unauthorized');
+
+		const db = event.locals.db;
+
+		try {
+			await db.delete(projectAccessKeys).where(eq(projectAccessKeys.id, data.keyId));
+			return { success: true };
+		} catch (err) {
+			console.error('Failed to delete access key:', err);
+			error(500, 'Failed to delete access key');
+		}
+	}
+);
+

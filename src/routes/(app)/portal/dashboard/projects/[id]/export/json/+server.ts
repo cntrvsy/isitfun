@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { customDeveloperLogs, projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, organizationMemberships } from '$lib/server/db/db-schema';
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;
 	if (!session || !locals.user) {
 		throw error(401, 'Unauthorized');
@@ -19,7 +19,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(404, 'Project not found');
 	}
 
-	// Verify project ownership or organization membership
+	// Verify project access
 	let hasAccess = project.userId === locals.user.id;
 	if (!hasAccess && project.organizationId) {
 		const membership = await db
@@ -41,22 +41,46 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		throw error(403, 'Forbidden: You do not have access to this project');
 	}
 
-	// Fetch all logs
-	const logs = await db
-		.select()
-		.from(customDeveloperLogs)
-		.where(eq(customDeveloperLogs.projectId, projectId))
-		.all();
+	const bucket = platform?.env.GAMES_BUCKET;
+	if (!bucket) {
+		throw error(500, 'GAMES_BUCKET R2 binding is missing');
+	}
 
-	const formattedLogs = logs.map((log) => ({
-		id: log.id,
-		sessionId: log.sessionId,
-		eventName: log.eventName,
-		payload: JSON.parse(log.payload),
-		createdAt: log.createdAt
-	}));
+	// List session files in R2
+	const listResult = await bucket.list({ prefix: `games/${projectId}/sessions/` });
+	const compiledLogs: {
+		sessionId: string;
+		eventName: string;
+		payload: unknown;
+		createdAt: string | number;
+	}[] = [];
 
-	return new Response(JSON.stringify(formattedLogs, null, 2), {
+	for (const obj of listResult.objects) {
+		const sessionObj = await bucket.get(obj.key);
+		if (sessionObj) {
+			try {
+				const data = (await sessionObj.json()) as {
+					sessionId: string;
+					createdAt: string | number;
+					logs: Array<{ event: string; data: unknown; timestamp?: number }>;
+				};
+				if (data && Array.isArray(data.logs)) {
+					for (const log of data.logs) {
+						compiledLogs.push({
+							sessionId: data.sessionId,
+							eventName: log.event,
+							payload: log.data,
+							createdAt: log.timestamp || data.createdAt
+						});
+					}
+				}
+			} catch {
+				// Skip corrupt files
+			}
+		}
+	}
+
+	return new Response(JSON.stringify(compiledLogs, null, 2), {
 		headers: {
 			'Content-Type': 'application/json',
 			'Content-Disposition': `attachment; filename="project_${projectId}_export.json"`

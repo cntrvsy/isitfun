@@ -45,6 +45,10 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 
 	const contentLength = Number(request.headers.get('content-length') || 0);
 
+	if (contentLength > 100 * 1024 * 1024) {
+		throw error(413, 'File size exceeds maximum 100 MB limit for game vertical slices');
+	}
+
 	if (project.tier === 'free') {
 		if (contentLength > 40 * 1024 * 1024) {
 			throw error(413, 'File size exceeds 40 MB free limit');

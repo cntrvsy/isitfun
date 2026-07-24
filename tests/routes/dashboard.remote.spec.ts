@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createProject } from './dashboard.remote';
+import { createProject } from '../../src/routes/(app)/portal/dashboard/dashboard.remote';
 import { hashPassword } from '$lib/server/crypto';
 import { getRequestEvent } from '$app/server';
 
