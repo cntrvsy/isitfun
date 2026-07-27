@@ -51,7 +51,9 @@ describe('POST /api/telemetry', () => {
 		const res = await POST({
 			request,
 			locals: { db: mockDb } as any,
-			platform: { env: { ISITFUN_KV: { get: vi.fn().mockResolvedValue(null), put: vi.fn() } } } as any,
+			platform: {
+				env: { ISITFUN_KV: { get: vi.fn().mockResolvedValue(null), put: vi.fn() } }
+			} as any,
 			getClientAddress: () => '127.0.0.1',
 			url: new URL('http://localhost/api/telemetry')
 		} as any);
@@ -176,7 +178,9 @@ describe('POST /api/telemetry', () => {
 		const requestBody = {
 			projectId: 'proj_free',
 			sessionId: 'sess_phase2',
-			logs: [{ event: 'feedback', data: { sentiment: 'fun', comment: 'Loved the game mechanics!' } }],
+			logs: [
+				{ event: 'feedback', data: { sentiment: 'fun', comment: 'Loved the game mechanics!' } }
+			],
 			avgFps: 58,
 			minFps: 32,
 			deviceSpecs: {

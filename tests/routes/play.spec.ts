@@ -62,7 +62,9 @@ describe('GET /play/[projectId]/[...file]', () => {
 		);
 
 		const html = await res.text();
-		expect(html).toContain('<script src="/assets/overlay-widget.js" data-project="proj_123" data-tier="free"></script>');
+		expect(html).toContain(
+			'<script src="/assets/overlay-widget.js" data-project="proj_123" data-tier="free"></script>'
+		);
 		expect(html).toContain('test-body');
 	});
 

@@ -35,13 +35,15 @@
 	const activeProject = $derived(data.projects.find((p) => p.id === activeProjectAnalyticsId));
 
 	const projectSessions = $derived(
-		activeProject ? data.recentSessions.filter((session) => session.projectId === activeProject.id) : []
+		activeProject
+			? data.recentSessions.filter((session) => session.projectId === activeProject.id)
+			: []
 	);
 
 	let showInspectorModal = $state(false);
 	let inspectorSessionId = $state('');
 
-	function inspectSession(session: typeof data.recentSessions[number]) {
+	function inspectSession(session: (typeof data.recentSessions)[number]) {
 		inspectorSessionId = session.id;
 		showInspectorModal = true;
 	}
@@ -561,8 +563,8 @@
 									</div>
 									<h4 class="text-slate-350 mb-1 font-bold">Waiting for playtests...</h4>
 									<p class="mx-auto max-w-md text-xs leading-relaxed text-slate-500">
-										No playtest sessions have been received for this project yet. Use the code templates in the
-										guide below to start sending data from your game.
+										No playtest sessions have been received for this project yet. Use the code
+										templates in the guide below to start sending data from your game.
 									</p>
 								</div>
 							{:else}
@@ -588,20 +590,27 @@
 													<td class="p-4 font-mono text-[10px] whitespace-nowrap text-slate-500">
 														{new Date(session.createdAt).toLocaleString()}
 													</td>
-													<td class="p-4 font-mono text-[10px] text-indigo-400" title={session.gpuRenderer ? `GPU: ${session.gpuRenderer}` : session.id}>
+													<td
+														class="p-4 font-mono text-[10px] text-indigo-400"
+														title={session.gpuRenderer ? `GPU: ${session.gpuRenderer}` : session.id}
+													>
 														{session.id.slice(0, 8)}...
 													</td>
 													<td class="p-4 whitespace-nowrap">
 														{session.duration}s
 													</td>
 													<td class="p-4">
-														<span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-300">
+														<span
+															class="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-300"
+														>
 															{session.logCount}
 														</span>
 													</td>
 													<td class="p-4">
 														{#if session.avgFps}
-															<span class="rounded border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300">
+															<span
+																class="rounded border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300"
+															>
 																{session.avgFps} FPS
 															</span>
 														{:else}
@@ -610,15 +619,24 @@
 													</td>
 													<td class="p-4">
 														{#if session.sentiment === 'fun'}
-															<span class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400" title={session.userComment || 'Playtest rated Fun'}>
+															<span
+																class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400"
+																title={session.userComment || 'Playtest rated Fun'}
+															>
 																😀 FUN
 															</span>
 														{:else if session.sentiment === 'neutral'}
-															<span class="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400" title={session.userComment || 'Playtest rated Neutral'}>
+															<span
+																class="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400"
+																title={session.userComment || 'Playtest rated Neutral'}
+															>
 																😐 OKAY
 															</span>
 														{:else if session.sentiment === 'unfun'}
-															<span class="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400" title={session.userComment || 'Playtest rated Unfun'}>
+															<span
+																class="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400"
+																title={session.userComment || 'Playtest rated Unfun'}
+															>
 																🙁 UNFUN
 															</span>
 														{:else}
@@ -627,11 +645,15 @@
 													</td>
 													<td class="p-4">
 														{#if session.hasCrashed}
-															<span class="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400">
+															<span
+																class="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400"
+															>
 																💥 CRASHED
 															</span>
 														{:else}
-															<span class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+															<span
+																class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400"
+															>
 																✅ ACTIVE / OK
 															</span>
 														{/if}
@@ -639,7 +661,7 @@
 													<td class="p-4 text-right">
 														<button
 															onclick={() => inspectSession(session)}
-															class="btn rounded-lg border border-purple-500/30 bg-purple-500/15 px-3 py-1 font-bold text-purple-300 transition-all text-[10px] hover:bg-purple-600 hover:text-white"
+															class="btn rounded-lg border border-purple-500/30 bg-purple-500/15 px-3 py-1 text-[10px] font-bold text-purple-300 transition-all hover:bg-purple-600 hover:text-white"
 														>
 															🔍 Inspect Logs
 														</button>

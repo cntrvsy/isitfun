@@ -38,7 +38,11 @@ describe('POST /api/webhooks/creem', () => {
 			select: vi.fn().mockReturnThis(),
 			from: vi.fn().mockReturnThis(),
 			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'proj_1', userId: 'user_1' }),
+			get: vi
+				.fn()
+				.mockResolvedValueOnce(null)
+				.mockResolvedValueOnce(null)
+				.mockResolvedValueOnce({ id: 'proj_1', userId: 'user_1' }),
 			insert: vi.fn().mockReturnThis(),
 			values: vi.fn().mockResolvedValue({}),
 			update: vi.fn().mockReturnThis(),
@@ -85,7 +89,10 @@ describe('POST /api/webhooks/creem', () => {
 			select: vi.fn().mockReturnThis(),
 			from: vi.fn().mockReturnThis(),
 			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'org_123', ownerId: 'user_1' }),
+			get: vi
+				.fn()
+				.mockResolvedValueOnce(null)
+				.mockResolvedValueOnce({ id: 'org_123', ownerId: 'user_1' }),
 			insert: vi.fn().mockReturnThis(),
 			values: vi.fn().mockResolvedValue({}),
 			update: vi.fn().mockReturnThis(),

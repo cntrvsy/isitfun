@@ -1,4 +1,4 @@
-import { error, redirect, fail } from '@sveltejs/kit';
+import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { eq, and } from 'drizzle-orm';
 import { projects, projectAccessKeys } from '$lib/server/db/db-schema';
@@ -10,13 +10,13 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	const urlError = url.searchParams.get('error');
 
 	if (!projectId) {
-		throw error(400, 'Missing projectId parameter');
+		return { notFound: true, projectId: '', projectName: '', urlError: null };
 	}
 
 	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
-		throw error(404, 'Playtest project not found');
+		return { notFound: true, projectId, projectName: '', urlError: null };
 	}
 
 	// Check for active keys
@@ -59,7 +59,7 @@ export const actions: Actions = {
 	verify: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const projectId = formData.get('projectId') as string;
-		const passwordInput = (formData.get('password') as string || '').trim();
+		const passwordInput = ((formData.get('password') as string) || '').trim();
 
 		if (!projectId || !passwordInput) {
 			return fail(400, { missing: true });
@@ -106,4 +106,3 @@ export const actions: Actions = {
 		return fail(400, { incorrect: true });
 	}
 };
-

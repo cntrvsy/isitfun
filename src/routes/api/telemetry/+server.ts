@@ -30,7 +30,17 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		throw error(400, 'Invalid JSON body');
 	}
 
-	const { projectId, sessionId, event, data, timestamp, browserInfo, gameBuildId, logs, isExiting } = body;
+	const {
+		projectId,
+		sessionId,
+		event,
+		data,
+		timestamp,
+		browserInfo,
+		gameBuildId,
+		logs,
+		isExiting
+	} = body;
 
 	if (!projectId || !sessionId) {
 		throw error(400, 'Missing required fields: projectId, sessionId');
@@ -39,7 +49,12 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	const kv = platform?.env.ISITFUN_KV;
 
 	// 1. Fetch project tier & configuration (checking KV cache first to save D1 selects)
-	let project: { id: string; tier: string; passwordProtected: boolean; passwordHash: string | null } | null = null;
+	let project: {
+		id: string;
+		tier: string;
+		passwordProtected: boolean;
+		passwordHash: string | null;
+	} | null = null;
 	const projectCacheKey = `project:config:${projectId}`;
 
 	if (kv) {
@@ -54,7 +69,11 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	}
 
 	if (!project) {
-		const dbProject = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+		const dbProject = await locals.db
+			.select()
+			.from(projects)
+			.where(eq(projects.id, projectId))
+			.get();
 		if (!dbProject) {
 			throw error(404, 'Project not found');
 		}
@@ -124,9 +143,12 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 				.all();
 
 			if (activeSessions.length >= 3) {
-				return new Response('Concurrent playtest session limit of 3 exceeded for Free Jammer Tier.', {
-					status: 429
-				});
+				return new Response(
+					'Concurrent playtest session limit of 3 exceeded for Free Jammer Tier.',
+					{
+						status: 429
+					}
+				);
 			}
 		}
 	}

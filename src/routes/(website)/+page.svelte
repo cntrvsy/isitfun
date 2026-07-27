@@ -50,7 +50,7 @@
 
 				<div class="flex flex-col gap-4 sm:flex-row">
 					<a
-						href={resolve('/auth/login')}
+						href={resolve('/auth')}
 						class="group inline-flex items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-8 py-4 font-mono text-xs font-bold tracking-wider text-white uppercase transition-all duration-150 hover:bg-transparent hover:text-slate-900"
 					>
 						Deploy A Playtest
@@ -283,7 +283,7 @@
 					</div>
 
 					<a
-						href={resolve('/auth/login')}
+						href={resolve('/auth')}
 						class="text-slate-850 w-full border border-slate-900 bg-transparent py-3 text-center font-mono text-xs font-bold tracking-wider uppercase transition-all duration-150 hover:bg-slate-900 hover:text-white"
 					>
 						Claim Free Slot
@@ -332,7 +332,7 @@
 					</div>
 
 					<a
-						href={resolve('/auth/login')}
+						href={resolve('/auth')}
 						class="w-full border border-slate-900 bg-slate-900 py-3 text-center font-mono text-xs font-bold tracking-wider text-white uppercase transition-all duration-150 hover:bg-transparent hover:text-slate-900"
 					>
 						Get Project Pass

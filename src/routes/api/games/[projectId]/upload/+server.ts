@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === locals.user.id;
+	let hasAccess = locals.user.role === 'admin' || project.userId === locals.user.id;
 	if (!hasAccess && project.organizationId) {
 		const membership = await locals.db
 			.select()

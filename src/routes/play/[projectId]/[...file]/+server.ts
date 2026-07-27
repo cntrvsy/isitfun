@@ -74,11 +74,14 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 
 		const validation = validateAccessKey(matchingKey);
 		if (!validation.valid) {
-			throw redirect(302, `/playgame?projectId=${projectId}&error=${validation.reason || 'invalid_key'}`);
+			throw redirect(
+				302,
+				`/playgame?projectId=${projectId}&error=${validation.reason || 'invalid_key'}`
+			);
 		}
 
-		// Increment usedCount if starting a fresh session with keyParam
-		if (keyParam && matchingKey) {
+		// Increment usedCount only if starting a fresh session with keyParam (when cookie is not yet set)
+		if (keyParam && matchingKey && keyCookie !== matchingKey.code) {
 			await locals.db
 				.update(projectAccessKeys)
 				.set({ usedCount: sql`${projectAccessKeys.usedCount} + 1` })

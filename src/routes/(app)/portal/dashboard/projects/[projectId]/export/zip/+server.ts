@@ -18,11 +18,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	}
 
 	// 1. Verify project ownership or organization membership
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Project not found');
@@ -34,9 +30,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		const membership = await locals.db
 			.select()
 			.from(organizationMemberships)
-			.where(
-				eq(organizationMemberships.organizationId, project.organizationId)
-			)
+			.where(eq(organizationMemberships.organizationId, project.organizationId))
 			.get();
 
 		if (membership && membership.userId === user.id) {

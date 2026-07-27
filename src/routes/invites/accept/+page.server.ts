@@ -35,6 +35,6 @@ export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 		maxAge: 60 * 60 * 24 // 24 hours
 	});
 
-	// Redirect to login portal to complete Google or GitHub handshake
-	throw redirect(302, '/auth/login');
+	// Redirect to auth portal to complete sign in handshake
+	throw redirect(302, '/auth');
 };

@@ -27,18 +27,40 @@
 	></div>
 
 	<div class="relative z-10 w-full max-w-md">
-		<!-- Logomark -->
-		<div class="mb-8 flex flex-col items-center">
-			<div
-				class="mb-4 flex h-16 w-16 animate-bounce items-center justify-center rounded-2xl bg-linear-to-tr from-purple-600 to-indigo-600 text-3xl shadow-xl shadow-purple-500/25"
-			>
-				🔐
+		{#if data.notFound}
+			<div class="mb-8 flex flex-col items-center text-center">
+				<div
+					class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-3xl shadow-xl text-rose-400"
+				>
+					🚫
+				</div>
+				<h1 class="mb-2 text-3xl font-black tracking-tight text-white">Playtest Unavailable</h1>
+				<p class="text-sm text-slate-400">
+					This playtest link is missing or no longer active. Please request an updated playtest access key from the game developer.
+				</p>
 			</div>
-			<h1 class="mb-1 text-3xl font-black tracking-tight text-white">Private Playtest</h1>
-			<p class="text-center text-sm text-slate-400">
-				This session for <span class="font-bold text-purple-400">{data.projectName}</span> is password-protected.
-			</p>
-		</div>
+
+			<div class="mt-8 text-center">
+				<a
+					href={resolve('/')}
+					class="btn w-full rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:text-white py-3 font-bold"
+				>
+					← Return to IsItFun Homepage
+				</a>
+			</div>
+		{:else}
+			<!-- Logomark -->
+			<div class="mb-8 flex flex-col items-center">
+				<div
+					class="mb-4 flex h-16 w-16 animate-bounce items-center justify-center rounded-2xl bg-linear-to-tr from-purple-600 to-indigo-600 text-3xl shadow-xl shadow-purple-500/25"
+				>
+					🔐
+				</div>
+				<h1 class="mb-1 text-3xl font-black tracking-tight text-white">Private Playtest</h1>
+				<p class="text-center text-sm text-slate-400">
+					This session for <span class="font-bold text-purple-400">{data.projectName}</span> is password-protected.
+				</p>
+			</div>
 
 		<!-- Password Card -->
 		<div
@@ -84,7 +106,7 @@
 					{#if data.urlError || form?.error}
 						<p
 							id="error-message"
-							class="mt-2 text-center text-xs font-bold text-rose-400 bg-rose-950/40 p-3 rounded-lg border border-rose-800/50"
+							class="mt-2 rounded-lg border border-rose-800/50 bg-rose-950/40 p-3 text-center text-xs font-bold text-rose-400"
 						>
 							⚠️ {data.urlError || form?.error}
 						</p>
@@ -119,5 +141,6 @@
 				← Back to IsItFun Homepage
 			</a>
 		</div>
+		{/if}
 	</div>
 </main>

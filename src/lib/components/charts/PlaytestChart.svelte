@@ -72,13 +72,17 @@
 
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 	<!-- Chart 1: 14-Day Playtest Sessions Trend (layerchart LineChart) -->
-	<div class="lg:col-span-2 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md">
+	<div
+		class="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md lg:col-span-2"
+	>
 		<div class="mb-6 flex items-center justify-between">
 			<div>
 				<h3 class="text-lg font-black text-white">Daily Playtest Sessions</h3>
 				<p class="text-xs text-slate-500">Total volume of playtest runs over the past 14 days.</p>
 			</div>
-			<span class="rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-400">
+			<span
+				class="rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-400"
+			>
 				14-Day Trend
 			</span>
 		</div>
@@ -95,7 +99,9 @@
 	</div>
 
 	<!-- Chart 2: Player Sentiment Breakdown -->
-	<div class="flex flex-col justify-between rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md">
+	<div
+		class="flex flex-col justify-between rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md"
+	>
 		<div>
 			<h3 class="text-lg font-black text-white">Player Sentiment</h3>
 			<p class="text-xs text-slate-500">Qualitative feedback ratings collected from playtesters.</p>
@@ -108,7 +114,10 @@
 						<span class="font-mono text-slate-400">{sentimentStats.funPct}%</span>
 					</div>
 					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
-						<div class="h-full bg-emerald-500 transition-all duration-500" style="width: {sentimentStats.funPct}%"></div>
+						<div
+							class="h-full bg-emerald-500 transition-all duration-500"
+							style="width: {sentimentStats.funPct}%"
+						></div>
 					</div>
 				</div>
 
@@ -119,7 +128,10 @@
 						<span class="font-mono text-slate-400">{sentimentStats.neutralPct}%</span>
 					</div>
 					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
-						<div class="h-full bg-amber-500 transition-all duration-500" style="width: {sentimentStats.neutralPct}%"></div>
+						<div
+							class="h-full bg-amber-500 transition-all duration-500"
+							style="width: {sentimentStats.neutralPct}%"
+						></div>
 					</div>
 				</div>
 
@@ -130,14 +142,19 @@
 						<span class="font-mono text-slate-400">{sentimentStats.unfunPct}%</span>
 					</div>
 					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
-						<div class="h-full bg-rose-500 transition-all duration-500" style="width: {sentimentStats.unfunPct}%"></div>
+						<div
+							class="h-full bg-rose-500 transition-all duration-500"
+							style="width: {sentimentStats.unfunPct}%"
+						></div>
 					</div>
 				</div>
 			</div>
 		</div>
 
 		<div class="mt-6 rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4 text-center">
-			<span class="block text-[10px] font-bold tracking-widest text-slate-500 uppercase">Total Rated Playtests</span>
+			<span class="block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+				>Total Rated Playtests</span
+			>
 			<span class="text-2xl font-black text-purple-400">{sentimentStats.total} Ratings</span>
 		</div>
 	</div>

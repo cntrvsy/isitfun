@@ -52,7 +52,9 @@ describe('POST /api/games/[projectId]/upload', () => {
 			expect.fail('Should have thrown 413');
 		} catch (err: any) {
 			expect(err.status).toBe(413);
-			expect(err.body.message).toBe('File size exceeds maximum 100 MB limit for game vertical slices');
+			expect(err.body.message).toBe(
+				'File size exceeds maximum 100 MB limit for game vertical slices'
+			);
 		}
 	});
 

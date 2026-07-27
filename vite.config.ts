@@ -13,7 +13,7 @@ export default defineConfig({
 		sveltekit(),
 		devtoolsJson(),
 		cloudflareDoExporter({
-			durableObjects: ['src/lib/server/durable-objects.ts']
+			durableObjects: ['src/lib/server/durable-objects/TelemetrySessionDO.ts']
 		})
 	],
 	resolve: {

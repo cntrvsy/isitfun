@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET, DELETE } from '../../src/routes/api/portal/projects/[projectId]/sessions/[sessionId]/+server';
+import {
+	GET,
+	DELETE
+} from '../../src/routes/api/portal/projects/[projectId]/sessions/[sessionId]/+server';
 
 describe('GET /api/portal/projects/[projectId]/sessions/[sessionId]', () => {
 	beforeEach(() => {

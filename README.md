@@ -30,7 +30,7 @@ High-frequency telemetry logging is handled efficiently without overloading the 
 - The Durable Object acts as a real-time, in-memory buffer, maintaining session state.
 - Upon session exit or expiration, the DO writes the raw logs to **Cloudflare R2** as a single JSON file and saves general metadata (e.g. final duration, crash flags) into the **Cloudflare D1** database before destroying itself.
 
-```mermaid
+````mermaid
 sequenceDiagram
     participant Game as HTML5 Game (iframe)
     participant Client as Overlay Widget (Client)
@@ -42,7 +42,7 @@ sequenceDiagram
     Note over Game, Client: Console & Error Interception
     Game->>Client: print / Debug.Log / console.log
     Client->>Client: Queue in Memory (up to 15s)
-    
+
     Note over Client, Edge: Heartbeat & Logs Ingest
     Client->>Edge: POST /api/telemetry (Heartbeat + Logs)
     Edge->>Edge: Cache Check (KV Project metadata)
@@ -87,7 +87,7 @@ sequenceDiagram
     else Key limit exceeded or inactive
         Worker-->>Game: HTTP 403 / Redirect to Access Blocked Gate
     end
-```
+````
 
 ## 🗄️ Database Migrations
 

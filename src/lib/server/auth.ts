@@ -5,6 +5,7 @@ import { emailOTP } from 'better-auth/plugins';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import type { DrizzleClient } from '$lib/server/db';
+import { sendPasswordResetEmail, sendVerificationEmail } from '$lib/server/email';
 
 export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 	betterAuth({
@@ -18,7 +19,17 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 			env.BETTER_AUTH_URL || '',
 			...(env.TRUSTED_ORIGINS?.split(',') || [])
 		].filter(Boolean),
-		emailAndPassword: { enabled: false },
+		emailAndPassword: {
+			enabled: true,
+			async sendResetPassword({ user, url, token }) {
+				await sendPasswordResetEmail({ to: user.email, url, token });
+			}
+		},
+		emailVerification: {
+			sendVerificationEmail: async ({ user, url, token }) => {
+				await sendVerificationEmail({ to: user.email, url, token });
+			}
+		},
 		socialProviders: {
 			github: {
 				clientId: env.GITHUB_CLIENT_ID || '',
@@ -47,7 +58,6 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 			emailOTP({
 				async sendVerificationOTP({ email, otp, type }) {
 					if (type === 'sign-in') {
-						// For now, log to console. We'll add Mailgun later if needed.
 						console.log(`Sending OTP for sign-in to ${email}: ${otp}`);
 					}
 				}

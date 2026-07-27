@@ -50,7 +50,9 @@ describe('GET /portal/dashboard/projects/[projectId]/export/zip', () => {
 
 		expect(res.status).toBe(200);
 		expect(res.headers.get('content-type')).toBe('application/zip');
-		expect(res.headers.get('content-disposition')).toContain('attachment; filename="playtests-proj_1-');
+		expect(res.headers.get('content-disposition')).toContain(
+			'attachment; filename="playtests-proj_1-'
+		);
 
 		const arrayBuffer = await res.arrayBuffer();
 		expect(arrayBuffer.byteLength).toBeGreaterThan(0);

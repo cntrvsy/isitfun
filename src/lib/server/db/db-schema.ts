@@ -14,7 +14,36 @@ export function generateNanoID(size = 12): string {
 }
 
 /**
- * @strata {"target":"d1","x":1881,"y":1316}
+ * @strata { "target": "project", "wranglerPath": "../../../../wrangler.jsonc" }
+ */
+export const strataConfig = {};
+
+/**
+ * App KV namespace for cache & state.
+ * @strata {"target":"kv","x":500,"y":100,"binding":"ISITFUN_KV","schema":{"sessionToken":"string","projectConfig":"object"}}
+ */
+export const ISITFUN_KV = {};
+
+/**
+ * Feature flag & remote config control KV namespace.
+ * @strata {"target":"kv","x":900,"y":100,"binding":"DRIFTER_CONTROL","schema":{"featureFlags":"object","rateLimits":"number"}}
+ */
+export const DRIFTER_CONTROL = {};
+
+/**
+ * R2 Storage Bucket for uploaded game builds and static binaries.
+ * @strata {"target":"r2","x":1300,"y":100,"binding":"GAMES_BUCKET","public":true,"cors":true,"folders":{"builds":"application/octet-stream"}}
+ */
+export const GAMES_BUCKET = {};
+
+/**
+ * Telemetry Buffer Durable Object for high-frequency edge log aggregation.
+ * @strata {"target":"do","x":1700,"y":100,"binding":"TELEMETRY_BUFFER","class":"TelemetrySessionDO","path":"./src/lib/server/durable-objects/TelemetrySessionDO.ts","methods":["ingestLog","flushToD1"]}
+ */
+export const TELEMETRY_BUFFER = {};
+
+/**
+ * @strata {"target":"d1","x":100,"y":400}
  */
 export const profile = sqliteTable('profile', {
 	id: text('id')
@@ -29,7 +58,7 @@ export const profile = sqliteTable('profile', {
 });
 
 /**
- * @strata {"target":"d1","x":1857,"y":990}
+ * @strata {"target":"d1","x":500,"y":400}
  */
 export const organizations = sqliteTable('organizations', {
 	id: text('id')
@@ -47,7 +76,7 @@ export const organizations = sqliteTable('organizations', {
 });
 
 /**
- * @strata {"target":"d1","x":1371,"y":722}
+ * @strata {"target":"d1","x":900,"y":400}
  */
 export const organizationMemberships = sqliteTable(
 	'organization_memberships',
@@ -74,7 +103,7 @@ export const organizationMemberships = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1405,"y":345}
+ * @strata {"target":"d1","x":1300,"y":400}
  */
 export const organizationInvites = sqliteTable(
 	'organization_invites',
@@ -102,7 +131,7 @@ export const organizationInvites = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1384,"y":1061}
+ * @strata {"target":"d1","x":500,"y":700,"relations":[{"to":"ISITFUN_KV"}]}
  */
 export const projects = sqliteTable(
 	'projects',
@@ -131,7 +160,7 @@ export const projects = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":1384,"y":1200}
+ * @strata {"target":"d1","x":900,"y":700}
  */
 export const projectAccessKeys = sqliteTable(
 	'project_access_keys',
@@ -159,30 +188,7 @@ export const projectAccessKeys = sqliteTable(
 );
 
 /**
- * @strata {"target":"d1","x":949,"y":1045}
- */
-export const gameBuilds = sqliteTable(
-	'game_builds',
-	{
-		id: text('id')
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
-		projectId: text('project_id')
-			.notNull()
-			.references(() => projects.id, { onDelete: 'cascade' }),
-		versionString: text('version_string').notNull().default('1.0.0'),
-		r2FolderPath: text('r2_folder_path').notNull(), // Target path reference inside R2
-		totalSizeBytes: integer('total_size_bytes').notNull().default(0),
-		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-		uploadedAt: integer('uploaded_at', { mode: 'timestamp' })
-			.notNull()
-			.$defaultFn(() => new Date())
-	},
-	(table) => [index('game_builds_projectId_idx').on(table.projectId)]
-);
-
-/**
- * @strata {"target":"d1","x":937,"y":668}
+ * @strata {"target":"d1","x":1300,"y":700}
  */
 export const projectQuotas = sqliteTable('project_quotas', {
 	id: text('id')
@@ -192,7 +198,7 @@ export const projectQuotas = sqliteTable('project_quotas', {
 		.notNull()
 		.references(() => projects.id, { onDelete: 'cascade' }),
 	monthlyWriteCount: integer('monthly_write_count').notNull().default(0),
-	maxWriteLimit: integer('max_write_limit').notNull().default(100000), // Safety shield limit
+	maxWriteLimit: integer('max_write_limit').notNull().default(100000),
 	storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
 	lastResetAt: integer('last_reset_at', { mode: 'timestamp' })
 		.notNull()
@@ -200,7 +206,7 @@ export const projectQuotas = sqliteTable('project_quotas', {
 });
 
 /**
- * @strata {"target":"d1","x":953,"y":190}
+ * @strata {"target":"d1","x":100,"y":1000}
  */
 export const payments = sqliteTable('payments', {
 	id: text('id')
@@ -215,14 +221,16 @@ export const payments = sqliteTable('payments', {
 	creemCustomerId: text('creem_customer_id'),
 	amount: integer('amount').notNull(),
 	currency: text('currency').notNull().default('gbp'),
-	status: text('status').notNull(), // 'pending' | 'completed' | 'failed' | 'refunded'
+	status: text('status').notNull(),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
 });
 
 /**
- * @strata {"target":"d1","x":820,"y":50}
+ * Webhook Idempotency Ledger.
+ * Soundness: Essential to prevent double-charging or duplicate tier upgrades on retried Creem webhooks.
+ * @strata {"target":"d1","x":510,"y":1335,"relations":[{"to":"payments"}]}
  */
 export const processedWebhooks = sqliteTable('processed_webhooks', {
 	id: text('id').primaryKey(),
@@ -232,7 +240,30 @@ export const processedWebhooks = sqliteTable('processed_webhooks', {
 });
 
 /**
- * @strata {"target":"d1","x":502,"y":1056}
+ * @strata {"target":"d1","x":900,"y":1300,"relations":[{"to":"GAMES_BUCKET"}]}
+ */
+export const gameBuilds = sqliteTable(
+	'game_builds',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => projects.id, { onDelete: 'cascade' }),
+		versionString: text('version_string').notNull().default('1.0.0'),
+		r2FolderPath: text('r2_folder_path').notNull(),
+		totalSizeBytes: integer('total_size_bytes').notNull().default(0),
+		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+		uploadedAt: integer('uploaded_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [index('game_builds_projectId_idx').on(table.projectId)]
+);
+
+/**
+ * @strata {"target":"d1","x":1300,"y":1300,"relations":[{"to":"TELEMETRY_BUFFER"}]}
  */
 export const telemetrySessions = sqliteTable(
 	'telemetry_sessions',
@@ -244,9 +275,9 @@ export const telemetrySessions = sqliteTable(
 			.notNull()
 			.references(() => projects.id, { onDelete: 'cascade' }),
 		gameBuildId: text('game_build_id').references(() => gameBuilds.id, { onDelete: 'set null' }),
-		deviceHash: text('device_hash').notNull(), // Salted SHA256 IP signature for UK GDPR
+		deviceHash: text('device_hash').notNull(),
 		browserInfo: text('browser_info'),
-		duration: integer('duration').default(0), // Length of play in seconds
+		duration: integer('duration').default(0),
 		logCount: integer('log_count').notNull().default(0),
 		hasCrashed: integer('has_crashed', { mode: 'boolean' }).notNull().default(false),
 		sentiment: text('sentiment').$type<'fun' | 'neutral' | 'unfun'>(),
@@ -364,23 +395,3 @@ export const telemetrySessionsRelations = relations(telemetrySessions, ({ one })
 }));
 
 export * from './auth-schema';
-
-/**
- * @strata {"target":"project","wranglerPath":"../../../../wrangler.jsonc"}
- */
-export const strataConfig = {};
-
-/** 
- * @strata {"target":"kv","x":50,"y":50,"binding":"ISITFUN_KV"} 
- */
-export const ISITFUN_KV = {};
-
-/** 
- * @strata {"target":"kv","x":542,"y":50,"binding":"DRIFTER_CONTROL"} 
- */
-export const DRIFTER_CONTROL = {};
-
-/** 
- * @strata {"target":"r2","x":290,"y":50,"binding":"GAMES_BUCKET"} 
- */
-export const GAMES_BUCKET = {};

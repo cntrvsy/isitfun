@@ -1,117 +1,26 @@
 import { redirect } from '@sveltejs/kit';
-import type { DrizzleClient } from '$lib/server/db';
 import type { PageServerLoad } from './$types';
 import { eq, lt, and, inArray, desc, or, isNull } from 'drizzle-orm';
 import {
 	projects,
 	telemetrySessions,
-	organizations,
-	organizationMemberships,
-	organizationInvites
+	organizationMemberships
 } from '$lib/server/db/db-schema';
 
-// Helper to sync seats with Creem subscription (inline duplicate of the helper for safety)
-async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: string) {
-	const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-	if (!org || !org.creemSubscriptionId) return;
-
-	const memberships = await db
-		.select()
-		.from(organizationMemberships)
-		.where(eq(organizationMemberships.organizationId, orgId))
-		.all();
-
-	const invites = await db
-		.select()
-		.from(organizationInvites)
-		.where(eq(organizationInvites.organizationId, orgId))
-		.all();
-
-	const totalSeats = memberships.length + invites.length;
-	const creemApiKey = process.env.CREEM_API_KEY;
-
-	if (creemApiKey) {
-		try {
-			const res = await fetch(`https://api.creem.io/v1/subscriptions/${org.creemSubscriptionId}`, {
-				headers: { 'x-api-key': creemApiKey }
-			});
-			if (res.ok) {
-				const subData = (await res.json()) as { items?: Array<{ id: string }> };
-				const itemId = subData.items?.[0]?.id;
-				if (itemId) {
-					await fetch(`https://api.creem.io/v1/subscriptions/${org.creemSubscriptionId}`, {
-						method: 'PATCH',
-						headers: {
-							'x-api-key': creemApiKey,
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							items: [{ id: itemId, units: totalSeats }]
-						})
-					});
-				}
-			}
-		} catch (err) {
-			console.error('[Creem Sync in Load] Failed to sync seats:', err);
-		}
-	}
-}
+import { resolvePendingInvite } from '$lib/server/invites';
 
 export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 	const session = locals.session;
 	const user = locals.user;
 
 	if (!session || !user) {
-		throw redirect(302, '/auth/login');
+		throw redirect(302, '/auth');
 	}
 
 	const db = locals.db as ReturnType<typeof import('$lib/server/db').createD1Client>;
 
 	// Resolve pending organization invites
-	const inviteToken = cookies.get('pending_invite_token');
-	if (inviteToken) {
-		try {
-			const invite = await db
-				.select()
-				.from(organizationInvites)
-				.where(eq(organizationInvites.token, inviteToken))
-				.get();
-
-			if (invite && new Date() <= invite.expiresAt) {
-				// Check if membership already exists
-				const existing = await db
-					.select()
-					.from(organizationMemberships)
-					.where(
-						and(
-							eq(organizationMemberships.organizationId, invite.organizationId),
-							eq(organizationMemberships.userId, user.id)
-						)
-					)
-					.get();
-
-				if (!existing) {
-					await db.insert(organizationMemberships).values({
-						id: crypto.randomUUID(),
-						organizationId: invite.organizationId,
-						userId: user.id,
-						role: 'member',
-						createdAt: new Date()
-					});
-
-					// Sync seats
-					await syncCreemSubscriptionSeats(db, invite.organizationId);
-				}
-
-				// Delete the invite token
-				await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.id));
-			}
-		} catch (err) {
-			console.error('Failed to process pending invitation token:', err);
-		} finally {
-			cookies.delete('pending_invite_token', { path: '/' });
-		}
-	}
+	await resolvePendingInvite(db, cookies, user.id);
 
 	// Fetch user's organizations
 	const memberships = await db.query.organizationMemberships.findMany({
@@ -202,9 +111,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		const proProjectIds = userProjects
 			.filter((p) => !p.organizationId && p.tier === 'pro')
 			.map((p) => p.id);
-		const teamProjectIds = userProjects
-			.filter((p) => Boolean(p.organizationId))
-			.map((p) => p.id);
+		const teamProjectIds = userProjects.filter((p) => Boolean(p.organizationId)).map((p) => p.id);
 
 		const cleanupRoutine = async () => {
 			try {

@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const activeUser = locals.user;
 
 	if (!session || !activeUser || activeUser.role !== 'admin') {
-		throw redirect(302, '/auth/login');
+		throw redirect(302, '/auth');
 	}
 
 	try {

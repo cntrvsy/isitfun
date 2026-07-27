@@ -14,6 +14,7 @@ import {
 import { getMaxUsesCapForTier } from '$lib/server/db/access-keys';
 import { env } from '$env/dynamic/private';
 import { hashPassword } from '$lib/server/crypto';
+import { sendOrganizationInviteEmail } from '$lib/server/email';
 
 // Helper to sync seats with Creem subscription
 async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: string) {
@@ -75,6 +76,7 @@ export const createProject = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -181,6 +183,7 @@ export const deleteProject = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals, platform } = event;
 		const { session, user, db } = locals;
 
@@ -189,14 +192,14 @@ export const deleteProject = form(
 		}
 
 		try {
-			// Verify ownership or organization admin membership before deleting
+			// Verify ownership, org admin membership, or system super admin before deleting
 			const project = await db.select().from(projects).where(eq(projects.id, data.id)).get();
 
 			if (!project) {
 				error(404, 'Project not found');
 			}
 
-			let hasAccess = project.userId === user.id;
+			let hasAccess = user.role === 'admin' || project.userId === user.id;
 			if (!hasAccess && project.organizationId) {
 				const membership = await db
 					.select()
@@ -255,6 +258,7 @@ export const upgradeProject = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -262,15 +266,33 @@ export const upgradeProject = form(
 			error(401, 'Unauthorized');
 		}
 
-		// Verify project ownership
-		const project = await db
-			.select()
-			.from(projects)
-			.where(and(eq(projects.id, data.id), eq(projects.userId, user.id)))
-			.get();
+		// Verify project ownership, Org Leader membership, or System admin
+		const project = await db.select().from(projects).where(eq(projects.id, data.id)).get();
 
 		if (!project) {
 			error(404, 'Project not found');
+		}
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, project.organizationId),
+						eq(organizationMemberships.userId, user.id),
+						eq(organizationMemberships.role, 'admin')
+					)
+				)
+				.get();
+			if (membership) {
+				hasAccess = true;
+			}
+		}
+
+		if (!hasAccess) {
+			error(403, 'Forbidden: You do not have permission to upgrade this project');
 		}
 
 		const creemApiKey = env.CREEM_API_KEY;
@@ -309,10 +331,7 @@ export const upgradeProject = form(
 		} else {
 			// Mock Upgrade mode for local development/testing without keys
 			try {
-				await db
-					.update(projects)
-					.set({ tier: 'pro' })
-					.where(and(eq(projects.id, data.id), eq(projects.userId, user.id)));
+				await db.update(projects).set({ tier: 'pro' }).where(eq(projects.id, data.id));
 
 				return { success: true, mockUpgraded: true };
 			} catch (err) {
@@ -329,6 +348,7 @@ export const createOrganization = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -370,6 +390,7 @@ export const upgradeOrganization = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -377,21 +398,24 @@ export const upgradeOrganization = form(
 			error(401, 'Unauthorized');
 		}
 
-		// Verify organization ownership/admin
-		const membership = await db
-			.select()
-			.from(organizationMemberships)
-			.where(
-				and(
-					eq(organizationMemberships.organizationId, data.id),
-					eq(organizationMemberships.userId, user.id),
-					eq(organizationMemberships.role, 'admin')
+		// Verify organization ownership/admin or system admin
+		let membership = null;
+		if (user.role !== 'admin') {
+			membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, data.id),
+						eq(organizationMemberships.userId, user.id),
+						eq(organizationMemberships.role, 'admin')
+					)
 				)
-			)
-			.get();
+				.get();
 
-		if (!membership) {
-			error(403, 'Forbidden: Admin access required to upgrade organization');
+			if (!membership) {
+				error(403, 'Forbidden: Admin access required to upgrade organization');
+			}
 		}
 
 		// Get current seats count (memberships + pending invites)
@@ -467,6 +491,7 @@ export const inviteMember = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -474,21 +499,23 @@ export const inviteMember = form(
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin of the organization
-		const membership = await db
-			.select()
-			.from(organizationMemberships)
-			.where(
-				and(
-					eq(organizationMemberships.organizationId, data.organizationId),
-					eq(organizationMemberships.userId, user.id),
-					eq(organizationMemberships.role, 'admin')
+		// Verify user is an admin of the organization or system admin
+		if (user.role !== 'admin') {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, data.organizationId),
+						eq(organizationMemberships.userId, user.id),
+						eq(organizationMemberships.role, 'admin')
+					)
 				)
-			)
-			.get();
+				.get();
 
-		if (!membership) {
-			error(403, 'Forbidden: Admin access required to invite members');
+			if (!membership) {
+				error(403, 'Forbidden: Admin access required to invite members');
+			}
 		}
 
 		// Create invite entry
@@ -506,9 +533,19 @@ export const inviteMember = form(
 			});
 
 			const inviteUrl = `${event.url.origin}/invites/accept?token=${token}`;
-			console.log(
-				`[Developer Workspace Invite] Created invitation for ${data.email}. Invite URL:\n${inviteUrl}`
-			);
+
+			const org = await db
+				.select()
+				.from(organizations)
+				.where(eq(organizations.id, data.organizationId))
+				.get();
+
+			await sendOrganizationInviteEmail({
+				to: data.email.trim().toLowerCase(),
+				inviterName: user.name || user.email,
+				orgName: org?.name || 'Organization',
+				inviteUrl
+			});
 
 			// Sync seats with Creem
 			await syncCreemSubscriptionSeats(db, data.organizationId);
@@ -528,6 +565,7 @@ export const cancelInvite = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -535,21 +573,23 @@ export const cancelInvite = form(
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin
-		const membership = await db
-			.select()
-			.from(organizationMemberships)
-			.where(
-				and(
-					eq(organizationMemberships.organizationId, data.organizationId),
-					eq(organizationMemberships.userId, user.id),
-					eq(organizationMemberships.role, 'admin')
+		// Verify user is an admin of the organization or system admin
+		if (user.role !== 'admin') {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, data.organizationId),
+						eq(organizationMemberships.userId, user.id),
+						eq(organizationMemberships.role, 'admin')
+					)
 				)
-			)
-			.get();
+				.get();
 
-		if (!membership) {
-			error(403, 'Forbidden: Admin access required to cancel invites');
+			if (!membership) {
+				error(403, 'Forbidden: Admin access required to cancel invites');
+			}
 		}
 
 		try {
@@ -573,6 +613,7 @@ export const removeMember = form(
 	}),
 	async (data) => {
 		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
 		const { session, user, db } = locals;
 
@@ -580,21 +621,23 @@ export const removeMember = form(
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin
-		const adminMembership = await db
-			.select()
-			.from(organizationMemberships)
-			.where(
-				and(
-					eq(organizationMemberships.organizationId, data.organizationId),
-					eq(organizationMemberships.userId, user.id),
-					eq(organizationMemberships.role, 'admin')
+		// Verify user is an admin of the org or system admin
+		if (user.role !== 'admin') {
+			const adminMembership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, data.organizationId),
+						eq(organizationMemberships.userId, user.id),
+						eq(organizationMemberships.role, 'admin')
+					)
 				)
-			)
-			.get();
+				.get();
 
-		if (!adminMembership) {
-			error(403, 'Forbidden: Admin access required to remove members');
+			if (!adminMembership) {
+				error(403, 'Forbidden: Admin access required to remove members');
+			}
 		}
 
 		// Prevent removing the owner of the organization
@@ -643,14 +686,35 @@ export const createAccessKey = form(
 
 		const db = event.locals.db;
 
-		// Verify project ownership
+		// Verify project ownership, org membership, or system admin
 		const project = await db
 			.select()
 			.from(projects)
-			.where(and(eq(projects.id, data.projectId), eq(projects.userId, user.id)))
+			.where(eq(projects.id, data.projectId))
 			.get();
 
 		if (!project) {
+			error(404, 'Project not found');
+		}
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, project.organizationId),
+						eq(organizationMemberships.userId, user.id)
+					)
+				)
+				.get();
+			if (membership) {
+				hasAccess = true;
+			}
+		}
+
+		if (!hasAccess) {
 			error(403, 'Forbidden: You do not have permission to add access keys for this project');
 		}
 
@@ -702,6 +766,48 @@ export const toggleAccessKey = form(
 
 		const db = event.locals.db;
 
+		// Fetch key and project to verify authorization
+		const key = await db
+			.select()
+			.from(projectAccessKeys)
+			.where(eq(projectAccessKeys.id, data.keyId))
+			.get();
+
+		if (!key) {
+			error(404, 'Access key not found');
+		}
+
+		const project = await db
+			.select()
+			.from(projects)
+			.where(eq(projects.id, key.projectId))
+			.get();
+
+		if (!project) {
+			error(404, 'Project not found');
+		}
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, project.organizationId),
+						eq(organizationMemberships.userId, user.id)
+					)
+				)
+				.get();
+			if (membership) {
+				hasAccess = true;
+			}
+		}
+
+		if (!hasAccess) {
+			error(403, 'Forbidden: You do not have permission to modify this access key');
+		}
+
 		try {
 			await db
 				.update(projectAccessKeys)
@@ -729,6 +835,48 @@ export const deleteAccessKey = form(
 
 		const db = event.locals.db;
 
+		// Fetch key and project to verify authorization
+		const key = await db
+			.select()
+			.from(projectAccessKeys)
+			.where(eq(projectAccessKeys.id, data.keyId))
+			.get();
+
+		if (!key) {
+			error(404, 'Access key not found');
+		}
+
+		const project = await db
+			.select()
+			.from(projects)
+			.where(eq(projects.id, key.projectId))
+			.get();
+
+		if (!project) {
+			error(404, 'Project not found');
+		}
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, project.organizationId),
+						eq(organizationMemberships.userId, user.id)
+					)
+				)
+				.get();
+			if (membership) {
+				hasAccess = true;
+			}
+		}
+
+		if (!hasAccess) {
+			error(403, 'Forbidden: You do not have permission to delete this access key');
+		}
+
 		try {
 			await db.delete(projectAccessKeys).where(eq(projectAccessKeys.id, data.keyId));
 			return { success: true };
@@ -738,4 +886,3 @@ export const deleteAccessKey = form(
 		}
 	}
 );
-

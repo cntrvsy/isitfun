@@ -7,6 +7,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { env } from '$env/dynamic/private';
 
 import type { DrizzleClient } from '$lib/server/db';
+import { resolvePendingInvite } from '$lib/server/invites';
 
 let db: DrizzleClient | null = null;
 
@@ -48,6 +49,9 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.session = session.session;
 		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
 
+		// Resolve any pending organization invite token for authenticated users
+		await resolvePendingInvite(event.locals.db, event.cookies, event.locals.user.id);
+
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
 		const path = event.url.pathname.replace(/\/$/, '');
 		if (path === '/auth' || path === '/auth/login') {
@@ -62,7 +66,7 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	// 🔐 Centralized Sub-tree Route & RBAC Guards
 	if (event.url.pathname.startsWith('/portal')) {
 		if (!session || !event.locals.user) {
-			return redirect(302, '/auth/login');
+			return redirect(302, '/auth');
 		}
 
 		const userRole = event.locals.user.role;
@@ -114,15 +118,21 @@ const handleDrifter: Handle = async ({ event, resolve }) => {
 	if (drifterControl) {
 		const isDisabled = await drifterControl.get('DISABLED');
 		if (isDisabled === 'true') {
-			return new Response(
-				'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.',
-				{
-					status: 503,
-					headers: {
-						'Retry-After': '3600'
+			// Allow emergency admin override or portal admin route to bypass kill switch so admin can inspect/reset
+			const isOverride =
+				event.url.searchParams.get('override') === 'true' ||
+				event.url.pathname.startsWith('/portal/admin');
+			if (!isOverride) {
+				return new Response(
+					'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.',
+					{
+						status: 503,
+						headers: {
+							'Retry-After': '3600'
+						}
 					}
-				}
-			);
+				);
+			}
 		}
 	}
 	return resolve(event);

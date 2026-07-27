@@ -17,11 +17,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	}
 
 	// 1. Verify project ownership or team organization membership
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Project not found');
@@ -33,9 +29,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		const membership = await locals.db
 			.select()
 			.from(organizationMemberships)
-			.where(
-				eq(organizationMemberships.organizationId, project.organizationId)
-			)
+			.where(eq(organizationMemberships.organizationId, project.organizationId))
 			.get();
 
 		if (membership && membership.userId === user.id) {
@@ -58,8 +52,16 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 			sessionId,
 			createdAt: new Date().toISOString(),
 			logs: [
-				{ event: 'console.log', data: { message: '[IsItFun] Dev session mock active' }, timestamp: Date.now() - 5000 },
-				{ event: 'console.warn', data: { message: 'R2 bucket binding mock response' }, timestamp: Date.now() - 2000 }
+				{
+					event: 'console.log',
+					data: { message: '[IsItFun] Dev session mock active' },
+					timestamp: Date.now() - 5000
+				},
+				{
+					event: 'console.warn',
+					data: { message: 'R2 bucket binding mock response' },
+					timestamp: Date.now() - 2000
+				}
 			],
 			logCount: 2,
 			hasCrashed: false,
@@ -98,11 +100,7 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 	}
 
 	// Verify project ownership or team organization membership
-	const project = await locals.db
-		.select()
-		.from(projects)
-		.where(eq(projects.id, projectId))
-		.get();
+	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 	if (!project) {
 		throw error(404, 'Project not found');
@@ -144,4 +142,3 @@ export const DELETE: RequestHandler = async ({ params, locals, platform }) => {
 
 	return json({ success: true });
 };
-
