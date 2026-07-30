@@ -48,7 +48,7 @@
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_classes": ["TelemetrySessionDO"]
+			"new_sqlite_classes": ["TelemetrySessionDO"]
 		}
 	],
 	"observability": {
