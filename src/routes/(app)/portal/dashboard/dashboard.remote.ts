@@ -687,11 +687,7 @@ export const createAccessKey = form(
 		const db = event.locals.db;
 
 		// Verify project ownership, org membership, or system admin
-		const project = await db
-			.select()
-			.from(projects)
-			.where(eq(projects.id, data.projectId))
-			.get();
+		const project = await db.select().from(projects).where(eq(projects.id, data.projectId)).get();
 
 		if (!project) {
 			error(404, 'Project not found');
@@ -777,11 +773,7 @@ export const toggleAccessKey = form(
 			error(404, 'Access key not found');
 		}
 
-		const project = await db
-			.select()
-			.from(projects)
-			.where(eq(projects.id, key.projectId))
-			.get();
+		const project = await db.select().from(projects).where(eq(projects.id, key.projectId)).get();
 
 		if (!project) {
 			error(404, 'Project not found');
@@ -846,11 +838,7 @@ export const deleteAccessKey = form(
 			error(404, 'Access key not found');
 		}
 
-		const project = await db
-			.select()
-			.from(projects)
-			.where(eq(projects.id, key.projectId))
-			.get();
+		const project = await db.select().from(projects).where(eq(projects.id, key.projectId)).get();
 
 		if (!project) {
 			error(404, 'Project not found');

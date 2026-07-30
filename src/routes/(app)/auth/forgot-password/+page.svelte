@@ -122,7 +122,7 @@
 
 			<div class="pt-2 text-center">
 				<a
-					href={resolve('/auth')}
+					href={resolve('/(app)/auth')}
 					class="inline-flex link items-center gap-1 text-xs font-semibold link-primary hover:underline"
 				>
 					&larr; Back to Sign In

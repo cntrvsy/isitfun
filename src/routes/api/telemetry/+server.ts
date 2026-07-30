@@ -18,6 +18,10 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		gameBuildId?: string;
 		hasCrashed?: boolean;
 		isExiting?: boolean;
+		avgFps?: number | null;
+		minFps?: number | null;
+		deviceSpecs?: any;
+		feedback?: string | null;
 		logs?: Array<{
 			event: string;
 			data: unknown;

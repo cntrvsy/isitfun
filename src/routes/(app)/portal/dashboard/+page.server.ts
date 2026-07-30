@@ -1,11 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { eq, lt, and, inArray, desc, or, isNull } from 'drizzle-orm';
-import {
-	projects,
-	telemetrySessions,
-	organizationMemberships
-} from '$lib/server/db/db-schema';
+import { projects, telemetrySessions, organizationMemberships } from '$lib/server/db/db-schema';
 
 import { resolvePendingInvite } from '$lib/server/invites';
 

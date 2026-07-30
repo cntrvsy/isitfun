@@ -127,7 +127,7 @@
 		</div>
 		<div class="flex items-center gap-4">
 			<a
-				href={resolve('/portal/profile')}
+				href={resolve('/(app)/portal/profile')}
 				class="btn text-slate-300 btn-ghost btn-sm hover:text-white">Profile</a
 			>
 			<form method="POST" action="/auth/logout">
@@ -518,21 +518,27 @@
 							</div>
 							<div class="flex flex-wrap gap-3">
 								<a
-									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/json`)}
+									href={resolve('/(app)/portal/dashboard/projects/[id]/export/json', {
+										id: activeProject.id
+									})}
 									download
 									class="btn rounded-xl border border-purple-500/25 bg-purple-500/10 px-5 font-bold text-purple-400 transition-all btn-sm hover:bg-purple-600 hover:text-white"
 								>
 									📥 JSON
 								</a>
 								<a
-									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/csv`)}
+									href={resolve('/(app)/portal/dashboard/projects/[id]/export/csv', {
+										id: activeProject.id
+									})}
 									download
 									class="btn rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-5 font-bold text-indigo-400 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
 								>
 									📥 CSV
 								</a>
 								<a
-									href={resolve(`/portal/dashboard/projects/${activeProject.id}/export/zip`)}
+									href={resolve('/(app)/portal/dashboard/projects/[projectId]/export/zip', {
+										projectId: activeProject.id
+									})}
 									download
 									class="btn rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 font-bold text-emerald-400 transition-all btn-sm hover:bg-emerald-600 hover:text-white"
 								>

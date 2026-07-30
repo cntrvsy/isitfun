@@ -74,7 +74,7 @@
 						<span>Your email address has been successfully verified!</span>
 					</div>
 
-					<a href={resolve('/portal/dashboard')} class="btn btn-block shadow-md btn-primary">
+					<a href={resolve('/(app)/portal/dashboard')} class="btn btn-block shadow-md btn-primary">
 						Go to Dashboard
 					</a>
 				</div>
@@ -174,7 +174,7 @@
 
 			<div class="pt-2 text-center">
 				<a
-					href={resolve('/auth')}
+					href={resolve('/(app)/auth')}
 					class="inline-flex link items-center gap-1 text-xs font-semibold link-primary hover:underline"
 				>
 					&larr; Back to Sign In

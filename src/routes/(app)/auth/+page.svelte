@@ -170,7 +170,7 @@
 								<span class="label-text text-xs font-semibold">Password</span>
 							</label>
 							<a
-								href={resolve('/auth/forgot-password')}
+								href={resolve('/(app)/auth/forgot-password')}
 								class="link text-xs link-primary hover:underline"
 							>
 								Forgot Password?
@@ -322,7 +322,7 @@
 				<!-- GitHub -->
 				<form method="post" action="?/signInSocial" use:enhance>
 					<input type="hidden" name="provider" value="github" />
-					<input type="hidden" name="callbackURL" value={resolve('/auth')} />
+					<input type="hidden" name="callbackURL" value={resolve('/(app)/auth')} />
 					<button
 						class="btn flex w-full items-center justify-center gap-2 shadow-sm transition-transform btn-sm btn-neutral hover:scale-[1.02] sm:btn-md"
 					>
@@ -344,7 +344,7 @@
 				<!-- Google -->
 				<form method="post" action="?/signInSocial" use:enhance>
 					<input type="hidden" name="provider" value="google" />
-					<input type="hidden" name="callbackURL" value={resolve('/auth')} />
+					<input type="hidden" name="callbackURL" value={resolve('/(app)/auth')} />
 					<button
 						class="btn flex w-full items-center justify-center gap-2 border-base-300 shadow-xs transition-transform btn-outline btn-sm hover:scale-[1.02] sm:btn-md"
 					>
@@ -392,12 +392,14 @@
 
 			<div class="mt-2 px-4 text-center text-xs text-base-content/60">
 				By proceeding, you agree to our
-				<a href={resolve('/terms')} class="link link-primary link-hover underline-offset-4"
-					>Terms of Service</a
+				<a
+					href={resolve('/(website)/terms')}
+					class="link link-primary link-hover underline-offset-4">Terms of Service</a
 				>
 				and
-				<a href={resolve('/privacy')} class="link link-primary link-hover underline-offset-4"
-					>Privacy Policy</a
+				<a
+					href={resolve('/(website)/privacy')}
+					class="link link-primary link-hover underline-offset-4">Privacy Policy</a
 				>.
 			</div>
 		</div>

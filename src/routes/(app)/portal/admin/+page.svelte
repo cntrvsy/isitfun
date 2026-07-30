@@ -55,7 +55,7 @@
 
 		<div class="flex items-center gap-3">
 			<a
-				href={resolve('/portal/dashboard')}
+				href={resolve('/(app)/portal/dashboard')}
 				class="btn rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
 			>
 				Developer Portal
