@@ -97,8 +97,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 	});
 
 	// Defensive Shield 2: Multi-Tiered Log Decay Protocol & R2 Storage Cleanup
-	const wait = platform?.ctx?.waitUntil;
-	if (wait) {
+	if (platform?.ctx?.waitUntil) {
 		const bucket = platform?.env?.GAMES_BUCKET;
 		const now = Date.now();
 		const freeProjectIds = userProjects
@@ -157,7 +156,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 			}
 		};
 
-		wait(cleanupRoutine());
+		platform.ctx.waitUntil(cleanupRoutine());
 	}
 
 	return {

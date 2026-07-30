@@ -244,9 +244,8 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		}
 	};
 
-	const waitUntil = platform?.ctx?.waitUntil;
-	if (waitUntil) {
-		waitUntil(saveTelemetryPromise());
+	if (platform?.ctx?.waitUntil) {
+		platform.ctx.waitUntil(saveTelemetryPromise());
 	} else {
 		await saveTelemetryPromise();
 	}
