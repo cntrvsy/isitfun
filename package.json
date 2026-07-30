@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "vite build && sveltekit-cloudflare-do --do src/lib/server/durable-objects/TelemetrySessionDO.ts",
 		"preview": "npm run build && wrangler dev",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -24,6 +24,11 @@
 		"auth:schema": "npx auth generate --config src/lib/server/auth.cli.ts --output src/lib/server/db/auth-schema.ts --yes",
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
+	},
+	"sveltekit-cloudflare-do": {
+		"durableObjects": [
+			"src/lib/server/durable-objects/TelemetrySessionDO.ts"
+		]
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",
