@@ -3,18 +3,13 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
-import cloudflareDoExporter from 'sveltekit-cloudflare-durable-objects';
-
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
-		devtoolsJson(),
-		cloudflareDoExporter({
-			durableObjects: ['src/lib/server/durable-objects/TelemetrySessionDO.ts']
-		})
+		devtoolsJson()
 	],
 	resolve: {
 		alias: {
