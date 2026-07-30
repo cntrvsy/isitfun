@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		isExiting?: boolean;
 		avgFps?: number | null;
 		minFps?: number | null;
-		deviceSpecs?: any;
+		deviceSpecs?: Record<string, unknown> | null;
 		feedback?: string | null;
 		logs?: Array<{
 			event: string;
@@ -244,9 +244,8 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		}
 	};
 
-	const waitUntil = platform?.ctx?.waitUntil;
-	if (waitUntil) {
-		waitUntil(saveTelemetryPromise());
+	if (platform?.ctx?.waitUntil) {
+		platform.ctx.waitUntil(saveTelemetryPromise());
 	} else {
 		await saveTelemetryPromise();
 	}
