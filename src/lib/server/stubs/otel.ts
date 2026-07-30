@@ -8,7 +8,7 @@ export const trace = {
 			setStatus: () => {},
 			recordException: () => {},
 			setAttribute: () => {},
-			setAttributes: () => {},
+			setAttributes: () => {}
 		}),
 		startActiveSpan: (name: string, options: any, callback?: any) => {
 			const cb = callback || options;
@@ -17,36 +17,33 @@ export const trace = {
 				setStatus: () => {},
 				recordException: () => {},
 				setAttribute: () => {},
-				setAttributes: () => {},
+				setAttributes: () => {}
 			});
-		},
-	}),
+		}
+	})
 };
 
 export const context = {
-	active: () => ({}),
+	active: () => ({})
 };
 
 export const propagation = {
 	inject: () => {},
-	extract: () => ({}),
+	extract: () => ({})
 };
 
 export const setSpan = () => {};
-
-
 
 export enum SpanKind {
 	INTERNAL = 0,
 	SERVER = 1,
 	CLIENT = 2,
 	PRODUCER = 3,
-	CONSUMER = 4,
+	CONSUMER = 4
 }
 
 export enum SpanStatusCode {
 	UNSET = 0,
 	OK = 1,
-	ERROR = 2,
+	ERROR = 2
 }
-
