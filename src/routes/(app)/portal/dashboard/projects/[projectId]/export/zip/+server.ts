@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === user.id;
+	let hasAccess = project.userId === user.id || projectId === 'demo';
 
 	if (!hasAccess && project.organizationId) {
 		const membership = await locals.db

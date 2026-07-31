@@ -117,17 +117,17 @@
 {#if isOpen}
 	<!-- Modal Backdrop -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
 	>
 		<div
-			class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl"
+			class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-purple-200/60 bg-white/95 shadow-2xl"
 		>
 			<!-- Modal Header -->
-			<div class="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 p-6">
+			<div class="flex items-center justify-between border-b border-purple-200/60 bg-purple-50/50 p-6">
 				<div class="space-y-1">
 					<div class="flex items-center gap-3">
-						<h3 class="text-xl font-black text-white">Console Session Inspector</h3>
-						<span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-purple-400">
+						<h3 class="font-mono text-xl font-black text-slate-900">Console Session Inspector</h3>
+						<span class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs font-bold text-purple-700">
 							ID: {sessionId.slice(0, 12)}...
 						</span>
 					</div>
@@ -135,14 +135,14 @@
 						<div class="flex flex-wrap items-center gap-2 pt-1 text-xs">
 							{#if sessionData.avgFps}
 								<span
-									class="rounded border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 font-mono font-bold text-purple-300"
+									class="border border-purple-300 bg-purple-100/60 px-2.5 py-0.5 font-mono text-xs font-bold text-purple-800"
 								>
 									⚡ {sessionData.avgFps} Avg FPS
 								</span>
 							{/if}
 							{#if sessionData.sentiment}
 								<span
-									class="rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-bold text-emerald-400 uppercase"
+									class="border border-emerald-300 bg-emerald-100/80 px-2.5 py-0.5 font-mono text-xs font-bold text-emerald-800 uppercase"
 								>
 									{sessionData.sentiment === 'fun'
 										? '😀 FUN'
@@ -153,7 +153,7 @@
 							{/if}
 							{#if sessionData.gpuRenderer}
 								<span
-									class="rounded border border-slate-800 bg-slate-950 px-2.5 py-0.5 text-slate-400"
+									class="border border-purple-200 bg-white px-2.5 py-0.5 font-mono text-xs text-slate-600"
 									title={sessionData.gpuRenderer}
 								>
 									🖥️ {sessionData.gpuRenderer.slice(0, 30)}...
@@ -165,7 +165,7 @@
 
 				<button
 					onclick={onClose}
-					class="rounded-full bg-slate-800 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+					class="rounded-full bg-purple-100 p-2 text-slate-500 transition-colors hover:bg-purple-200 hover:text-slate-900"
 				>
 					✕
 				</button>
@@ -173,49 +173,49 @@
 
 			<!-- Search & Filter Controls -->
 			<div
-				class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-900/50 p-4"
+				class="flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/60 bg-white/70 p-4"
 			>
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-2 font-mono">
 					<button
 						onclick={() => (selectedFilter = 'all')}
-						class="rounded-xl px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'all'
-							? 'bg-purple-600 text-white'
-							: 'bg-slate-800 text-slate-400 hover:text-white'}"
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'all'
+							? 'bg-slate-900 text-white'
+							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
 						All Logs
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'error')}
-						class="rounded-xl px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
 						'error'
 							? 'bg-rose-600 text-white'
-							: 'bg-slate-800 text-slate-400 hover:text-white'}"
+							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
 						Errors
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'warn')}
-						class="rounded-xl px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
 						'warn'
 							? 'bg-amber-600 text-white'
-							: 'bg-slate-800 text-slate-400 hover:text-white'}"
+							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
 						Warnings
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'log')}
-						class="rounded-xl px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'log'
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'log'
 							? 'bg-blue-600 text-white'
-							: 'bg-slate-800 text-slate-400 hover:text-white'}"
+							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
 						Console Logs
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'feedback')}
-						class="rounded-xl px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
 						'feedback'
 							? 'bg-emerald-600 text-white'
-							: 'bg-slate-800 text-slate-400 hover:text-white'}"
+							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
 						Feedback
 					</button>
@@ -226,7 +226,7 @@
 						type="text"
 						bind:value={searchQuery}
 						placeholder="Search logs or errors..."
-						class="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 font-mono text-xs text-slate-200 placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+						class="w-full rounded-xl border border-purple-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-900 placeholder-slate-400 focus:border-purple-600 focus:outline-none"
 					/>
 				</div>
 			</div>

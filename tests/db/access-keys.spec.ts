@@ -22,7 +22,7 @@ describe('Access Keys & Protection Logic', () => {
 			createdAt: new Date()
 		};
 
-		const result = validateAccessKey(mockKey as any);
+		const result = validateAccessKey(mockKey as unknown as Parameters<typeof validateAccessKey>[0]);
 		expect(result.valid).toBe(true);
 		expect(result.key).toEqual(mockKey);
 	});
@@ -46,7 +46,7 @@ describe('Access Keys & Protection Logic', () => {
 			createdAt: new Date()
 		};
 
-		const result = validateAccessKey(mockKey as any);
+		const result = validateAccessKey(mockKey as unknown as Parameters<typeof validateAccessKey>[0]);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toBe('inactive');
 	});
@@ -64,7 +64,7 @@ describe('Access Keys & Protection Logic', () => {
 			createdAt: new Date()
 		};
 
-		const result = validateAccessKey(mockKey as any);
+		const result = validateAccessKey(mockKey as unknown as Parameters<typeof validateAccessKey>[0]);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toBe('limit_exceeded');
 	});
@@ -83,7 +83,7 @@ describe('Access Keys & Protection Logic', () => {
 			createdAt: new Date()
 		};
 
-		const result = validateAccessKey(mockKey as any);
+		const result = validateAccessKey(mockKey as unknown as Parameters<typeof validateAccessKey>[0]);
 		expect(result.valid).toBe(false);
 		expect(result.reason).toBe('expired');
 	});

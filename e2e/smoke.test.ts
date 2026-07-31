@@ -8,7 +8,8 @@ test.describe('Platform E2E Smoke Test Suite', () => {
 	});
 
 	test('auth login page is accessible', async ({ page }) => {
-		await page.goto('/auth/login');
+		await page.goto('/auth');
 		await expect(page.locator('body')).toBeVisible();
 	});
+
 });

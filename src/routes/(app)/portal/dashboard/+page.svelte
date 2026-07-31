@@ -13,6 +13,8 @@
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import PlaytestChart from '$lib/components/charts/PlaytestChart.svelte';
 	import ConsoleInspectorModal from '$lib/components/dashboard/ConsoleInspectorModal.svelte';
+	import OnboardingTourModal from '$lib/components/dashboard/OnboardingTourModal.svelte';
+	import Footer from '$lib/components/Footer.svelte';
 	import { onMount } from 'svelte';
 	let { data } = $props();
 
@@ -20,7 +22,9 @@
 	let showCreateModal = $state(false);
 	let selectedProjectId = $state('');
 	let showUploadModal = $state(false);
+	let showOnboardingModal = $state(false);
 	let origin = $state('https://isitfun.co.ke');
+
 
 	// Multi-tenancy states
 	let selectedWorkspaceId = $state('personal');
@@ -61,6 +65,40 @@
 			: data.organizations.find((o) => o.id === selectedWorkspaceId)
 	);
 
+	// Developer-centric workspace aggregate metrics
+	const workspaceTotalSessions = $derived(
+		activeWorkspaceProjects.reduce((acc, p) => acc + (p.stats?.totalSessions || 0), 0)
+	);
+
+	const workspaceStorageUsedBytes = $derived(
+		activeWorkspaceProjects.reduce(
+			(acc, p) => acc + (p.projectQuotas?.[0]?.storageBytesUsed || 0),
+			0
+		)
+	);
+
+	const workspaceStorageMaxBytes = $derived(
+		activeWorkspaceProjects.reduce((acc, p) => {
+			const limit = p.tier === 'pro' ? 5000 * 1024 * 1024 : 250 * 1024 * 1024;
+			return acc + limit;
+		}, 0) || 250 * 1024 * 1024
+	);
+
+	const workspaceStorageUsedMB = $derived(
+		(workspaceStorageUsedBytes / (1024 * 1024)).toFixed(1)
+	);
+
+	const workspaceStorageMaxMB = $derived(
+		(workspaceStorageMaxBytes / (1024 * 1024)).toFixed(0)
+	);
+
+	const workspaceStoragePercent = $derived(
+		Math.min(
+			100,
+			Math.round((workspaceStorageUsedBytes / (workspaceStorageMaxBytes || 1)) * 100)
+		)
+	);
+
 	onMount(() => {
 		origin = window.location.origin;
 	});
@@ -96,58 +134,62 @@
 	/>
 </svelte:head>
 
-<main class="relative min-h-screen overflow-hidden bg-slate-950 pb-24 font-sans text-slate-100">
-	<!-- Decorative background glows -->
-	<div
-		class="pointer-events-none absolute top-[-10%] left-[-10%] h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]"
-	></div>
-	<div
-		class="pointer-events-none absolute right-[-10%] bottom-[-10%] h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px]"
-	></div>
-
-	<!-- Premium Top Navigation Bar -->
+<div class="flex min-h-screen flex-col bg-transparent font-sans text-slate-800 selection:bg-purple-300">
+	<!-- Blueprint / Retro Top Navigation Bar -->
 	<nav
-		class="sticky top-0 z-30 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 px-6 py-4 backdrop-blur-md"
+		class="sticky top-0 z-30 flex items-center justify-between border-b border-purple-200/50 bg-white/40 px-6 py-4 backdrop-blur-md md:px-12"
 	>
 		<div class="flex items-center gap-3">
 			<div
-				class="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-tr from-purple-600 to-indigo-600 text-xl font-bold shadow-lg shadow-purple-500/25"
+				class="flex h-10 w-10 items-center justify-center border border-slate-900 bg-slate-900 text-lg font-bold text-white shadow-md"
 			>
 				🎮
 			</div>
 			<div>
-				<span
-					class="bg-linear-to-r from-purple-400 to-indigo-400 bg-clip-text text-lg font-extrabold tracking-tight text-transparent"
-					>IsItFun</span
-				>
-				<span class="block text-xs font-semibold tracking-wider text-slate-400 uppercase"
-					>Developer Portal</span
+				<span class="font-mono text-lg font-black tracking-tight text-slate-900">IS IT FUN?</span>
+				<span class="block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
+					>// DEVELOPER_PORTAL</span
 				>
 			</div>
 		</div>
-		<div class="flex items-center gap-4">
+		<div class="flex items-center gap-3">
+			<button
+				onclick={() => (showOnboardingModal = true)}
+				class="border border-purple-400 bg-purple-50 px-4 py-2 font-mono text-xs font-bold text-purple-900 uppercase transition-all hover:bg-purple-600 hover:text-white"
+			>
+				🏓 Onboarding Demo
+			</button>
 			<a
 				href={resolve('/(app)/portal/profile')}
-				class="btn text-slate-300 btn-ghost btn-sm hover:text-white">Profile</a
+				class="border border-purple-200/80 bg-white/60 px-4 py-2 font-mono text-xs font-bold text-slate-800 uppercase transition-all hover:border-slate-900 hover:bg-white"
+				>Profile</a
 			>
-			<form method="POST" action="/auth/logout">
-				<button type="submit" class="btn rounded-lg btn-outline btn-sm btn-error">Sign Out</button>
+			<form method="POST" action="/auth?/signOut">
+				<button
+					type="submit"
+					class="border border-slate-900 bg-slate-900 px-4 py-2 font-mono text-xs font-bold text-white uppercase transition-all hover:bg-transparent hover:text-slate-900"
+				>
+					Sign Out
+				</button>
 			</form>
 		</div>
 	</nav>
 
 	<!-- Dashboard Container -->
-	<div class="relative z-10 mx-auto mt-12 max-w-6xl px-6">
+	<main class="relative z-10 mx-auto mt-10 w-full max-w-7xl flex-1 px-6 pb-24 lg:px-12">
+		
+
 		<!-- Workspace Switcher Ribbon -->
+
 		<div
-			class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-6"
+			class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/50 pb-6"
 		>
 			<div class="flex items-center gap-3">
-				<span class="text-xs font-bold tracking-wider text-slate-500 uppercase">Workspace:</span>
+				<span class="font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">Workspace:</span>
 				<div class="relative">
 					<select
 						bind:value={selectedWorkspaceId}
-						class="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-bold text-white transition-all focus:border-purple-500 focus:outline-none"
+						class="rounded-lg border border-purple-200/80 bg-white/70 px-4 py-2 font-mono text-xs font-bold text-slate-900 shadow-xs transition-all focus:border-purple-600 focus:outline-none"
 					>
 						<option value="personal">👤 Personal Workspace</option>
 						{#each data.organizations as org (org.id)}
@@ -162,14 +204,14 @@
 			<div class="flex gap-2">
 				<button
 					onclick={() => (showCreateOrgModal = true)}
-					class="btn rounded-xl border border-slate-800 bg-slate-900/45 px-4 font-bold text-slate-300 btn-sm hover:bg-slate-800 hover:text-white"
+					class="border border-purple-200/80 bg-white/80 px-4 py-2 font-mono text-xs font-bold text-slate-800 uppercase transition-all hover:border-slate-900 hover:bg-white"
 				>
 					＋ Create Team
 				</button>
 				{#if selectedWorkspaceId !== 'personal'}
 					<button
 						onclick={() => (showOrgSettings = !showOrgSettings)}
-						class="bg-indigo-655/20 btn rounded-xl border border-indigo-500/20 px-4 font-bold text-indigo-300 btn-sm hover:bg-indigo-600 hover:text-white"
+						class="border border-purple-300 bg-purple-100/50 px-4 py-2 font-mono text-xs font-bold text-purple-800 uppercase transition-all hover:border-purple-600 hover:bg-purple-200/60"
 					>
 						⚙️ Team Settings
 					</button>
@@ -179,27 +221,27 @@
 
 		<!-- Team Settings View -->
 		{#if showOrgSettings && activeOrg}
-			<div class="mb-12 rounded-3xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-md">
-				<div class="mb-6 flex items-center justify-between border-b border-slate-800 pb-4">
+			<div class="mb-12 rounded-3xl border border-purple-200/50 bg-white/60 p-8 shadow-xl backdrop-blur-md">
+				<div class="mb-6 flex items-center justify-between border-b border-purple-200/50 pb-4">
 					<div>
-						<h2 class="text-2xl font-black text-white">Team Management: {activeOrg.name}</h2>
-						<p class="text-xs text-slate-500">
+						<h2 class="font-mono text-2xl font-black text-slate-900">Team Management: {activeOrg.name}</h2>
+						<p class="text-xs text-slate-600">
 							Manage memberships, invite teammates, and view your seat subscription billing.
 						</p>
 					</div>
-					<button onclick={() => (showOrgSettings = false)} class="btn btn-circle btn-ghost btn-sm"
+					<button onclick={() => (showOrgSettings = false)} class="btn btn-circle btn-ghost btn-sm text-slate-600"
 						>✕</button
 					>
 				</div>
 
 				<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 					<!-- Billing and Upgrades -->
-					<div class="space-y-6 rounded-2xl border border-slate-800/80 bg-slate-950/40 p-6">
-						<h3 class="text-lg font-bold text-slate-200">Subscription Status</h3>
+					<div class="space-y-6 rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
+						<h3 class="font-mono text-sm font-bold text-slate-900 uppercase">[ Subscription Status ]</h3>
 						<div class="flex flex-wrap items-center justify-between gap-4">
 							<div>
-								<span class="block text-xs font-bold text-slate-500 uppercase">Active Tier</span>
-								<span class="text-xl font-black text-purple-400 uppercase"
+								<span class="block font-mono text-[10px] font-bold text-slate-500 uppercase">Active Tier</span>
+								<span class="font-mono text-xl font-black text-purple-700 uppercase"
 									>{activeOrg.tier === 'team' ? 'Team Plan ($5/seat)' : 'Free Team'}</span
 								>
 							</div>
@@ -224,14 +266,14 @@
 									<input {...upgradeOrganization.fields.id.as('hidden', activeOrg.id)} />
 									<button
 										type="submit"
-										class="btn rounded-xl border-none bg-linear-to-r from-amber-500 to-orange-500 font-extrabold text-slate-950 shadow-lg"
+										class="border border-slate-900 bg-slate-900 px-5 py-3 font-mono text-xs font-bold text-white uppercase shadow-md transition-all hover:bg-transparent hover:text-slate-900"
 									>
 										⚡ Upgrade to Team ($5/seat)
 									</button>
 								</form>
 							{:else}
 								<span
-									class="badge border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 uppercase"
+									class="badge border border-emerald-300 bg-emerald-100/80 px-3 py-1.5 font-mono text-xs font-bold text-emerald-800 uppercase"
 									>💳 Active Subscription</span
 								>
 							{/if}
@@ -240,8 +282,8 @@
 
 					<!-- Invites and Members -->
 					<div class="space-y-6">
-						<div class="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-6">
-							<h3 class="mb-4 text-lg font-bold text-slate-200">Invite Teammate</h3>
+						<div class="rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
+							<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">[ Invite Teammate ]</h3>
 							<form
 								{...inviteMember.enhance(async ({ submit }) => {
 									if (await submit()) {
@@ -258,33 +300,33 @@
 								<input {...inviteMember.fields.organizationId.as('hidden', activeOrg.id)} />
 								<input
 									placeholder="teammate@studio.com"
-									class="input flex-1 rounded-xl border border-slate-800 bg-slate-950 text-sm text-white placeholder-slate-700 focus:border-purple-500 focus:outline-none"
+									class="input flex-1 rounded-lg border border-purple-200 bg-white text-sm text-slate-900 placeholder-slate-400 focus:border-purple-600 focus:outline-none"
 									required
 									bind:value={inviteEmail}
 									{...inviteMember.fields.email.as('email')}
 								/>
 								<button
 									type="submit"
-									class="btn rounded-xl border-none bg-purple-600 px-4 font-bold text-white btn-sm"
+									class="border border-slate-900 bg-slate-900 px-4 py-2 font-mono text-xs font-bold text-white uppercase transition-all hover:bg-transparent hover:text-slate-900"
 									>Invite</button
 								>
 							</form>
 						</div>
 
 						<!-- Members list -->
-						<div class="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-6">
-							<h3 class="mb-4 text-lg font-bold text-slate-200">
-								Workspace Members ({activeOrg.memberships.length})
+						<div class="rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
+							<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">
+								[ Workspace Members ({activeOrg.memberships.length}) ]
 							</h3>
-							<div class="divide-y divide-slate-800">
+							<div class="divide-y divide-purple-100">
 								{#each activeOrg.memberships as mem (mem.id)}
 									<div class="flex items-center justify-between py-3">
 										<div>
-											<span class="block text-sm font-bold text-slate-200">{mem.user.name}</span>
-											<span class="block text-xs text-slate-500">{mem.user.email}</span>
+											<span class="block text-sm font-bold text-slate-900">{mem.user.name}</span>
+											<span class="block font-mono text-xs text-slate-500">{mem.user.email}</span>
 										</div>
 										<div class="flex items-center gap-2">
-											<span class="badge border-none bg-slate-800 badge-sm text-slate-400 uppercase"
+											<span class="badge border border-purple-200 bg-purple-50 font-mono text-xs text-purple-700 uppercase"
 												>{mem.role}</span
 											>
 											{#if activeOrg.ownerId !== mem.userId && activeOrg.ownerId === data.user?.id}
@@ -297,7 +339,7 @@
 														{...removeMember.fields.organizationId.as('hidden', activeOrg.id)}
 													/>
 													<input {...removeMember.fields.userId.as('hidden', mem.userId)} />
-													<button type="submit" class="btn text-rose-500 btn-ghost btn-xs"
+													<button type="submit" class="btn text-rose-600 btn-ghost btn-xs font-mono"
 														>Remove</button
 													>
 												</form>
@@ -310,14 +352,14 @@
 
 						<!-- Pending Invites list -->
 						{#if activeOrg.invites && activeOrg.invites.length > 0}
-							<div class="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-6">
-								<h3 class="mb-4 text-lg font-bold text-slate-200">Pending Invites</h3>
-								<div class="divide-y divide-slate-800 font-medium">
+							<div class="rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
+								<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">[ Pending Invites ]</h3>
+								<div class="divide-y divide-purple-100 font-medium">
 									{#each activeOrg.invites as inv (inv.id)}
 										<div class="flex items-center justify-between py-3">
 											<div>
-												<span class="block text-sm font-bold text-slate-200">{inv.email}</span>
-												<span class="block text-xs text-slate-500"
+												<span class="block font-mono text-xs font-bold text-slate-900">{inv.email}</span>
+												<span class="block font-mono text-[10px] text-slate-500"
 													>Expires {new Date(inv.expiresAt).toLocaleDateString()}</span
 												>
 											</div>
@@ -330,7 +372,7 @@
 												<input {...cancelInvite.fields.organizationId.as('hidden', activeOrg.id)} />
 												<button
 													type="submit"
-													class="btn text-slate-500 btn-ghost btn-xs hover:text-rose-500"
+													class="btn text-slate-500 btn-ghost btn-xs font-mono hover:text-rose-600"
 													>Revoke</button
 												>
 											</form>
@@ -347,9 +389,12 @@
 		<!-- Welcome Header and Stats Overview -->
 		<header class="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-center">
 			<div>
+				<div class="mb-2 font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">
+					[ METRICS_OBSERVED ]
+				</div>
 				<h1
 					id="main-title"
-					class="mb-2 bg-linear-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-5xl"
+					class="mb-3 font-mono text-4xl font-black tracking-tight text-slate-900 md:text-5xl"
 				>
 					{#if activeOrg}
 						{activeOrg.name} Dashboard
@@ -357,7 +402,7 @@
 						Game Dashboard
 					{/if}
 				</h1>
-				<p class="text-lg text-slate-400">
+				<p class="max-w-xl text-base font-medium text-slate-600">
 					Create, deploy, and monitor your browser playtests at the edge.
 				</p>
 			</div>
@@ -365,11 +410,11 @@
 				<button
 					id="create-project-btn"
 					onclick={() => (showCreateModal = true)}
-					class="btn rounded-xl border-none bg-linear-to-r from-purple-600 to-indigo-600 px-6 font-bold text-white shadow-xl shadow-purple-500/20 transition-all duration-300 hover:-translate-y-0.5 hover:from-purple-500 hover:to-indigo-500"
+					class="group inline-flex items-center justify-center gap-2 border border-slate-900 bg-slate-900 px-6 py-4 font-mono text-xs font-bold tracking-wider text-white uppercase shadow-xl transition-all duration-150 hover:bg-transparent hover:text-slate-900"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="mr-2 h-5 w-5"
+						class="h-4 w-4"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -389,88 +434,104 @@
 		<!-- Statistics Ribbon -->
 		<div class="mb-12 grid grid-cols-1 gap-6 md:grid-cols-3">
 			<div
-				class="flex items-center justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-md transition-all hover:border-purple-500/30"
+				class="flex items-center justify-between rounded-2xl border border-purple-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-md transition-all hover:border-purple-300"
 			>
 				<div>
-					<span class="mb-1 block text-xs font-semibold tracking-widest text-slate-400 uppercase"
-						>Active Projects</span
+					<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+						>Active Playtest Builds</span
 					>
-					<span class="text-3xl font-black">{activeWorkspaceProjects.length}</span>
+					<span class="font-mono text-3xl font-black text-slate-900">{activeWorkspaceProjects.length}</span>
 				</div>
 				<div
-					class="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400"
+					class="flex h-12 w-12 items-center justify-center border border-purple-200 bg-purple-50 text-xl"
 				>
-					📦
+					🎮
 				</div>
 			</div>
 			<div
-				class="flex items-center justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-md transition-all hover:border-indigo-500/30"
+				class="flex flex-col justify-between rounded-2xl border border-purple-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-md transition-all hover:border-purple-300"
 			>
-				<div>
-					<span class="mb-1 block text-xs font-semibold tracking-widest text-slate-400 uppercase"
-						>D1 Analytics DB</span
+				<div class="flex items-center justify-between">
+					<div>
+						<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+							>Storage Allocation</span
+						>
+						<span class="font-mono text-2xl font-black text-slate-900">
+							{workspaceStorageUsedMB} MB <span class="text-xs font-medium text-slate-500">/ {workspaceStorageMaxMB} MB</span>
+						</span>
+					</div>
+					<div
+						class="flex h-10 w-10 items-center justify-center border border-indigo-200 bg-indigo-50 text-lg"
 					>
-					<span class="text-3xl font-black text-emerald-400">Active</span>
+						💾
+					</div>
 				</div>
-				<div
-					class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"
-				>
-					⚡
+				<div class="mt-3 w-full">
+					<div class="flex justify-between font-mono text-[10px] font-bold text-slate-500 mb-1">
+						<span>Quota Used</span>
+						<span>{workspaceStoragePercent}%</span>
+					</div>
+					<div class="h-2 w-full overflow-hidden rounded-full bg-purple-100">
+						<div
+							class="h-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 transition-all duration-500"
+							style="width: {workspaceStoragePercent}%"
+						></div>
+					</div>
 				</div>
 			</div>
 			<div
-				class="flex items-center justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-md transition-all hover:border-blue-500/30"
+				class="flex items-center justify-between rounded-2xl border border-purple-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-md transition-all hover:border-purple-300"
 			>
 				<div>
-					<span class="mb-1 block text-xs font-semibold tracking-widest text-slate-400 uppercase"
-						>R2 Assets Storage</span
+					<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+						>Total Playtest Sessions</span
 					>
-					<span class="text-3xl font-black text-indigo-400">Online</span>
+					<span class="font-mono text-3xl font-black text-emerald-700">{workspaceTotalSessions}</span>
 				</div>
 				<div
-					class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400"
+					class="flex h-12 w-12 items-center justify-center border border-emerald-200 bg-emerald-50 text-xl"
 				>
-					☁️
+					🕹️
 				</div>
 			</div>
 		</div>
 
 		<!-- Projects Section -->
 		<section>
-			<h2 class="mb-6 flex items-center gap-2 text-xl font-bold tracking-tight text-slate-300">
+			<h2 class="mb-6 flex items-center gap-3 font-mono text-xl font-black tracking-tight text-slate-900 uppercase">
 				<span>Your Playtests</span>
-				<span class="badge border-none bg-slate-800 px-2 py-1 badge-sm text-slate-400"
+				<span class="border border-purple-200 bg-white/80 px-2 py-0.5 font-mono text-xs text-purple-700"
 					>{activeWorkspaceProjects.length}</span
 				>
 			</h2>
 
 			{#if activeProjectAnalyticsId}
 				{#if activeProject}
-					<div class="rounded-3xl border border-slate-800 bg-slate-900/40 p-8 backdrop-blur-md">
+					<div class="rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-2xl backdrop-blur-md">
 						<!-- Breadcrumb Header -->
-						<div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+						<div class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/40 pb-6">
 							<div class="flex items-center gap-3">
 								<button
 									onclick={() => (activeProjectAnalyticsId = null)}
-									class="btn rounded-lg border border-slate-700 bg-slate-800/80 px-4 font-bold text-slate-300 transition-all btn-sm hover:bg-slate-700 hover:text-white"
+									class="border border-slate-900 bg-white px-4 py-2 font-mono text-xs font-bold text-slate-900 uppercase transition-all hover:bg-slate-900 hover:text-white"
 								>
 									← Back to Projects
 								</button>
-								<div class="h-4 w-[1px] bg-slate-800"></div>
-								<h3 class="text-2xl font-black text-white">
+								<div class="h-4 w-[1px] bg-purple-200"></div>
+								<h3 class="font-mono text-2xl font-black text-slate-900">
 									{activeProject.name}
-									<span class="text-sm font-medium text-slate-500">({activeProject.id})</span>
+									<span class="font-mono text-xs font-normal text-slate-500">({activeProject.id})</span>
 								</h3>
 							</div>
 							<div class="flex items-center gap-2">
 								<span
-									class="badge rounded-md border border-purple-500/20 bg-purple-500/10 px-2 py-1 text-[10px] font-bold text-purple-400 uppercase"
+									class="border border-purple-200 bg-purple-50 px-2.5 py-1 font-mono text-[10px] font-bold text-purple-700 uppercase"
 								>
 									{activeProject.tier}
 								</span>
 								{#if activeProject.passwordProtected}
 									<span
-										class="badge rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] font-bold text-amber-400 uppercase"
+										class="border border-amber-200 bg-amber-50 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-700 uppercase"
 									>
 										🔐 Private
 									</span>
@@ -480,21 +541,21 @@
 
 						<!-- Telemetry Aggregation Stats -->
 						<div class="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-							<div class="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5">
+							<div class="rounded-2xl border border-purple-200/60 bg-white/60 p-5 shadow-xs">
 								<span
-									class="mb-1 block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+									class="mb-1 block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
 									>Total Play Sessions</span
 								>
-								<span class="text-3xl font-black text-purple-400"
+								<span class="font-mono text-3xl font-black text-purple-900"
 									>{activeProject.stats.totalSessions}</span
 								>
 							</div>
-							<div class="rounded-2xl border border-slate-800/60 bg-slate-950/40 p-5">
+							<div class="rounded-2xl border border-purple-200/60 bg-white/60 p-5 shadow-xs">
 								<span
-									class="mb-1 block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+									class="mb-1 block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
 									>Total Custom Logs</span
 								>
-								<span class="text-3xl font-black text-emerald-400"
+								<span class="font-mono text-3xl font-black text-emerald-700"
 									>{activeProject.stats.totalEvents}</span
 								>
 							</div>
@@ -507,11 +568,11 @@
 
 						<!-- Export Data Options -->
 						<div
-							class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
+							class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-purple-200/60 bg-white/60 p-6 shadow-sm"
 						>
 							<div>
-								<h4 class="text-sm font-bold text-slate-200">Export Raw Playtest Data</h4>
-								<p class="text-xs text-slate-500">
+								<h4 class="font-mono text-sm font-bold text-slate-900 uppercase">Export Raw Playtest Data</h4>
+								<p class="text-xs font-medium text-slate-600">
 									Download the complete dataset of playtest logs to feed into custom visualization
 									tools, LLMs, or spreadsheets.
 								</p>
@@ -522,7 +583,7 @@
 										id: activeProject.id
 									})}
 									download
-									class="btn rounded-xl border border-purple-500/25 bg-purple-500/10 px-5 font-bold text-purple-400 transition-all btn-sm hover:bg-purple-600 hover:text-white"
+									class="border border-purple-300 bg-purple-50 px-4 py-2 font-mono text-xs font-bold text-purple-800 uppercase transition-all hover:bg-purple-600 hover:text-white"
 								>
 									📥 JSON
 								</a>
@@ -531,7 +592,7 @@
 										id: activeProject.id
 									})}
 									download
-									class="btn rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-5 font-bold text-indigo-400 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
+									class="border border-indigo-300 bg-indigo-50 px-4 py-2 font-mono text-xs font-bold text-indigo-800 uppercase transition-all hover:bg-indigo-600 hover:text-white"
 								>
 									📥 CSV
 								</a>
@@ -540,7 +601,7 @@
 										projectId: activeProject.id
 									})}
 									download
-									class="btn rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-5 font-bold text-emerald-400 transition-all btn-sm hover:bg-emerald-600 hover:text-white"
+									class="border border-emerald-300 bg-emerald-50 px-4 py-2 font-mono text-xs font-bold text-emerald-800 uppercase transition-all hover:bg-emerald-600 hover:text-white"
 								>
 									📦 Download ZIP
 								</a>
@@ -550,35 +611,35 @@
 						<!-- Playtest session list inspector -->
 						<div class="space-y-4">
 							<div class="flex items-center justify-between">
-								<h4 class="text-sm font-bold tracking-wider text-slate-400 uppercase">
+								<h4 class="font-mono text-xs font-bold tracking-wider text-purple-700 uppercase">
 									Recent Playtest Sessions (Latest 30)
 								</h4>
-								<span class="badge border-none bg-slate-800 font-mono text-xs text-slate-400"
+								<span class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs text-slate-600"
 									>{projectSessions.length} sessions loaded</span
 								>
 							</div>
 
 							{#if projectSessions.length === 0}
 								<div
-									class="rounded-2xl border border-slate-800/80 bg-slate-950/20 py-16 text-center"
+									class="rounded-2xl border border-dashed border-purple-200 bg-white/40 py-16 text-center"
 								>
 									<div
-										class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-2xl"
+										class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-purple-200 bg-white text-2xl"
 									>
 										⏳
 									</div>
-									<h4 class="text-slate-350 mb-1 font-bold">Waiting for playtests...</h4>
+									<h4 class="font-mono text-slate-800 mb-1 text-sm font-bold uppercase">Waiting for playtests...</h4>
 									<p class="mx-auto max-w-md text-xs leading-relaxed text-slate-500">
 										No playtest sessions have been received for this project yet. Use the code
 										templates in the guide below to start sending data from your game.
 									</p>
 								</div>
 							{:else}
-								<div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/40">
+								<div class="overflow-x-auto rounded-2xl border border-purple-200/60 bg-white/60 shadow-xs">
 									<table class="w-full border-collapse text-left text-xs">
 										<thead>
 											<tr
-												class="text-slate-450 border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold tracking-wider uppercase"
+												class="border-b border-purple-200/60 bg-purple-50/50 font-mono text-[10px] font-bold tracking-wider text-purple-900 uppercase"
 											>
 												<th class="p-4">Started At</th>
 												<th class="p-4">Session ID</th>
@@ -590,24 +651,24 @@
 												<th class="p-4 text-right">Actions</th>
 											</tr>
 										</thead>
-										<tbody class="text-slate-350 divide-y divide-slate-800/55 font-medium">
+										<tbody class="divide-y divide-purple-100 font-medium text-slate-700">
 											{#each projectSessions as session (session.id)}
-												<tr class="hover:bg-slate-900/20">
+												<tr class="transition-colors hover:bg-purple-50/40">
 													<td class="p-4 font-mono text-[10px] whitespace-nowrap text-slate-500">
 														{new Date(session.createdAt).toLocaleString()}
 													</td>
 													<td
-														class="p-4 font-mono text-[10px] text-indigo-400"
+														class="p-4 font-mono text-[10px] font-bold text-purple-700"
 														title={session.gpuRenderer ? `GPU: ${session.gpuRenderer}` : session.id}
 													>
 														{session.id.slice(0, 8)}...
 													</td>
-													<td class="p-4 whitespace-nowrap">
+													<td class="p-4 font-mono whitespace-nowrap">
 														{session.duration}s
 													</td>
 													<td class="p-4">
 														<span
-															class="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs font-semibold text-slate-300"
+															class="border border-purple-200 bg-purple-50 px-2 py-0.5 font-mono text-xs font-semibold text-purple-900"
 														>
 															{session.logCount}
 														</span>
@@ -615,50 +676,50 @@
 													<td class="p-4">
 														{#if session.avgFps}
 															<span
-																class="rounded border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-xs font-bold text-purple-300"
+																class="border border-purple-300 bg-purple-100/60 px-2 py-0.5 font-mono text-xs font-bold text-purple-800"
 															>
 																{session.avgFps} FPS
 															</span>
 														{:else}
-															<span class="text-[10px] text-slate-600">--</span>
+															<span class="font-mono text-[10px] text-slate-400">--</span>
 														{/if}
 													</td>
 													<td class="p-4">
 														{#if session.sentiment === 'fun'}
 															<span
-																class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400"
+																class="border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-800"
 																title={session.userComment || 'Playtest rated Fun'}
 															>
 																😀 FUN
 															</span>
 														{:else if session.sentiment === 'neutral'}
 															<span
-																class="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400"
+																class="border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-800"
 																title={session.userComment || 'Playtest rated Neutral'}
 															>
 																😐 OKAY
 															</span>
 														{:else if session.sentiment === 'unfun'}
 															<span
-																class="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-400"
+																class="border border-rose-300 bg-rose-50 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-800"
 																title={session.userComment || 'Playtest rated Unfun'}
 															>
 																🙁 UNFUN
 															</span>
 														{:else}
-															<span class="text-[10px] text-slate-600">--</span>
+															<span class="font-mono text-[10px] text-slate-400">--</span>
 														{/if}
 													</td>
 													<td class="p-4">
 														{#if session.hasCrashed}
 															<span
-																class="rounded border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400"
+																class="border border-rose-300 bg-rose-50 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-800"
 															>
 																💥 CRASHED
 															</span>
 														{:else}
 															<span
-																class="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400"
+																class="border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-800"
 															>
 																✅ ACTIVE / OK
 															</span>
@@ -667,7 +728,7 @@
 													<td class="p-4 text-right">
 														<button
 															onclick={() => inspectSession(session)}
-															class="btn rounded-lg border border-purple-500/30 bg-purple-500/15 px-3 py-1 text-[10px] font-bold text-purple-300 transition-all hover:bg-purple-600 hover:text-white"
+															class="border border-slate-900 bg-white px-3 py-1 font-mono text-[10px] font-bold text-slate-900 uppercase transition-all hover:bg-slate-900 hover:text-white"
 														>
 															🔍 Inspect Logs
 														</button>
@@ -683,21 +744,21 @@
 				{/if}
 			{:else if activeWorkspaceProjects.length === 0}
 				<div
-					class="rounded-3xl border border-dashed border-slate-800 bg-slate-900/20 px-6 py-20 text-center backdrop-blur-md"
+					class="rounded-3xl border border-dashed border-purple-200/70 bg-white/40 px-6 py-20 text-center shadow-xl backdrop-blur-md"
 				>
 					<div
-						class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-900/60 text-3xl shadow-inner"
+						class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-purple-200 bg-white text-3xl shadow-xs"
 					>
 						👾
 					</div>
-					<h3 class="mb-2 text-xl font-bold text-slate-200">No playtests found</h3>
-					<p class="mx-auto mb-8 max-w-md text-slate-500">
+					<h3 class="mb-2 font-mono text-xl font-bold text-slate-900 uppercase">No playtests found</h3>
+					<p class="mx-auto mb-8 max-w-md font-medium text-slate-600">
 						Ready to test if your game is actually fun? Create a new project to start streaming
 						telemetry.
 					</p>
 					<button
 						onclick={() => (showCreateModal = true)}
-						class="btn rounded-xl border-none bg-purple-600 shadow-lg btn-primary hover:bg-purple-500"
+						class="border border-slate-900 bg-slate-900 px-6 py-3 font-mono text-xs font-bold text-white uppercase shadow-lg transition-all hover:bg-transparent hover:text-slate-900"
 					>
 						Create First Project
 					</button>
@@ -708,21 +769,16 @@
 						{@const del = deleteProject.for(p.id)}
 						{@const upgrade = upgradeProject.for(p.id)}
 						<article
-							class="group relative rounded-3xl border border-slate-800 bg-slate-900/30 p-8 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-500/5"
+							class="group relative rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-xl backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-purple-300 hover:shadow-2xl"
 						>
-							<!-- Glowing border effect -->
-							<div
-								class="pointer-events-none absolute inset-0 rounded-3xl bg-linear-to-r from-purple-500/0 to-indigo-500/0 transition-all group-hover:from-purple-500/5 group-hover:to-indigo-500/5"
-							></div>
-
 							<div class="relative z-10 mb-4 flex items-start justify-between">
 								<div>
 									<h3
-										class="mb-1 text-2xl font-extrabold tracking-tight text-white transition-colors group-hover:text-purple-300"
+										class="mb-1 font-mono text-2xl font-black tracking-tight text-slate-900 transition-colors group-hover:text-purple-700"
 									>
 										{p.name}
 									</h3>
-									<span class="text-xs font-medium text-slate-500">
+									<span class="font-mono text-xs font-medium text-slate-500">
 										Created on {new Date(p.createdAt).toLocaleDateString(undefined, {
 											month: 'short',
 											day: 'numeric',
@@ -733,25 +789,25 @@
 								<div class="flex items-center gap-2">
 									{#if p.passwordProtected}
 										<span
-											class="badge rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] font-bold text-amber-400 uppercase"
+											class="border border-amber-200 bg-amber-50 px-2 py-1 font-mono text-[10px] font-bold text-amber-700 uppercase"
 										>
 											🔐 Private
 										</span>
 									{:else}
 										<span
-											class="badge rounded-md border-none bg-slate-800 px-2 py-1 text-[10px] text-slate-400 uppercase"
+											class="border border-purple-200 bg-white px-2 py-1 font-mono text-[10px] text-slate-600 uppercase"
 										>
 											🌐 Public
 										</span>
 									{/if}
 									<span
-										class="badge rounded-md border border-purple-500/20 bg-purple-500/10 px-2 py-1 text-[10px] font-bold text-purple-400 uppercase"
+										class="border border-purple-200 bg-purple-50 px-2 py-1 font-mono text-[10px] font-bold text-purple-700 uppercase"
 									>
 										{p.tier}
 									</span>
 									{#if p.payments && p.payments.length > 0}
 										<span
-											class="badge rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-400 uppercase"
+											class="border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono text-[10px] font-bold text-emerald-800 uppercase"
 											title="Creem Order ID: {p.payments[0].creemOrderId || 'Local'}"
 										>
 											💳 Paid
@@ -762,28 +818,28 @@
 
 							<!-- Telemetry Stats mockup or link -->
 							<div
-								class="relative z-10 mb-6 flex justify-between divide-x divide-slate-800/60 rounded-2xl border border-slate-900 bg-slate-950/60 p-4 text-center"
+								class="relative z-10 mb-6 flex justify-between divide-x divide-purple-200/60 rounded-2xl border border-purple-200/60 bg-white/70 p-4 text-center shadow-xs"
 							>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
+									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Telemetry ID</span
 									>
-									<code class="font-mono text-xs font-bold text-purple-400">{p.id}</code>
+									<code class="font-mono text-xs font-bold text-slate-900">{p.id}</code>
 								</div>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
+									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Writes</span
 									>
-									<span class="text-xs font-bold text-slate-300">
+									<span class="font-mono text-xs font-bold text-slate-900">
 										{p.projectQuotas?.[0]?.monthlyWriteCount || 0} / {p.projectQuotas?.[0]
 											?.maxWriteLimit || (p.tier === 'free' ? 5000 : 100000)}
 									</span>
 								</div>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block text-[9px] tracking-wider text-slate-500 uppercase"
+									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Storage</span
 									>
-									<span class="text-xs font-bold text-slate-300">
+									<span class="font-mono text-xs font-bold text-slate-900">
 										{((p.projectQuotas?.[0]?.storageBytesUsed || 0) / (1024 * 1024)).toFixed(2)} MB
 									</span>
 								</div>
@@ -791,33 +847,33 @@
 
 							<!-- Action Buttons -->
 							<div
-								class="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/60 pt-4"
+								class="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-purple-200/40 pt-4"
 							>
-								<div class="flex gap-2">
+								<div class="flex flex-wrap gap-2">
 									<button
 										onclick={() => openUpload(p.id)}
-										class="btn rounded-lg border border-purple-500/20 bg-purple-600/20 px-4 font-bold text-purple-300 transition-all btn-sm hover:bg-purple-600 hover:text-white"
+										class="border border-purple-300 bg-purple-50 px-3 py-1.5 font-mono text-xs font-bold text-purple-800 uppercase transition-all hover:bg-purple-600 hover:text-white"
 										aria-label="Upload game bundle"
 									>
-										☁️ Upload Game ZIP
+										☁️ Upload ZIP
 									</button>
 									<button
 										onclick={() => triggerCopy(p.id)}
-										class="btn rounded-lg px-3 text-slate-300 btn-ghost btn-sm hover:text-white"
+										class="border border-purple-200 bg-white px-3 py-1.5 font-mono text-xs font-bold text-slate-800 uppercase transition-all hover:border-slate-900"
 										aria-label="Copy play link"
 									>
 										{#if copyStatus[p.id]}
 											✨ Copied!
 										{:else}
-											🔗 Copy Play Link
+											🔗 Play Link
 										{/if}
 									</button>
 									<button
 										onclick={() => (activeProjectAnalyticsId = p.id)}
-										class="btn rounded-lg border border-indigo-500/20 bg-indigo-600/20 px-4 font-bold text-indigo-300 transition-all btn-sm hover:bg-indigo-600 hover:text-white"
+										class="border border-indigo-300 bg-indigo-50 px-3 py-1.5 font-mono text-xs font-bold text-indigo-800 uppercase transition-all hover:bg-indigo-600 hover:text-white"
 										aria-label="View Telemetry"
 									>
-										📊 View Analytics
+										📊 Analytics
 									</button>
 
 									{#if p.tier === 'free'}
@@ -846,7 +902,7 @@
 											<input {...upgrade.fields.id.as('hidden', p.id)} />
 											<button
 												type="submit"
-												class="btn rounded-lg border-none bg-linear-to-r from-amber-500 to-orange-500 px-4 font-extrabold text-slate-950 shadow-lg shadow-orange-500/10 transition-all btn-sm hover:from-amber-400 hover:to-orange-400 hover:shadow-orange-500/25"
+												class="border border-slate-900 bg-slate-900 px-3 py-1.5 font-mono text-xs font-bold text-white uppercase transition-all hover:bg-transparent hover:text-slate-900"
 												aria-label="Upgrade project"
 											>
 												⚡ Upgrade (£15)
@@ -860,7 +916,7 @@
 									<input {...del.fields.id.as('hidden', p.id)} />
 									<button
 										type="submit"
-										class="btn btn-circle text-slate-500 btn-ghost transition-colors btn-sm hover:bg-rose-500/10 hover:text-rose-500"
+										class="btn btn-circle text-slate-400 btn-ghost transition-colors btn-sm hover:bg-rose-100 hover:text-rose-600"
 										aria-label="Delete project"
 										onclick={(e) => {
 											if (
@@ -894,11 +950,11 @@
 			{/if}
 
 			<!-- Integration & Telemetry Guide -->
-			<div class="mt-16 rounded-3xl border border-slate-800 bg-slate-900/10 p-8 backdrop-blur-md">
-				<h2 class="mb-4 flex items-center gap-2 text-2xl font-extrabold tracking-tight text-white">
-					<span>🛠️ Telemetry Integration Guide</span>
+			<div class="mt-16 rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-xl backdrop-blur-md">
+				<h2 class="mb-4 flex items-center gap-2 font-mono text-2xl font-black tracking-tight text-slate-900">
+					<span>🛠️ TELEMETRY INTEGRATION GUIDE</span>
 				</h2>
-				<p class="mb-6 text-sm leading-relaxed text-slate-400">
+				<p class="mb-6 font-medium text-sm text-slate-600">
 					IsItFun exposes a simple window-level logging API. Embed the script and call our logging
 					function from any HTML5 engine.
 				</p>
@@ -907,11 +963,11 @@
 					<!-- Setup Snippet -->
 					<div class="space-y-6 lg:col-span-2">
 						<div>
-							<h3 class="mb-3 text-sm font-bold tracking-wider text-purple-400 uppercase">
+							<h3 class="mb-3 font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">
 								1. Include script (Automatically injected on hosted builds)
 							</h3>
 							<div
-								class="relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300"
+								class="relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200 shadow-inner"
 							>
 								<pre><code
 										>&lt;script 
@@ -923,53 +979,54 @@
 
 						<div>
 							<div class="mb-4 flex items-center justify-between">
-								<h3 class="text-sm font-bold tracking-wider text-indigo-400 uppercase">
+								<h3 class="font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">
 									2. Call Log API from your game engine
 								</h3>
 							</div>
 
 							<!-- Guide Tabs -->
-							<div class="mb-4 flex border-b border-slate-800 text-xs font-bold">
+							<div class="mb-4 flex border-b border-purple-200 font-mono text-xs font-bold">
 								<button
 									onclick={() => (activeGuideTab = 'js')}
 									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'js'
-										? 'border-indigo-500 text-indigo-400'
-										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+										? 'border-purple-600 text-purple-700'
+										: 'border-transparent text-slate-500 hover:text-slate-900'}"
 								>
 									JavaScript
 								</button>
 								<button
 									onclick={() => (activeGuideTab = 'godot')}
 									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'godot'
-										? 'border-indigo-500 text-indigo-400'
-										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+										? 'border-purple-600 text-purple-700'
+										: 'border-transparent text-slate-500 hover:text-slate-900'}"
 								>
 									Godot 4
 								</button>
 								<button
 									onclick={() => (activeGuideTab = 'unity')}
 									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'unity'
-										? 'border-indigo-500 text-indigo-400'
-										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+										? 'border-purple-600 text-purple-700'
+										: 'border-transparent text-slate-500 hover:text-slate-900'}"
 								>
 									Unity WebGL
 								</button>
 								<button
 									onclick={() => (activeGuideTab = 'phaser')}
 									class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'phaser'
-										? 'border-indigo-500 text-indigo-400'
-										: 'text-slate-450 border-transparent hover:text-slate-200'}"
+										? 'border-purple-600 text-purple-700'
+										: 'border-transparent text-slate-500 hover:text-slate-900'}"
 								>
 									Phaser
 								</button>
 							</div>
 
 							<div
-								class="text-slate-350 relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs font-medium"
+								class="relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs font-medium text-slate-200 shadow-inner"
 							>
 								{#if activeGuideTab === 'js'}
 									<pre><code
-											>window.IsItFun.log("level_complete", &#123;
+											>// Native JS / HTML5 Canvas
+window.IsItFun?.log("level_complete", &#123;
   level_id: "world_1_1",
   score: 12500,
   coins: 42
@@ -977,25 +1034,38 @@
 										></pre>
 								{:else if activeGuideTab === 'godot'}
 									<pre><code
-											># GDScript Web Bridge
+											># Godot 4 GDScript Web Bridge
 func log_event(event_name: String, data: Dictionary):
     if OS.has_feature("web"):
-        JavaScriptBridge.eval("window.IsItFun.log('" + event_name + "', " + JSON.stringify(data) + ")")</code
+        var js_code = "window.IsItFun.log(%s, %s);" % [JSON.stringify(event_name), JSON.stringify(data)]
+        JavaScriptBridge.eval(js_code, true)</code
 										></pre>
 								{:else if activeGuideTab === 'unity'}
 									<pre><code
-											>// C# WebGL Plugin Method
-public void LogEvent(string eventName, string jsonPayload) &#123;
+											>// 1. Create Assets/Plugins/WebGL/IsItFunBridge.jslib:
+// mergeInto(LibraryManager.library, &#123;
+//   IsItFunLog: function(evtPtr, jsonPtr) &#123;
+//     var evt = UTF8ToString(evtPtr);
+//     var data = JSON.parse(UTF8ToString(jsonPtr));
+//     if (window.IsItFun) window.IsItFun.log(evt, data);
+//   &#125;
+// &#125;);
+
+// 2. In Unity C# script:
+[DllImport("__Internal")]
+private static extern void IsItFunLog(string eventName, string jsonPayload);
+
+public void LogEvent(string name, object data) &#123;
     #if !UNITY_EDITOR && UNITY_WEBGL
-    Application.ExternalCall("window.IsItFun.log", eventName, jsonPayload);
+    IsItFunLog(name, JsonUtility.ToJson(data));
     #endif
 &#125;</code
 										></pre>
 								{:else if activeGuideTab === 'phaser'}
 									<pre><code
-											>// Log collection in Phaser scene
-this.registry.events.on('changedata', (parent, key, value) => &#123;
-    window.IsItFun?.log("state_change", &#123; key: key, val: value &#125;);
+											>// Phaser 3 Scene Event Logging
+this.events.on('score_changed', (newScore) => &#123;
+    window.IsItFun?.log("score_update", &#123; score: newScore &#125;);
 &#125;);</code
 										></pre>
 								{/if}
@@ -1004,35 +1074,34 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 					</div>
 
 					<!-- Limits and retention -->
-					<div class="h-fit space-y-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-6">
-						<h3 class="text-sm font-bold tracking-wider text-amber-400 uppercase">
+					<div class="h-fit space-y-4 rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-xs">
+						<h3 class="font-mono text-xs font-bold tracking-wider text-purple-700 uppercase">
 							Security & Rate Limits
 						</h3>
 
 						<div class="flex items-start gap-3">
 							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-purple-200 bg-purple-50 text-xs"
 							>
 								🛡️
 							</div>
 							<div>
-								<h4 class="text-xs font-bold text-slate-200">Daily Cap Check</h4>
-								<p class="text-[11px] leading-relaxed text-slate-500">
-									All projects are limited to a daily firewall cap of 5,000 logs/day to protect D1
-									storage from loop overhead.
+								<h4 class="font-mono text-xs font-bold text-slate-900">Daily Telemetry Rate Limit</h4>
+								<p class="text-[11px] leading-relaxed font-medium text-slate-600">
+									Projects have a protective limit of 5,000 logs/day to guard against infinite game loops and spam.
 								</p>
 							</div>
 						</div>
 
 						<div class="flex items-start gap-3">
 							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-xs"
+								class="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-purple-200 bg-purple-50 text-xs"
 							>
 								🆓
 							</div>
 							<div>
-								<h4 class="text-xs font-bold text-slate-200">Free Tier Log decay</h4>
-								<p class="text-slate-550 text-[11px] leading-relaxed">
+								<h4 class="font-mono text-xs font-bold text-slate-900">Free Tier Log decay</h4>
+								<p class="text-[11px] leading-relaxed font-medium text-slate-600">
 									Free projects have a 7-day logs decay protocol. Clean records are retained for
 									week-long prototype sessions.
 								</p>
@@ -1042,7 +1111,9 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 				</div>
 			</div>
 		</section>
-	</div>
+	</main>
+
+	<Footer />
 
 	<CreateProjectModal
 		bind:show={showCreateModal}
@@ -1057,16 +1128,16 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 
 	{#if showCreateOrgModal}
 		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-lg"
+			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
 		>
 			<div
-				class="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl"
+				class="w-full max-w-md rounded-3xl border border-purple-200/60 bg-white/95 p-8 shadow-2xl backdrop-blur-xl"
 			>
 				<header class="mb-6 flex items-center justify-between">
-					<h3 class="text-xl font-black text-white">Create Workspace Team</h3>
+					<h3 class="font-mono text-xl font-black text-slate-900">Create Workspace Team</h3>
 					<button
 						onclick={() => (showCreateOrgModal = false)}
-						class="btn btn-circle btn-ghost btn-sm">✕</button
+						class="btn btn-circle btn-ghost btn-sm text-slate-600">✕</button
 					>
 				</header>
 				<form
@@ -1085,28 +1156,28 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 				>
 					<div class="form-control">
 						<label class="label mb-2" for="org-name-input">
-							<span class="label-text text-slate-350 text-xs font-bold uppercase"
+							<span class="label-text font-mono text-xs font-bold text-purple-700 uppercase"
 								>Team / Studio Name</span
 							>
 						</label>
 						<input
 							id="org-name-input"
 							placeholder="e.g. Pixel Arts Studio"
-							class="input w-full rounded-xl border border-slate-800 bg-slate-950 text-white placeholder-slate-700 focus:border-purple-500 focus:outline-none"
+							class="input w-full rounded-xl border border-purple-200 bg-white text-slate-900 placeholder-slate-400 focus:border-purple-600 focus:outline-none"
 							required
 							bind:value={orgNameInput}
 							{...createOrganization.fields.name.as('text')}
 						/>
 					</div>
-					<div class="flex justify-end gap-3 border-t border-slate-800 pt-4">
+					<div class="flex justify-end gap-3 border-t border-purple-200/60 pt-4">
 						<button
 							type="button"
 							onclick={() => (showCreateOrgModal = false)}
-							class="btn rounded-xl btn-ghost">Cancel</button
+							class="btn rounded-xl btn-ghost text-slate-600 font-mono">Cancel</button
 						>
 						<button
 							type="submit"
-							class="btn rounded-xl border-none bg-linear-to-r from-purple-600 to-indigo-600 font-bold text-white"
+							class="border border-slate-900 bg-slate-900 px-4 py-2 font-mono text-xs font-bold text-white uppercase shadow-md hover:bg-transparent hover:text-slate-900"
 							>Create Team</button
 						>
 					</div>
@@ -1123,4 +1194,11 @@ this.registry.events.on('changedata', (parent, key, value) => &#123;
 			onClose={() => (showInspectorModal = false)}
 		/>
 	{/if}
-</main>
+
+	<OnboardingTourModal
+		isOpen={showOnboardingModal}
+		onClose={() => (showOnboardingModal = false)}
+	/>
+</div>
+
+

@@ -4,10 +4,36 @@ import { eq, and, sql } from 'drizzle-orm';
 import { projects, projectAccessKeys } from '$lib/server/db/db-schema';
 import { validateAccessKey } from '$lib/server/db/access-keys';
 import { verifySession, signSession } from '$lib/server/crypto';
+import { getDemoPingPongHtml } from '$lib/server/demo-game';
 
-export const GET: RequestHandler = async ({ params, locals, platform, cookies, url }) => {
+export const GET: RequestHandler = async ({ params, request, locals, platform, cookies, url }) => {
 	const projectId = params.projectId;
 	let filePath = params.file || 'index.html';
+
+	// Handle built-in interactive demo game route (zero R2/DB setup needed)
+	if (projectId === 'demo' || projectId.startsWith('demo_')) {
+		const htmlText = getDemoPingPongHtml(projectId);
+		const headers = new Headers();
+		headers.set('Content-Type', 'text/html');
+		headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+		headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+
+		const sessionToken = await signSession(projectId);
+		cookies.set(`play_session_${projectId}`, sessionToken, {
+			path: `/play/${projectId}`,
+			maxAge: 60 * 60 * 24,
+			sameSite: 'lax',
+			httpOnly: true,
+			secure: true
+		});
+
+		const injectedText = htmlText.replace(
+			'</body>',
+			`<script src="/assets/overlay-widget.js" data-project="${projectId}" data-tier="free"></script></body>`
+		);
+		return new Response(injectedText, { headers });
+	}
+
 
 	// Normalize empty or trailing slash pathways to index.html
 	if (filePath === '' || filePath.endsWith('/')) {
@@ -15,6 +41,7 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 	}
 
 	const isIndexHtml = filePath === 'index.html' || filePath.endsWith('/index.html');
+	const rangeHeader = request.headers.get('range');
 
 	if (!isIndexHtml) {
 		// Try to verify session cryptographically first
@@ -27,11 +54,14 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 			}
 
 			const r2Key = `games/${projectId}/assets/${filePath}`;
-			const object = await bucket.get(r2Key);
+			const object = rangeHeader
+				? await bucket.get(r2Key, { range: request.headers })
+				: await bucket.get(r2Key);
 
 			if (!object) {
 				throw error(404, `Game asset not found: ${filePath}`);
 			}
+
 
 			const headers = new Headers();
 			if (object.httpMetadata?.contentType) {
@@ -44,8 +74,21 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 			headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 			headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
 			headers.set('Cache-Control', 'private, max-age=3600, must-revalidate');
+			headers.set('Accept-Ranges', 'bytes');
 
-			return new Response(object.body, { headers });
+			let status = 200;
+			if (rangeHeader && object.range) {
+				status = 206;
+				const rangeObj = object.range as { offset?: number; length?: number };
+				const offset = rangeObj.offset ?? 0;
+				const length = rangeObj.length ?? object.size;
+				const end = offset + length - 1;
+				headers.set('Content-Range', `bytes ${offset}-${end}/${object.size}`);
+				headers.set('Content-Length', String(length));
+			}
+
+
+			return new Response(object.body, { status, headers });
 		}
 	}
 
@@ -89,7 +132,10 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 
 			cookies.set(`play_key_${projectId}`, matchingKey.code, {
 				path: `/play/${projectId}`,
-				maxAge: 60 * 60 * 24
+				maxAge: 60 * 60 * 24,
+				sameSite: 'lax',
+				httpOnly: true,
+				secure: true
 			});
 		}
 	} else if (project.passwordProtected) {
@@ -105,11 +151,14 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 	}
 
 	const r2Key = `games/${projectId}/assets/${filePath}`;
-	const object = await bucket.get(r2Key);
+	const object = rangeHeader
+		? await bucket.get(r2Key, { range: request.headers })
+		: await bucket.get(r2Key);
 
 	if (!object) {
 		throw error(404, `Game asset not found: ${filePath}`);
 	}
+
 
 	// Construct response and apply COOP/COEP headers
 	const headers = new Headers();
@@ -122,6 +171,7 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 
 	headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 	headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+	headers.set('Accept-Ranges', 'bytes');
 
 	if (!isIndexHtml) {
 		headers.set('Cache-Control', 'private, max-age=3600, must-revalidate');
@@ -139,7 +189,19 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 		});
 	}
 
-	const response = new Response(object.body, { headers });
+	let status = 200;
+	if (rangeHeader && object.range) {
+		status = 206;
+		const rangeObj = object.range as { offset?: number; length?: number };
+		const offset = rangeObj.offset ?? 0;
+		const length = rangeObj.length ?? object.size;
+		const end = offset + length - 1;
+		headers.set('Content-Range', `bytes ${offset}-${end}/${object.size}`);
+		headers.set('Content-Length', String(length));
+	}
+
+
+	const response = new Response(object.body, { status, headers });
 
 	// Ingest tracking widget into index.html using HTMLRewriter or fallback polyfill
 	if (isIndexHtml) {
@@ -160,7 +222,7 @@ export const GET: RequestHandler = async ({ params, locals, platform, cookies, u
 				'</body>',
 				`<script src="/assets/overlay-widget.js" data-project="${projectId}" data-tier="${project.tier}"></script></body>`
 			);
-			return new Response(injectedText, { headers });
+			return new Response(injectedText, { status, headers });
 		}
 	}
 
@@ -198,9 +260,33 @@ function guessContentType(filePath: string): string {
 		case 'svg':
 			contentType = 'image/svg+xml';
 			break;
+		case 'mp3':
+			contentType = 'audio/mpeg';
+			break;
+		case 'ogg':
+			contentType = 'audio/ogg';
+			break;
+		case 'wav':
+			contentType = 'audio/wav';
+			break;
+		case 'webm':
+			contentType = 'video/webm';
+			break;
+		case 'mp4':
+			contentType = 'video/mp4';
+			break;
+		case 'gltf':
+			contentType = 'model/gltf+json';
+			break;
+		case 'glb':
+			contentType = 'model/gltf-binary';
+			break;
+		case 'data':
+		case 'bin':
 		case 'pck':
 			contentType = 'application/octet-stream';
 			break;
 	}
 	return contentType;
 }
+

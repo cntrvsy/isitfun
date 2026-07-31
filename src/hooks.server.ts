@@ -50,7 +50,13 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
 
 		// Resolve any pending organization invite token for authenticated users
-		await resolvePendingInvite(event.locals.db, event.cookies, event.locals.user.id);
+		await resolvePendingInvite(
+			event.locals.db,
+			event.cookies,
+			event.locals.user.id,
+			event.locals.user.email
+		);
+
 
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
 		const path = event.url.pathname.replace(/\/$/, '');
@@ -61,7 +67,13 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 				return redirect(302, '/portal/dashboard');
 			}
 		}
+	} else {
+		const path = event.url.pathname.replace(/\/$/, '');
+		if (path === '/auth/login') {
+			return redirect(302, '/auth');
+		}
 	}
+
 
 	// 🔐 Centralized Sub-tree Route & RBAC Guards
 	if (event.url.pathname.startsWith('/portal')) {
@@ -89,7 +101,7 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-const handleSecurity: Handle = async ({ event, resolve }) => {
+export const handleSecurity: Handle = async ({ event, resolve }) => {
 	const referer = event.request.headers.get('referer');
 	if (referer) {
 		try {

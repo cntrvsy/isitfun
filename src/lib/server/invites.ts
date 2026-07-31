@@ -33,7 +33,8 @@ export async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: strin
 	if (creemApiKey) {
 		try {
 			const res = await fetch(`${baseUrl}/subscriptions/${org.creemSubscriptionId}`, {
-				headers: { 'x-api-key': creemApiKey }
+				headers: { 'x-api-key': creemApiKey },
+				signal: AbortSignal.timeout(5000)
 			});
 			if (res.ok) {
 				const subData = (await res.json()) as { items?: Array<{ id: string }> };
@@ -47,7 +48,8 @@ export async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: strin
 						},
 						body: JSON.stringify({
 							items: [{ id: itemId, units: totalSeats }]
-						})
+						}),
+						signal: AbortSignal.timeout(5000)
 					});
 				}
 			}
@@ -60,7 +62,12 @@ export async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: strin
 /**
  * Universal helper to resolve pending organization invite cookies upon user authentication.
  */
-export async function resolvePendingInvite(db: DrizzleClient, cookies: Cookies, userId: string) {
+export async function resolvePendingInvite(
+	db: DrizzleClient,
+	cookies: Cookies,
+	userId: string,
+	userEmail?: string
+) {
 	const inviteToken = cookies.get('pending_invite_token');
 	if (!inviteToken) return;
 
@@ -72,6 +79,14 @@ export async function resolvePendingInvite(db: DrizzleClient, cookies: Cookies, 
 			.get();
 
 		if (invite && new Date() <= invite.expiresAt) {
+			if (userEmail && invite.email.toLowerCase() !== userEmail.toLowerCase()) {
+				console.warn(
+					`[Invites] Skipping invite token resolution - email mismatch: invite=${invite.email}, user=${userEmail}`
+				);
+				cookies.delete('pending_invite_token', { path: '/' });
+				return;
+			}
+
 			// Check if membership already exists
 			const existing = await db
 				.select()
@@ -83,6 +98,7 @@ export async function resolvePendingInvite(db: DrizzleClient, cookies: Cookies, 
 					)
 				)
 				.get();
+
 
 			if (!existing) {
 				await db.insert(organizationMemberships).values({

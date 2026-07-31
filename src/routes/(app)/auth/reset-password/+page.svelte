@@ -31,7 +31,7 @@
 		}
 
 		try {
-			const { data, error } = await authClient.resetPassword({
+			const { error } = await authClient.resetPassword({
 				newPassword: newPasswordVal,
 				token
 			});
@@ -41,11 +41,11 @@
 			} else {
 				successMsg = 'Password reset successfully! Redirecting to sign in...';
 				setTimeout(() => {
-					goto('/auth');
+					goto(resolve('/(app)/auth'));
 				}, 1500);
 			}
-		} catch (err: any) {
-			errorMsg = err?.message || 'Failed to reset password. The link may have expired.';
+		} catch (err: unknown) {
+			errorMsg = (err as Error)?.message || 'Failed to reset password. The link may have expired.';
 		} finally {
 			loading = false;
 		}

@@ -17,7 +17,7 @@
 		resendSuccess = null;
 
 		try {
-			const { data, error } = await authClient.sendVerificationEmail({
+			const { error } = await authClient.sendVerificationEmail({
 				email: emailVal,
 				callbackURL: `${window.location.origin}/auth`
 			});
@@ -28,8 +28,8 @@
 				resendSuccess = 'Verification email sent! Check your inbox.';
 				emailVal = '';
 			}
-		} catch (err: any) {
-			resendError = err?.message || 'Failed to send verification email.';
+		} catch (err: unknown) {
+			resendError = (err as Error)?.message || 'Failed to send verification email.';
 		} finally {
 			loading = false;
 		}

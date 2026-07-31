@@ -13,7 +13,7 @@ describe('Database Schema Composite Indexes', () => {
 		);
 		expect(compositeIndex).toBeDefined();
 
-		const columnNames = compositeIndex?.config.columns.map((col) => (col as any).name);
+		const columnNames = compositeIndex?.config.columns.map((col) => (col as { name: string }).name);
 		expect(columnNames).toEqual(['project_id', 'created_at']);
 	});
 
@@ -27,7 +27,7 @@ describe('Database Schema Composite Indexes', () => {
 		);
 		expect(compositeIndex).toBeDefined();
 
-		const columnNames = compositeIndex?.config.columns.map((col) => (col as any).name);
+		const columnNames = compositeIndex?.config.columns.map((col) => (col as { name: string }).name);
 		expect(columnNames).toEqual(['organization_id', 'user_id']);
 	});
 });

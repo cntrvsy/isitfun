@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { eq, lt, and, inArray, desc, or, isNull } from 'drizzle-orm';
+import { eq, lt, and, inArray, desc, or, isNull, sql } from 'drizzle-orm';
 import { projects, telemetrySessions, organizationMemberships } from '$lib/server/db/db-schema';
 
 import { resolvePendingInvite } from '$lib/server/invites';
@@ -57,6 +57,46 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		}
 	});
 
+	// Ensure the user has the Demo project available so demo playtest telemetry is tied to their workspace
+	let demoProject = await db.query.projects.findFirst({
+		where: eq(projects.id, 'demo'),
+		with: {
+			projectQuotas: true,
+			payments: true
+		}
+	});
+
+	if (!demoProject) {
+		try {
+			await db
+				.insert(projects)
+				.values({
+					id: 'demo',
+					userId: user.id,
+					name: '🏓 Interactive Demo (Ping Pong)',
+					tier: 'free',
+					passwordProtected: false,
+					createdAt: new Date()
+				})
+				.onConflictDoNothing()
+				.run();
+
+			demoProject = await db.query.projects.findFirst({
+				where: eq(projects.id, 'demo'),
+				with: {
+					projectQuotas: true,
+					payments: true
+				}
+			});
+		} catch (e) {
+			console.error('Failed to auto-create demo project:', e);
+		}
+	}
+
+	if (demoProject && !userProjects.some((p) => p.id === demoProject.id)) {
+		userProjects.unshift(demoProject);
+	}
+
 	// Fetch session and log counts along with recent events for live tail inspector
 	const projectIds = userProjects.map((p) => p.id);
 	let recentSessions: Array<typeof telemetrySessions.$inferSelect> = [];
@@ -72,14 +112,20 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 			.limit(30)
 			.all();
 
-		const sessionList = await db
-			.select({ projectId: telemetrySessions.projectId, logCount: telemetrySessions.logCount })
+		const statsResult = await db
+			.select({
+				projectId: telemetrySessions.projectId,
+				totalSessions: sql<number>`count(*)`,
+				totalEvents: sql<number>`coalesce(sum(${telemetrySessions.logCount}), 0)`
+			})
 			.from(telemetrySessions)
 			.where(inArray(telemetrySessions.projectId, projectIds))
+			.groupBy(telemetrySessions.projectId)
 			.all();
-		for (const s of sessionList) {
-			sessionCounts[s.projectId] = (sessionCounts[s.projectId] || 0) + 1;
-			logCounts[s.projectId] = (logCounts[s.projectId] || 0) + s.logCount;
+
+		for (const row of statsResult) {
+			sessionCounts[row.projectId] = Number(row.totalSessions || 0);
+			logCounts[row.projectId] = Number(row.totalEvents || 0);
 		}
 	}
 
@@ -96,8 +142,9 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		};
 	});
 
-	// Defensive Shield 2: Multi-Tiered Log Decay Protocol & R2 Storage Cleanup
-	if (platform?.ctx?.waitUntil) {
+	// Defensive Shield 2: Multi-Tiered Log Decay Protocol & R2 Storage Cleanup (Throttled to ~5% of loads)
+	if (platform?.ctx?.waitUntil && Math.random() < 0.05) {
+
 		const bucket = platform?.env?.GAMES_BUCKET;
 		const now = Date.now();
 		const freeProjectIds = userProjects

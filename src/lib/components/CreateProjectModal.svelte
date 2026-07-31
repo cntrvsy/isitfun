@@ -6,16 +6,16 @@
 
 {#if show}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-lg transition-all duration-300"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md transition-all duration-300"
 	>
 		<div
-			class="animate-in fade-in zoom-in-95 relative w-full max-w-lg overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-2xl backdrop-blur-xl duration-200"
+			class="animate-in fade-in zoom-in-95 relative w-full max-w-lg overflow-hidden rounded-3xl border border-purple-200/60 bg-white/95 shadow-2xl backdrop-blur-xl duration-200"
 		>
-			<header class="flex items-center justify-between border-b border-slate-800 p-8">
-				<h3 class="text-2xl font-black tracking-tight text-white">Create New Playtest</h3>
+			<header class="flex items-center justify-between border-b border-purple-200/60 p-8">
+				<h3 class="font-mono text-2xl font-black tracking-tight text-slate-900">Create New Playtest</h3>
 				<button
 					onclick={() => (show = false)}
-					class="btn btn-circle text-slate-400 btn-ghost btn-sm hover:text-white">✕</button
+					class="btn btn-circle text-slate-400 btn-ghost btn-sm hover:text-slate-800">✕</button
 				>
 			</header>
 
@@ -37,27 +37,27 @@
 				{/if}
 				<div class="form-control">
 					<label class="label mb-2" for="project-name">
-						<span class="label-text text-xs font-bold tracking-wider text-slate-300 uppercase"
+						<span class="label-text font-mono text-xs font-bold tracking-wider text-purple-700 uppercase"
 							>Game / Project Name</span
 						>
 					</label>
 					<input
 						id="project-name"
 						placeholder="e.g. My Amazing Platformer"
-						class="input w-full rounded-xl border border-slate-800 bg-slate-950 py-6 text-white placeholder-slate-600 transition-all focus:border-purple-500 focus:outline-none"
+						class="input w-full rounded-xl border border-purple-200 bg-white py-6 text-slate-900 placeholder-slate-400 transition-all focus:border-purple-600 focus:outline-none"
 						required
 						{...createProject.fields.name.as('text')}
 					/>
 				</div>
 
-				<div class="form-control rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+				<div class="form-control rounded-2xl border border-purple-200/60 bg-white/80 p-4">
 					<label
 						class="label flex cursor-pointer items-center justify-between"
 						for="password-toggle"
 					>
 						<div>
-							<span class="label-text block font-bold text-white">Password Protection</span>
-							<span class="mt-1 block text-xs text-slate-500"
+							<span class="label-text block font-mono text-sm font-bold text-slate-900">Password Protection</span>
+							<span class="mt-1 block text-xs font-medium text-slate-500"
 								>Force playtesters to enter a password to play</span
 							>
 						</div>
@@ -70,17 +70,17 @@
 
 					{#if createProject.fields.passwordProtected.value()}
 						<div
-							class="form-control animate-in fade-in mt-4 border-t border-slate-800/80 pt-4 duration-200"
+							class="form-control animate-in fade-in mt-4 border-t border-purple-200/60 pt-4 duration-200"
 						>
 							<label class="label mb-1" for="playtest-password">
-								<span class="label-text text-xs font-bold text-slate-400 uppercase"
+								<span class="label-text font-mono text-xs font-bold text-purple-700 uppercase"
 									>Access Password</span
 								>
 							</label>
 							<input
 								id="playtest-password"
 								placeholder="••••••••"
-								class="input w-full rounded-xl border border-slate-800 bg-slate-950 text-white placeholder-slate-700 transition-all focus:border-purple-500 focus:outline-none"
+								class="input w-full rounded-xl border border-purple-200 bg-white text-slate-900 placeholder-slate-400 transition-all focus:border-purple-600 focus:outline-none"
 								required={createProject.fields.passwordProtected.value()}
 								{...createProject.fields.password.as('password')}
 							/>
@@ -88,17 +88,17 @@
 					{/if}
 				</div>
 
-				<footer class="flex items-center justify-end gap-3 border-t border-slate-800 pt-4">
+				<footer class="flex items-center justify-end gap-3 border-t border-purple-200/60 pt-4">
 					<button
 						type="button"
 						onclick={() => (show = false)}
-						class="btn rounded-xl text-slate-400 btn-ghost hover:bg-slate-800/50 hover:text-white"
+						class="btn rounded-xl text-slate-600 btn-ghost hover:bg-slate-100"
 					>
 						Cancel
 					</button>
 					<button
 						type="submit"
-						class="btn rounded-xl border-none bg-linear-to-r from-purple-600 to-indigo-600 px-6 font-bold text-white hover:from-purple-500 hover:to-indigo-500"
+						class="border border-slate-900 bg-slate-900 px-6 py-3 font-mono text-xs font-bold text-white uppercase transition-all hover:bg-transparent hover:text-slate-900"
 					>
 						Create Project
 					</button>
@@ -107,3 +107,4 @@
 		</div>
 	</div>
 {/if}
+

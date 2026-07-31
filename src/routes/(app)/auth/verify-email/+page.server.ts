@@ -8,11 +8,11 @@ export const load: PageServerLoad = async (event) => {
 				query: { token }
 			});
 			return { verified: true };
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error('[verify-email] Failed token verification:', err);
 			return {
 				verified: false,
-				error: err?.message || 'Verification token is invalid or has expired.'
+				error: (err as Error)?.message || 'Verification token is invalid or has expired.'
 			};
 		}
 	}

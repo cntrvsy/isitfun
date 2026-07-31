@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === locals.user.id;
+	let hasAccess = locals.user.role === 'admin' || project.userId === locals.user.id || projectId === 'demo';
 	if (!hasAccess && project.organizationId) {
 		const membership = await db
 			.select()

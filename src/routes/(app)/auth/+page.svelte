@@ -29,7 +29,7 @@
 		signInError = null;
 
 		try {
-			const { data, error } = await authClient.signIn.email({
+			const { error } = await authClient.signIn.email({
 				email: signInEmailVal,
 				password: signInPasswordVal,
 				callbackURL: '/portal/dashboard'
@@ -38,10 +38,10 @@
 			if (error) {
 				signInError = error.message || 'Invalid email or password';
 			} else {
-				goto('/portal/dashboard');
+				goto(resolve('/(app)/portal/dashboard'));
 			}
-		} catch (err: any) {
-			signInError = err?.message || 'Invalid email or password';
+		} catch (err: unknown) {
+			signInError = (err as Error)?.message || 'Invalid email or password';
 		} finally {
 			signInLoading = false;
 		}
@@ -60,7 +60,7 @@
 		}
 
 		try {
-			const { data, error } = await authClient.signUp.email({
+			const { error } = await authClient.signUp.email({
 				name: signUpNameVal,
 				email: signUpEmailVal,
 				password: signUpPasswordVal,
@@ -72,11 +72,11 @@
 			} else {
 				signUpSuccess = 'Account created successfully! Redirecting...';
 				setTimeout(() => {
-					goto('/portal/dashboard');
+					goto(resolve('/(app)/portal/dashboard'));
 				}, 1200);
 			}
-		} catch (err: any) {
-			signUpError = err?.message || 'Registration failed. Email may already be in use.';
+		} catch (err: unknown) {
+			signUpError = (err as Error)?.message || 'Registration failed. Email may already be in use.';
 		} finally {
 			signUpLoading = false;
 		}
