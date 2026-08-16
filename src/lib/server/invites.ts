@@ -1,11 +1,11 @@
 import type { Cookies } from '@sveltejs/kit';
-import type { DrizzleClient } from '$lib/server/db';
+import type { DrizzleClient } from '#lib/server/db/index.js';
 import { eq, and } from 'drizzle-orm';
 import {
 	organizationInvites,
 	organizationMemberships,
 	organizations
-} from '$lib/server/db/db-schema';
+} from '#lib/server/db/db-schema.js';
 import { env } from '$env/dynamic/private';
 
 // Helper to sync seats with Creem subscription
@@ -98,7 +98,6 @@ export async function resolvePendingInvite(
 					)
 				)
 				.get();
-
 
 			if (!existing) {
 				await db.insert(organizationMemberships).values({

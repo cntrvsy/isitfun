@@ -4,8 +4,8 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { emailOTP } from 'better-auth/plugins';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
-import type { DrizzleClient } from '$lib/server/db';
-import { sendPasswordResetEmail, sendVerificationEmail } from '$lib/server/email';
+import type { DrizzleClient } from '#lib/server/db/index.js';
+import { sendPasswordResetEmail, sendVerificationEmail } from '#lib/server/email.js';
 
 export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 	betterAuth({

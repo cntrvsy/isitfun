@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects, processedWebhooks, payments, organizations } from '$lib/server/db/db-schema';
+import { projects, processedWebhooks, payments, organizations } from '#lib/server/db/db-schema.js';
 import { env } from '$env/dynamic/private';
-import { verifyWebhookSignature } from '$lib/server/crypto';
+import { verifyWebhookSignature } from '#lib/server/crypto.js';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const bodyText = await request.text();
@@ -160,7 +160,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
-
 	if (
 		(activeOrgId || projectId) &&
 		(status === 'completed' || status === 'paid' || eventType === 'checkout.completed')
@@ -186,7 +185,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					}
 
 					// Upgrade organization to team plan and save subscription ID
-					const subscriptionId = (objectData.subscription_id || objectData.id || null) as string | null;
+					const subscriptionId = (objectData.subscription_id || objectData.id || null) as
+						| string
+						| null;
 					await tx
 						.update(organizations)
 						.set({ tier: 'team', creemSubscriptionId: subscriptionId })

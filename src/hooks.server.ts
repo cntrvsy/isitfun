@@ -1,13 +1,13 @@
-import { redirect, error, type Handle } from '@sveltejs/kit';
-import { building } from '$app/environment';
-import { getAuth } from '$lib/server/auth';
+import { redirect, error } from '@sveltejs/kit';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { building } from '$app/env';
+import { getAuth } from '#lib/server/auth.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { createD1Client, createLibSqlClient } from '$lib/server/db';
-import { sequence } from '@sveltejs/kit/hooks';
+import { createD1Client, createLibSqlClient } from '#lib/server/db/index.js';
 import { env } from '$env/dynamic/private';
 
-import type { DrizzleClient } from '$lib/server/db';
-import { resolvePendingInvite } from '$lib/server/invites';
+import type { DrizzleClient } from '#lib/server/db/index.js';
+import { resolvePendingInvite } from '#lib/server/invites.js';
 
 let db: DrizzleClient | null = null;
 
@@ -57,7 +57,6 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 			event.locals.user.email
 		);
 
-
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
 		const path = event.url.pathname.replace(/\/$/, '');
 		if (path === '/auth' || path === '/auth/login') {
@@ -73,7 +72,6 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 			return redirect(302, '/auth');
 		}
 	}
-
 
 	// 🔐 Centralized Sub-tree Route & RBAC Guards
 	if (event.url.pathname.startsWith('/portal')) {

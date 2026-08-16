@@ -1,9 +1,9 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { eq, lt, and, inArray, desc, or, isNull, sql } from 'drizzle-orm';
-import { projects, telemetrySessions, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, telemetrySessions, organizationMemberships } from '#lib/server/db/db-schema.js';
 
-import { resolvePendingInvite } from '$lib/server/invites';
+import { resolvePendingInvite } from '#lib/server/invites.js';
 
 export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 	const session = locals.session;
@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		throw redirect(302, '/auth');
 	}
 
-	const db = locals.db as ReturnType<typeof import('$lib/server/db').createD1Client>;
+	const db = locals.db as ReturnType<typeof import('#lib/server/db/index.js').createD1Client>;
 
 	// Resolve pending organization invites
 	await resolvePendingInvite(db, cookies, user.id);
@@ -144,7 +144,6 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 
 	// Defensive Shield 2: Multi-Tiered Log Decay Protocol & R2 Storage Cleanup (Throttled to ~5% of loads)
 	if (platform?.ctx?.waitUntil && Math.random() < 0.05) {
-
 		const bucket = platform?.env?.GAMES_BUCKET;
 		const now = Date.now();
 		const freeProjectIds = userProjects

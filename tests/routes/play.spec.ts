@@ -8,7 +8,7 @@ vi.mock('$env/dynamic/private', () => ({
 }));
 
 import { GET } from '../../src/routes/play/[projectId]/[...file]/+server';
-import { signSession } from '$lib/server/crypto';
+import { signSession } from '#lib/server/crypto.js';
 
 describe('GET /play/[projectId]/[...file]', () => {
 	beforeEach(() => {
@@ -269,4 +269,3 @@ describe('GET /play/[projectId]/[...file]', () => {
 		expect(res.headers.get('Content-Type')).toBe('audio/mpeg');
 	});
 });
-

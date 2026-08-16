@@ -1,4 +1,4 @@
-import { projectAccessKeys } from '$lib/server/db/db-schema';
+import { projectAccessKeys } from '#lib/server/db/db-schema.js';
 
 export const TIER_KEY_HARD_CAPS: Record<string, number> = {
 	free: 20,

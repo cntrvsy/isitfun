@@ -1,10 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and, sql } from 'drizzle-orm';
-import { projects, projectAccessKeys } from '$lib/server/db/db-schema';
-import { validateAccessKey } from '$lib/server/db/access-keys';
-import { verifySession, signSession } from '$lib/server/crypto';
-import { getDemoPingPongHtml } from '$lib/server/demo-game';
+import { projects, projectAccessKeys } from '#lib/server/db/db-schema.js';
+import { validateAccessKey } from '#lib/server/db/access-keys.js';
+import { verifySession, signSession } from '#lib/server/crypto.js';
+import { getDemoPingPongHtml } from '#lib/server/demo-game.js';
 
 export const GET: RequestHandler = async ({ params, request, locals, platform, cookies, url }) => {
 	const projectId = params.projectId;
@@ -34,7 +34,6 @@ export const GET: RequestHandler = async ({ params, request, locals, platform, c
 		return new Response(injectedText, { headers });
 	}
 
-
 	// Normalize empty or trailing slash pathways to index.html
 	if (filePath === '' || filePath.endsWith('/')) {
 		filePath = filePath ? `${filePath}index.html` : 'index.html';
@@ -62,7 +61,6 @@ export const GET: RequestHandler = async ({ params, request, locals, platform, c
 				throw error(404, `Game asset not found: ${filePath}`);
 			}
 
-
 			const headers = new Headers();
 			if (object.httpMetadata?.contentType) {
 				headers.set('Content-Type', object.httpMetadata.contentType);
@@ -86,7 +84,6 @@ export const GET: RequestHandler = async ({ params, request, locals, platform, c
 				headers.set('Content-Range', `bytes ${offset}-${end}/${object.size}`);
 				headers.set('Content-Length', String(length));
 			}
-
 
 			return new Response(object.body, { status, headers });
 		}
@@ -159,7 +156,6 @@ export const GET: RequestHandler = async ({ params, request, locals, platform, c
 		throw error(404, `Game asset not found: ${filePath}`);
 	}
 
-
 	// Construct response and apply COOP/COEP headers
 	const headers = new Headers();
 
@@ -199,7 +195,6 @@ export const GET: RequestHandler = async ({ params, request, locals, platform, c
 		headers.set('Content-Range', `bytes ${offset}-${end}/${object.size}`);
 		headers.set('Content-Length', String(length));
 	}
-
 
 	const response = new Response(object.body, { status, headers });
 
@@ -289,4 +284,3 @@ function guessContentType(filePath: string): string {
 	}
 	return contentType;
 }
-

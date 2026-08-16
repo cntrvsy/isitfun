@@ -1,5 +1,5 @@
-import { createD1Client } from '$lib/server/db';
-import { telemetrySessions } from '$lib/server/db/db-schema';
+import { createD1Client } from '#lib/server/db/index.js';
+import { telemetrySessions } from '#lib/server/db/db-schema.js';
 
 export interface Env {
 	DB: D1Database;
@@ -125,14 +125,13 @@ export class TelemetrySessionDO implements DurableObject {
 		}
 
 		// 3. Set inactivity alarm efficiently (only if no alarm exists or expiring within 2 mins)
-		const existingAlarm = typeof this.state.storage.getAlarm === 'function'
-			? await this.state.storage.getAlarm()
-			: null;
+		const existingAlarm =
+			typeof this.state.storage.getAlarm === 'function'
+				? await this.state.storage.getAlarm()
+				: null;
 		if (!existingAlarm || existingAlarm - Date.now() < 2 * 60 * 1000) {
 			await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
 		}
-
-
 
 		// 4. Ingest immediately if exiting
 		if (isExiting) {
@@ -213,7 +212,6 @@ export class TelemetrySessionDO implements DurableObject {
 			await this.state.storage.deleteAll();
 		}
 	}
-
 
 	private async flush(params: {
 		projectId: string;

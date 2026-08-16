@@ -33,7 +33,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		);
 	}
 
-
 	try {
 		const event = JSON.parse(payload) as {
 			type: string;

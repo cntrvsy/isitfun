@@ -53,7 +53,6 @@ describe('POST /api/games/[projectId]/upload', () => {
 		}
 	});
 
-
 	it('should throw 413 if upload exceeds 100MB hard limit on pro tier', async () => {
 		const request = new Request('http://localhost/api/games/proj_pro/upload?path=index.html', {
 			method: 'POST',

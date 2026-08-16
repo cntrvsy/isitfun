@@ -78,7 +78,9 @@
 		<div class="mb-6 flex items-center justify-between">
 			<div>
 				<h3 class="font-mono text-lg font-black text-slate-900">Daily Playtest Sessions</h3>
-				<p class="text-xs font-medium text-slate-600">Total volume of playtest runs over the past 14 days.</p>
+				<p class="text-xs font-medium text-slate-600">
+					Total volume of playtest runs over the past 14 days.
+				</p>
 			</div>
 			<span
 				class="border border-purple-200 bg-purple-50 px-3 py-1 font-mono text-xs font-bold text-purple-700 uppercase"
@@ -104,7 +106,9 @@
 	>
 		<div>
 			<h3 class="font-mono text-lg font-black text-slate-900">Player Sentiment</h3>
-			<p class="text-xs font-medium text-slate-600">Qualitative feedback ratings collected from playtesters.</p>
+			<p class="text-xs font-medium text-slate-600">
+				Qualitative feedback ratings collected from playtesters.
+			</p>
 
 			<div class="mt-6 space-y-4">
 				<!-- Fun -->
@@ -155,7 +159,9 @@
 			<span class="block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
 				>Total Rated Playtests</span
 			>
-			<span class="font-mono text-2xl font-black text-slate-900">{sentimentStats.total} Ratings</span>
+			<span class="font-mono text-2xl font-black text-slate-900"
+				>{sentimentStats.total} Ratings</span
+			>
 		</div>
 	</div>
 </div>

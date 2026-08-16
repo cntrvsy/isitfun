@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, projectQuotas, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, projectQuotas, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 export const POST: RequestHandler = async ({ params, request, locals, platform, url }) => {
 	const session = locals.session;
@@ -62,7 +62,6 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 			throw error(413, 'File size exceeds 40 MB free limit');
 		}
 	}
-
 
 	// Upload to R2 GAMES_BUCKET
 	const bucket = platform?.env.GAMES_BUCKET;

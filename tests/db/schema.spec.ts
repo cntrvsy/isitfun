@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
-import { telemetrySessions, organizationMemberships } from '$lib/server/db/db-schema';
+import { telemetrySessions, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 describe('Database Schema Composite Indexes', () => {
 	it('should define a composite index (projectId, createdAt) on telemetrySessions', () => {

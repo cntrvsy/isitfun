@@ -11,5 +11,4 @@ test.describe('Platform E2E Smoke Test Suite', () => {
 		await page.goto('/auth');
 		await expect(page.locator('body')).toBeVisible();
 	});
-
 });

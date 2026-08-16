@@ -1,8 +1,8 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and, gt } from 'drizzle-orm';
-import { telemetrySessions, projects } from '$lib/server/db/db-schema';
-import { user } from '$lib/server/db/auth-schema';
+import { telemetrySessions, projects } from '#lib/server/db/db-schema.js';
+import { user } from '#lib/server/db/auth-schema.js';
 
 // Secure salt for GDPR device hashing
 const GDPR_SALT = 'isitfun-gdpr-anonymity-salt-2026';
@@ -74,11 +74,7 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 	}
 
 	if (!project) {
-		let dbProject = await locals.db
-			.select()
-			.from(projects)
-			.where(eq(projects.id, projectId))
-			.get();
+		let dbProject = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 		if (!dbProject && (projectId === 'demo' || projectId.startsWith('demo_'))) {
 			const ownerUser = locals.user || (await locals.db.select().from(user).limit(1).get());

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateAccessKey, getMaxUsesCapForTier } from '$lib/server/db/access-keys';
+import { validateAccessKey, getMaxUsesCapForTier } from '#lib/server/db/access-keys.js';
 
 describe('Access Keys & Protection Logic', () => {
 	it('returns correct max uses cap for each tier', () => {

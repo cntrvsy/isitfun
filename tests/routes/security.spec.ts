@@ -46,5 +46,4 @@ describe('Server Security & Referer Hook', () => {
 		const response = await handleSecurity({ event, resolve });
 		expect(response.status).toBe(200);
 	});
-
 });

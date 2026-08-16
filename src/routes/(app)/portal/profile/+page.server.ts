@@ -1,8 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import * as v from 'valibot';
 import { eq } from 'drizzle-orm';
-import { profileFormSchema } from '$lib/server/validation';
-import { profile } from '$lib/server/db/db-schema';
+import { profileFormSchema } from '#lib/server/validation.js';
+import { profile } from '#lib/server/db/db-schema.js';
 import type { Actions } from './$types';
 
 export const actions = {

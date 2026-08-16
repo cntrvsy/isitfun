@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;
@@ -80,7 +80,8 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 					if (data && Array.isArray(data.logs)) {
 						for (const log of data.logs) {
 							compiledLogs.push({
-								sessionId: data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
+								sessionId:
+									data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
 								eventName: log.event,
 								payload: log.data,
 								createdAt: log.timestamp || data.createdAt,

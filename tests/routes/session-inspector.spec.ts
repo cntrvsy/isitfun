@@ -111,7 +111,11 @@ describe('GET /api/portal/projects/[projectId]/sessions/[sessionId]', () => {
 
 		const res = await GET({
 			params: { projectId: 'proj_1', sessionId: 'sess_1' },
-			locals: { session: { id: 's1' }, user: { id: 'admin_user', role: 'admin' }, db: mockDb } as any,
+			locals: {
+				session: { id: 's1' },
+				user: { id: 'admin_user', role: 'admin' },
+				db: mockDb
+			} as any,
 			platform: { env: {} } as any
 		} as any);
 
@@ -120,7 +124,6 @@ describe('GET /api/portal/projects/[projectId]/sessions/[sessionId]', () => {
 		expect(json.projectId).toBe('proj_1');
 	});
 });
-
 
 describe('DELETE /api/portal/projects/[projectId]/sessions/[sessionId]', () => {
 	it('deletes session record from D1 and log object from R2', async () => {

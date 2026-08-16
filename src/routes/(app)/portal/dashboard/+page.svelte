@@ -9,12 +9,12 @@
 		cancelInvite,
 		removeMember
 	} from './dashboard.remote';
-	import CreateProjectModal from '$lib/components/CreateProjectModal.svelte';
-	import UploadModal from '$lib/components/UploadModal.svelte';
-	import PlaytestChart from '$lib/components/charts/PlaytestChart.svelte';
-	import ConsoleInspectorModal from '$lib/components/dashboard/ConsoleInspectorModal.svelte';
-	import OnboardingTourModal from '$lib/components/dashboard/OnboardingTourModal.svelte';
-	import Footer from '$lib/components/Footer.svelte';
+	import CreateProjectModal from '#lib/components/CreateProjectModal.svelte';
+	import UploadModal from '#lib/components/UploadModal.svelte';
+	import PlaytestChart from '#lib/components/charts/PlaytestChart.svelte';
+	import ConsoleInspectorModal from '#lib/components/dashboard/ConsoleInspectorModal.svelte';
+	import OnboardingTourModal from '#lib/components/dashboard/OnboardingTourModal.svelte';
+	import Footer from '#lib/components/Footer.svelte';
 	import { onMount } from 'svelte';
 	let { data } = $props();
 
@@ -24,7 +24,6 @@
 	let showUploadModal = $state(false);
 	let showOnboardingModal = $state(false);
 	let origin = $state('https://isitfun.co.ke');
-
 
 	// Multi-tenancy states
 	let selectedWorkspaceId = $state('personal');
@@ -84,19 +83,12 @@
 		}, 0) || 250 * 1024 * 1024
 	);
 
-	const workspaceStorageUsedMB = $derived(
-		(workspaceStorageUsedBytes / (1024 * 1024)).toFixed(1)
-	);
+	const workspaceStorageUsedMB = $derived((workspaceStorageUsedBytes / (1024 * 1024)).toFixed(1));
 
-	const workspaceStorageMaxMB = $derived(
-		(workspaceStorageMaxBytes / (1024 * 1024)).toFixed(0)
-	);
+	const workspaceStorageMaxMB = $derived((workspaceStorageMaxBytes / (1024 * 1024)).toFixed(0));
 
 	const workspaceStoragePercent = $derived(
-		Math.min(
-			100,
-			Math.round((workspaceStorageUsedBytes / (workspaceStorageMaxBytes || 1)) * 100)
-		)
+		Math.min(100, Math.round((workspaceStorageUsedBytes / (workspaceStorageMaxBytes || 1)) * 100))
 	);
 
 	onMount(() => {
@@ -134,7 +126,9 @@
 	/>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col bg-transparent font-sans text-slate-800 selection:bg-purple-300">
+<div
+	class="flex min-h-screen flex-col bg-transparent font-sans text-slate-800 selection:bg-purple-300"
+>
 	<!-- Blueprint / Retro Top Navigation Bar -->
 	<nav
 		class="sticky top-0 z-30 flex items-center justify-between border-b border-purple-200/50 bg-white/40 px-6 py-4 backdrop-blur-md md:px-12"
@@ -147,7 +141,8 @@
 			</div>
 			<div>
 				<span class="font-mono text-lg font-black tracking-tight text-slate-900">IS IT FUN?</span>
-				<span class="block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
+				<span
+					class="block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
 					>// DEVELOPER_PORTAL</span
 				>
 			</div>
@@ -177,15 +172,15 @@
 
 	<!-- Dashboard Container -->
 	<main class="relative z-10 mx-auto mt-10 w-full max-w-7xl flex-1 px-6 pb-24 lg:px-12">
-		
-
 		<!-- Workspace Switcher Ribbon -->
 
 		<div
 			class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/50 pb-6"
 		>
 			<div class="flex items-center gap-3">
-				<span class="font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">Workspace:</span>
+				<span class="font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+					>Workspace:</span
+				>
 				<div class="relative">
 					<select
 						bind:value={selectedWorkspaceId}
@@ -221,26 +216,35 @@
 
 		<!-- Team Settings View -->
 		{#if showOrgSettings && activeOrg}
-			<div class="mb-12 rounded-3xl border border-purple-200/50 bg-white/60 p-8 shadow-xl backdrop-blur-md">
+			<div
+				class="mb-12 rounded-3xl border border-purple-200/50 bg-white/60 p-8 shadow-xl backdrop-blur-md"
+			>
 				<div class="mb-6 flex items-center justify-between border-b border-purple-200/50 pb-4">
 					<div>
-						<h2 class="font-mono text-2xl font-black text-slate-900">Team Management: {activeOrg.name}</h2>
+						<h2 class="font-mono text-2xl font-black text-slate-900">
+							Team Management: {activeOrg.name}
+						</h2>
 						<p class="text-xs text-slate-600">
 							Manage memberships, invite teammates, and view your seat subscription billing.
 						</p>
 					</div>
-					<button onclick={() => (showOrgSettings = false)} class="btn btn-circle btn-ghost btn-sm text-slate-600"
-						>✕</button
+					<button
+						onclick={() => (showOrgSettings = false)}
+						class="btn btn-circle text-slate-600 btn-ghost btn-sm">✕</button
 					>
 				</div>
 
 				<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 					<!-- Billing and Upgrades -->
 					<div class="space-y-6 rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
-						<h3 class="font-mono text-sm font-bold text-slate-900 uppercase">[ Subscription Status ]</h3>
+						<h3 class="font-mono text-sm font-bold text-slate-900 uppercase">
+							[ Subscription Status ]
+						</h3>
 						<div class="flex flex-wrap items-center justify-between gap-4">
 							<div>
-								<span class="block font-mono text-[10px] font-bold text-slate-500 uppercase">Active Tier</span>
+								<span class="block font-mono text-[10px] font-bold text-slate-500 uppercase"
+									>Active Tier</span
+								>
 								<span class="font-mono text-xl font-black text-purple-700 uppercase"
 									>{activeOrg.tier === 'team' ? 'Team Plan ($5/seat)' : 'Free Team'}</span
 								>
@@ -283,7 +287,9 @@
 					<!-- Invites and Members -->
 					<div class="space-y-6">
 						<div class="rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
-							<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">[ Invite Teammate ]</h3>
+							<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">
+								[ Invite Teammate ]
+							</h3>
 							<form
 								{...inviteMember.enhance(async ({ submit }) => {
 									if (await submit()) {
@@ -326,7 +332,8 @@
 											<span class="block font-mono text-xs text-slate-500">{mem.user.email}</span>
 										</div>
 										<div class="flex items-center gap-2">
-											<span class="badge border border-purple-200 bg-purple-50 font-mono text-xs text-purple-700 uppercase"
+											<span
+												class="badge border border-purple-200 bg-purple-50 font-mono text-xs text-purple-700 uppercase"
 												>{mem.role}</span
 											>
 											{#if activeOrg.ownerId !== mem.userId && activeOrg.ownerId === data.user?.id}
@@ -339,7 +346,7 @@
 														{...removeMember.fields.organizationId.as('hidden', activeOrg.id)}
 													/>
 													<input {...removeMember.fields.userId.as('hidden', mem.userId)} />
-													<button type="submit" class="btn text-rose-600 btn-ghost btn-xs font-mono"
+													<button type="submit" class="btn font-mono text-rose-600 btn-ghost btn-xs"
 														>Remove</button
 													>
 												</form>
@@ -353,12 +360,16 @@
 						<!-- Pending Invites list -->
 						{#if activeOrg.invites && activeOrg.invites.length > 0}
 							<div class="rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-sm">
-								<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">[ Pending Invites ]</h3>
+								<h3 class="mb-4 font-mono text-sm font-bold text-slate-900 uppercase">
+									[ Pending Invites ]
+								</h3>
 								<div class="divide-y divide-purple-100 font-medium">
 									{#each activeOrg.invites as inv (inv.id)}
 										<div class="flex items-center justify-between py-3">
 											<div>
-												<span class="block font-mono text-xs font-bold text-slate-900">{inv.email}</span>
+												<span class="block font-mono text-xs font-bold text-slate-900"
+													>{inv.email}</span
+												>
 												<span class="block font-mono text-[10px] text-slate-500"
 													>Expires {new Date(inv.expiresAt).toLocaleDateString()}</span
 												>
@@ -372,7 +383,7 @@
 												<input {...cancelInvite.fields.organizationId.as('hidden', activeOrg.id)} />
 												<button
 													type="submit"
-													class="btn text-slate-500 btn-ghost btn-xs font-mono hover:text-rose-600"
+													class="btn font-mono text-slate-500 btn-ghost btn-xs hover:text-rose-600"
 													>Revoke</button
 												>
 											</form>
@@ -437,10 +448,13 @@
 				class="flex items-center justify-between rounded-2xl border border-purple-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-md transition-all hover:border-purple-300"
 			>
 				<div>
-					<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+					<span
+						class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
 						>Active Playtest Builds</span
 					>
-					<span class="font-mono text-3xl font-black text-slate-900">{activeWorkspaceProjects.length}</span>
+					<span class="font-mono text-3xl font-black text-slate-900"
+						>{activeWorkspaceProjects.length}</span
+					>
 				</div>
 				<div
 					class="flex h-12 w-12 items-center justify-center border border-purple-200 bg-purple-50 text-xl"
@@ -453,11 +467,13 @@
 			>
 				<div class="flex items-center justify-between">
 					<div>
-						<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+						<span
+							class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
 							>Storage Allocation</span
 						>
 						<span class="font-mono text-2xl font-black text-slate-900">
-							{workspaceStorageUsedMB} MB <span class="text-xs font-medium text-slate-500">/ {workspaceStorageMaxMB} MB</span>
+							{workspaceStorageUsedMB} MB
+							<span class="text-xs font-medium text-slate-500">/ {workspaceStorageMaxMB} MB</span>
 						</span>
 					</div>
 					<div
@@ -467,13 +483,13 @@
 					</div>
 				</div>
 				<div class="mt-3 w-full">
-					<div class="flex justify-between font-mono text-[10px] font-bold text-slate-500 mb-1">
+					<div class="mb-1 flex justify-between font-mono text-[10px] font-bold text-slate-500">
 						<span>Quota Used</span>
 						<span>{workspaceStoragePercent}%</span>
 					</div>
 					<div class="h-2 w-full overflow-hidden rounded-full bg-purple-100">
 						<div
-							class="h-full rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 transition-all duration-500"
+							class="h-full rounded-full bg-linear-to-r from-purple-600 to-indigo-600 transition-all duration-500"
 							style="width: {workspaceStoragePercent}%"
 						></div>
 					</div>
@@ -483,10 +499,13 @@
 				class="flex items-center justify-between rounded-2xl border border-purple-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-md transition-all hover:border-purple-300"
 			>
 				<div>
-					<span class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+					<span
+						class="mb-1 block font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
 						>Total Playtest Sessions</span
 					>
-					<span class="font-mono text-3xl font-black text-emerald-700">{workspaceTotalSessions}</span>
+					<span class="font-mono text-3xl font-black text-emerald-700"
+						>{workspaceTotalSessions}</span
+					>
 				</div>
 				<div
 					class="flex h-12 w-12 items-center justify-center border border-emerald-200 bg-emerald-50 text-xl"
@@ -498,18 +517,25 @@
 
 		<!-- Projects Section -->
 		<section>
-			<h2 class="mb-6 flex items-center gap-3 font-mono text-xl font-black tracking-tight text-slate-900 uppercase">
+			<h2
+				class="mb-6 flex items-center gap-3 font-mono text-xl font-black tracking-tight text-slate-900 uppercase"
+			>
 				<span>Your Playtests</span>
-				<span class="border border-purple-200 bg-white/80 px-2 py-0.5 font-mono text-xs text-purple-700"
+				<span
+					class="border border-purple-200 bg-white/80 px-2 py-0.5 font-mono text-xs text-purple-700"
 					>{activeWorkspaceProjects.length}</span
 				>
 			</h2>
 
 			{#if activeProjectAnalyticsId}
 				{#if activeProject}
-					<div class="rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-2xl backdrop-blur-md">
+					<div
+						class="rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-2xl backdrop-blur-md"
+					>
 						<!-- Breadcrumb Header -->
-						<div class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/40 pb-6">
+						<div
+							class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-purple-200/40 pb-6"
+						>
 							<div class="flex items-center gap-3">
 								<button
 									onclick={() => (activeProjectAnalyticsId = null)}
@@ -517,10 +543,12 @@
 								>
 									← Back to Projects
 								</button>
-								<div class="h-4 w-[1px] bg-purple-200"></div>
+								<div class="h-4 w-px bg-purple-200"></div>
 								<h3 class="font-mono text-2xl font-black text-slate-900">
 									{activeProject.name}
-									<span class="font-mono text-xs font-normal text-slate-500">({activeProject.id})</span>
+									<span class="font-mono text-xs font-normal text-slate-500"
+										>({activeProject.id})</span
+									>
 								</h3>
 							</div>
 							<div class="flex items-center gap-2">
@@ -571,7 +599,9 @@
 							class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-purple-200/60 bg-white/60 p-6 shadow-sm"
 						>
 							<div>
-								<h4 class="font-mono text-sm font-bold text-slate-900 uppercase">Export Raw Playtest Data</h4>
+								<h4 class="font-mono text-sm font-bold text-slate-900 uppercase">
+									Export Raw Playtest Data
+								</h4>
 								<p class="text-xs font-medium text-slate-600">
 									Download the complete dataset of playtest logs to feed into custom visualization
 									tools, LLMs, or spreadsheets.
@@ -614,7 +644,8 @@
 								<h4 class="font-mono text-xs font-bold tracking-wider text-purple-700 uppercase">
 									Recent Playtest Sessions (Latest 30)
 								</h4>
-								<span class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs text-slate-600"
+								<span
+									class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs text-slate-600"
 									>{projectSessions.length} sessions loaded</span
 								>
 							</div>
@@ -628,14 +659,18 @@
 									>
 										⏳
 									</div>
-									<h4 class="font-mono text-slate-800 mb-1 text-sm font-bold uppercase">Waiting for playtests...</h4>
+									<h4 class="mb-1 font-mono text-sm font-bold text-slate-800 uppercase">
+										Waiting for playtests...
+									</h4>
 									<p class="mx-auto max-w-md text-xs leading-relaxed text-slate-500">
 										No playtest sessions have been received for this project yet. Use the code
 										templates in the guide below to start sending data from your game.
 									</p>
 								</div>
 							{:else}
-								<div class="overflow-x-auto rounded-2xl border border-purple-200/60 bg-white/60 shadow-xs">
+								<div
+									class="overflow-x-auto rounded-2xl border border-purple-200/60 bg-white/60 shadow-xs"
+								>
 									<table class="w-full border-collapse text-left text-xs">
 										<thead>
 											<tr
@@ -751,7 +786,9 @@
 					>
 						👾
 					</div>
-					<h3 class="mb-2 font-mono text-xl font-bold text-slate-900 uppercase">No playtests found</h3>
+					<h3 class="mb-2 font-mono text-xl font-bold text-slate-900 uppercase">
+						No playtests found
+					</h3>
 					<p class="mx-auto mb-8 max-w-md font-medium text-slate-600">
 						Ready to test if your game is actually fun? Create a new project to start streaming
 						telemetry.
@@ -821,13 +858,15 @@
 								class="relative z-10 mb-6 flex justify-between divide-x divide-purple-200/60 rounded-2xl border border-purple-200/60 bg-white/70 p-4 text-center shadow-xs"
 							>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
+									<span
+										class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Telemetry ID</span
 									>
 									<code class="font-mono text-xs font-bold text-slate-900">{p.id}</code>
 								</div>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
+									<span
+										class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Writes</span
 									>
 									<span class="font-mono text-xs font-bold text-slate-900">
@@ -836,7 +875,8 @@
 									</span>
 								</div>
 								<div class="flex-1 px-1">
-									<span class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
+									<span
+										class="mb-1 block font-mono text-[9px] font-bold tracking-wider text-purple-700 uppercase"
 										>Storage</span
 									>
 									<span class="font-mono text-xs font-bold text-slate-900">
@@ -950,11 +990,15 @@
 			{/if}
 
 			<!-- Integration & Telemetry Guide -->
-			<div class="mt-16 rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-xl backdrop-blur-md">
-				<h2 class="mb-4 flex items-center gap-2 font-mono text-2xl font-black tracking-tight text-slate-900">
+			<div
+				class="mt-16 rounded-3xl border border-purple-200/50 bg-white/40 p-8 shadow-xl backdrop-blur-md"
+			>
+				<h2
+					class="mb-4 flex items-center gap-2 font-mono text-2xl font-black tracking-tight text-slate-900"
+				>
 					<span>🛠️ TELEMETRY INTEGRATION GUIDE</span>
 				</h2>
-				<p class="mb-6 font-medium text-sm text-slate-600">
+				<p class="mb-6 text-sm font-medium text-slate-600">
 					IsItFun exposes a simple window-level logging API. Embed the script and call our logging
 					function from any HTML5 engine.
 				</p>
@@ -963,7 +1007,9 @@
 					<!-- Setup Snippet -->
 					<div class="space-y-6 lg:col-span-2">
 						<div>
-							<h3 class="mb-3 font-mono text-xs font-bold tracking-widest text-purple-700 uppercase">
+							<h3
+								class="mb-3 font-mono text-xs font-bold tracking-widest text-purple-700 uppercase"
+							>
 								1. Include script (Automatically injected on hosted builds)
 							</h3>
 							<div
@@ -1074,7 +1120,9 @@ this.events.on('score_changed', (newScore) => &#123;
 					</div>
 
 					<!-- Limits and retention -->
-					<div class="h-fit space-y-4 rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-xs">
+					<div
+						class="h-fit space-y-4 rounded-2xl border border-purple-200/60 bg-white/70 p-6 shadow-xs"
+					>
 						<h3 class="font-mono text-xs font-bold tracking-wider text-purple-700 uppercase">
 							Security & Rate Limits
 						</h3>
@@ -1086,9 +1134,12 @@ this.events.on('score_changed', (newScore) => &#123;
 								🛡️
 							</div>
 							<div>
-								<h4 class="font-mono text-xs font-bold text-slate-900">Daily Telemetry Rate Limit</h4>
+								<h4 class="font-mono text-xs font-bold text-slate-900">
+									Daily Telemetry Rate Limit
+								</h4>
 								<p class="text-[11px] leading-relaxed font-medium text-slate-600">
-									Projects have a protective limit of 5,000 logs/day to guard against infinite game loops and spam.
+									Projects have a protective limit of 5,000 logs/day to guard against infinite game
+									loops and spam.
 								</p>
 							</div>
 						</div>
@@ -1137,7 +1188,7 @@ this.events.on('score_changed', (newScore) => &#123;
 					<h3 class="font-mono text-xl font-black text-slate-900">Create Workspace Team</h3>
 					<button
 						onclick={() => (showCreateOrgModal = false)}
-						class="btn btn-circle btn-ghost btn-sm text-slate-600">✕</button
+						class="btn btn-circle text-slate-600 btn-ghost btn-sm">✕</button
 					>
 				</header>
 				<form
@@ -1173,7 +1224,7 @@ this.events.on('score_changed', (newScore) => &#123;
 						<button
 							type="button"
 							onclick={() => (showCreateOrgModal = false)}
-							class="btn rounded-xl btn-ghost text-slate-600 font-mono">Cancel</button
+							class="btn rounded-xl font-mono text-slate-600 btn-ghost">Cancel</button
 						>
 						<button
 							type="submit"
@@ -1195,10 +1246,5 @@ this.events.on('score_changed', (newScore) => &#123;
 		/>
 	{/if}
 
-	<OnboardingTourModal
-		isOpen={showOnboardingModal}
-		onClose={() => (showOnboardingModal = false)}
-	/>
+	<OnboardingTourModal isOpen={showOnboardingModal} onClose={() => (showOnboardingModal = false)} />
 </div>
-
-

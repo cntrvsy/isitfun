@@ -43,7 +43,7 @@
 
 			<div class="mt-8 text-center">
 				<a
-					href={resolve('/')}
+					href={resolve('/(website)')}
 					class="btn w-full rounded-xl border border-slate-800 bg-slate-900 py-3 font-bold text-slate-300 hover:text-white"
 				>
 					← Return to IsItFun Homepage
@@ -140,7 +140,7 @@
 			<!-- Footer Link -->
 			<div class="mt-8 text-center">
 				<a
-					href={resolve('/')}
+					href={resolve('/(website)')}
 					class="text-xs text-slate-500 transition-colors hover:text-slate-300"
 				>
 					← Back to IsItFun Homepage

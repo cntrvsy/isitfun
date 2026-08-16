@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 	import { resolve } from '$app/paths';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 	import { goto } from '$app/navigation';
 
 	let { form }: { form: ActionData } = $props();

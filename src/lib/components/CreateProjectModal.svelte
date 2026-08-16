@@ -12,7 +12,9 @@
 			class="animate-in fade-in zoom-in-95 relative w-full max-w-lg overflow-hidden rounded-3xl border border-purple-200/60 bg-white/95 shadow-2xl backdrop-blur-xl duration-200"
 		>
 			<header class="flex items-center justify-between border-b border-purple-200/60 p-8">
-				<h3 class="font-mono text-2xl font-black tracking-tight text-slate-900">Create New Playtest</h3>
+				<h3 class="font-mono text-2xl font-black tracking-tight text-slate-900">
+					Create New Playtest
+				</h3>
 				<button
 					onclick={() => (show = false)}
 					class="btn btn-circle text-slate-400 btn-ghost btn-sm hover:text-slate-800">✕</button
@@ -20,11 +22,11 @@
 			</header>
 
 			<form
-				{...createProject.enhance(async ({ form, submit }) => {
+				{...createProject.enhance(async ({ submit, element }) => {
 					try {
 						if (await submit()) {
 							show = false;
-							form.reset();
+							element.reset();
 						}
 					} catch (e) {
 						console.error(e);
@@ -37,7 +39,8 @@
 				{/if}
 				<div class="form-control">
 					<label class="label mb-2" for="project-name">
-						<span class="label-text font-mono text-xs font-bold tracking-wider text-purple-700 uppercase"
+						<span
+							class="label-text font-mono text-xs font-bold tracking-wider text-purple-700 uppercase"
 							>Game / Project Name</span
 						>
 					</label>
@@ -56,7 +59,9 @@
 						for="password-toggle"
 					>
 						<div>
-							<span class="label-text block font-mono text-sm font-bold text-slate-900">Password Protection</span>
+							<span class="label-text block font-mono text-sm font-bold text-slate-900"
+								>Password Protection</span
+							>
 							<span class="mt-1 block text-xs font-medium text-slate-500"
 								>Force playtesters to enter a password to play</span
 							>
@@ -107,4 +112,3 @@
 		</div>
 	</div>
 {/if}
-

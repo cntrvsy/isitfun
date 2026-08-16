@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;
@@ -77,7 +77,8 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 					if (data && Array.isArray(data.logs)) {
 						for (const log of data.logs) {
 							compiledLogs.push({
-								sessionId: data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
+								sessionId:
+									data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
 								eventName: log.event,
 								parsedPayload: (log.data as Record<string, unknown>) || {},
 								createdAt: log.timestamp || data.createdAt,
@@ -108,7 +109,16 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const payloadKeys = Array.from(payloadKeysSet).sort();
 
 	// 2. Build CSV headers (including full session metadata fields for zero vendor lock-in)
-	const baseHeaders = ['Session ID', 'Event Name', 'Timestamp', 'Avg FPS', 'GPU Renderer', 'Sentiment', 'User Comment', 'Has Crashed'];
+	const baseHeaders = [
+		'Session ID',
+		'Event Name',
+		'Timestamp',
+		'Avg FPS',
+		'GPU Renderer',
+		'Sentiment',
+		'User Comment',
+		'Has Crashed'
+	];
 	const headers = [...baseHeaders, ...payloadKeys];
 	const csvRows = [headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(',')];
 

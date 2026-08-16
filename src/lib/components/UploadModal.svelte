@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { UploadManager } from '$lib/client/uploader';
+	import { UploadManager } from '#lib/client/uploader.js';
 
 	let {
 		show = $bindable(false),

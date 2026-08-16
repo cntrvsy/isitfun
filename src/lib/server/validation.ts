@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { createInsertSchema } from 'drizzle-valibot';
-import { profile } from '$lib/server/db/db-schema';
+import { profile } from '#lib/server/db/db-schema.js';
 
 export const insertProfileSchema = createInsertSchema(profile, {
 	firstName: (schema) => v.pipe(schema, v.minLength(2, 'Must be at least 2 characters')),

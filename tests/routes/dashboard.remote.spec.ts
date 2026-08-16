@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createProject } from '../../src/routes/(app)/portal/dashboard/dashboard.remote';
-import { hashPassword } from '$lib/server/crypto';
+import { hashPassword } from '#lib/server/crypto.js';
 import { getRequestEvent } from '$app/server';
 
 vi.mock('$app/server', () => {

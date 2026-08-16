@@ -1,3 +1,4 @@
+import adapter from '@sveltejs/adapter-cloudflare';
 import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
@@ -8,7 +9,17 @@ import { fileURLToPath } from 'node:url';
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		sveltekit(),
+		sveltekit({
+			adapter: adapter(),
+			compilerOptions: {
+				experimental: {
+					async: true
+				}
+			},
+			experimental: {
+				remoteFunctions: true
+			}
+		}),
 		devtoolsJson()
 	],
 	resolve: {

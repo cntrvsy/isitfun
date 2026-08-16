@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, organizationMemberships } from '#lib/server/db/db-schema.js';
 import { zipSync, strToU8 } from 'fflate';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {

@@ -81,7 +81,6 @@ describe('TelemetrySessionDO Resilience', () => {
 		const json = (await response.json()) as { status: string };
 		expect(json.status).toBe('flush_error');
 
-
 		// Verify storage is preserved and alarm rescheduled
 		expect(mockState.storage.deleteAll).not.toHaveBeenCalled();
 		expect(mockState.storage.setAlarm).toHaveBeenCalled();

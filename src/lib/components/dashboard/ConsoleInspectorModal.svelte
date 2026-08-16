@@ -123,11 +123,15 @@
 			class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-purple-200/60 bg-white/95 shadow-2xl"
 		>
 			<!-- Modal Header -->
-			<div class="flex items-center justify-between border-b border-purple-200/60 bg-purple-50/50 p-6">
+			<div
+				class="flex items-center justify-between border-b border-purple-200/60 bg-purple-50/50 p-6"
+			>
 				<div class="space-y-1">
 					<div class="flex items-center gap-3">
 						<h3 class="font-mono text-xl font-black text-slate-900">Console Session Inspector</h3>
-						<span class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs font-bold text-purple-700">
+						<span
+							class="border border-purple-200 bg-white px-2 py-0.5 font-mono text-xs font-bold text-purple-700"
+						>
 							ID: {sessionId.slice(0, 12)}...
 						</span>
 					</div>
@@ -186,8 +190,7 @@
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'error')}
-						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
-						'error'
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'error'
 							? 'bg-rose-600 text-white'
 							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
@@ -195,8 +198,7 @@
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'warn')}
-						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
-						'warn'
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'warn'
 							? 'bg-amber-600 text-white'
 							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
@@ -212,8 +214,7 @@
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'feedback')}
-						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter ===
-						'feedback'
+						class="px-3 py-1.5 text-xs font-bold transition-all {selectedFilter === 'feedback'
 							? 'bg-emerald-600 text-white'
 							: 'bg-purple-50 text-slate-600 hover:bg-purple-100'}"
 					>
