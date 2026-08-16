@@ -73,15 +73,17 @@
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 	<!-- Chart 1: 14-Day Playtest Sessions Trend (layerchart LineChart) -->
 	<div
-		class="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md lg:col-span-2"
+		class="rounded-3xl border border-purple-200/50 bg-white/60 p-6 shadow-sm backdrop-blur-md lg:col-span-2"
 	>
 		<div class="mb-6 flex items-center justify-between">
 			<div>
-				<h3 class="text-lg font-black text-white">Daily Playtest Sessions</h3>
-				<p class="text-xs text-slate-500">Total volume of playtest runs over the past 14 days.</p>
+				<h3 class="font-mono text-lg font-black text-slate-900">Daily Playtest Sessions</h3>
+				<p class="text-xs font-medium text-slate-600">
+					Total volume of playtest runs over the past 14 days.
+				</p>
 			</div>
 			<span
-				class="rounded-xl border border-purple-500/20 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-400"
+				class="border border-purple-200 bg-purple-50 px-3 py-1 font-mono text-xs font-bold text-purple-700 uppercase"
 			>
 				14-Day Trend
 			</span>
@@ -100,20 +102,22 @@
 
 	<!-- Chart 2: Player Sentiment Breakdown -->
 	<div
-		class="flex flex-col justify-between rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-md"
+		class="flex flex-col justify-between rounded-3xl border border-purple-200/50 bg-white/60 p-6 shadow-sm backdrop-blur-md"
 	>
 		<div>
-			<h3 class="text-lg font-black text-white">Player Sentiment</h3>
-			<p class="text-xs text-slate-500">Qualitative feedback ratings collected from playtesters.</p>
+			<h3 class="font-mono text-lg font-black text-slate-900">Player Sentiment</h3>
+			<p class="text-xs font-medium text-slate-600">
+				Qualitative feedback ratings collected from playtesters.
+			</p>
 
 			<div class="mt-6 space-y-4">
 				<!-- Fun -->
 				<div class="space-y-1">
-					<div class="flex justify-between text-xs font-bold">
-						<span class="text-emerald-400">😀 Fun ({sentimentStats.fun})</span>
-						<span class="font-mono text-slate-400">{sentimentStats.funPct}%</span>
+					<div class="flex justify-between font-mono text-xs font-bold">
+						<span class="text-emerald-700">😀 Fun ({sentimentStats.fun})</span>
+						<span class="text-slate-600">{sentimentStats.funPct}%</span>
 					</div>
-					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
+					<div class="h-2 w-full overflow-hidden rounded-full bg-purple-100/60">
 						<div
 							class="h-full bg-emerald-500 transition-all duration-500"
 							style="width: {sentimentStats.funPct}%"
@@ -123,11 +127,11 @@
 
 				<!-- Neutral -->
 				<div class="space-y-1">
-					<div class="flex justify-between text-xs font-bold">
-						<span class="text-amber-400">😐 Okay ({sentimentStats.neutral})</span>
-						<span class="font-mono text-slate-400">{sentimentStats.neutralPct}%</span>
+					<div class="flex justify-between font-mono text-xs font-bold">
+						<span class="text-amber-700">😐 Okay ({sentimentStats.neutral})</span>
+						<span class="text-slate-600">{sentimentStats.neutralPct}%</span>
 					</div>
-					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
+					<div class="h-2 w-full overflow-hidden rounded-full bg-purple-100/60">
 						<div
 							class="h-full bg-amber-500 transition-all duration-500"
 							style="width: {sentimentStats.neutralPct}%"
@@ -137,11 +141,11 @@
 
 				<!-- Unfun -->
 				<div class="space-y-1">
-					<div class="flex justify-between text-xs font-bold">
-						<span class="text-rose-400">🙁 Unfun ({sentimentStats.unfun})</span>
-						<span class="font-mono text-slate-400">{sentimentStats.unfunPct}%</span>
+					<div class="flex justify-between font-mono text-xs font-bold">
+						<span class="text-rose-700">🙁 Unfun ({sentimentStats.unfun})</span>
+						<span class="text-slate-600">{sentimentStats.unfunPct}%</span>
 					</div>
-					<div class="h-2 w-full overflow-hidden rounded-full bg-slate-950">
+					<div class="h-2 w-full overflow-hidden rounded-full bg-purple-100/60">
 						<div
 							class="h-full bg-rose-500 transition-all duration-500"
 							style="width: {sentimentStats.unfunPct}%"
@@ -151,11 +155,13 @@
 			</div>
 		</div>
 
-		<div class="mt-6 rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4 text-center">
-			<span class="block text-[10px] font-bold tracking-widest text-slate-500 uppercase"
+		<div class="mt-6 rounded-2xl border border-purple-200/60 bg-white/80 p-4 text-center shadow-xs">
+			<span class="block font-mono text-[10px] font-bold tracking-widest text-purple-700 uppercase"
 				>Total Rated Playtests</span
 			>
-			<span class="text-2xl font-black text-purple-400">{sentimentStats.total} Ratings</span>
+			<span class="font-mono text-2xl font-black text-slate-900"
+				>{sentimentStats.total} Ratings</span
+			>
 		</div>
 	</div>
 </div>

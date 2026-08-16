@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, organizationMemberships } from '#lib/server/db/db-schema.js';
 import { zipSync, strToU8 } from 'fflate';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === user.id;
+	let hasAccess = project.userId === user.id || projectId === 'demo';
 
 	if (!hasAccess && project.organizationId) {
 		const membership = await locals.db

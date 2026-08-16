@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '#lib/auth-client.js';
 
 	let emailVal = $state('');
 	let loading = $state(false);
@@ -14,7 +14,13 @@
 		successMsg = null;
 
 		try {
-			const { data, error } = await (authClient as any).forgetPassword({
+			const client = authClient as unknown as {
+				forgetPassword: (opts: { email: string; redirectTo: string }) => Promise<{
+					data?: unknown;
+					error?: { message?: string } | null;
+				}>;
+			};
+			const { error } = await client.forgetPassword({
 				email: emailVal,
 				redirectTo: `${window.location.origin}/auth/reset-password`
 			});
@@ -26,8 +32,8 @@
 					'If an account exists with this email, a password reset link has been sent to your inbox.';
 				emailVal = '';
 			}
-		} catch (err: any) {
-			errorMsg = err?.message || 'Failed to request password reset. Please try again.';
+		} catch (err: unknown) {
+			errorMsg = (err as Error)?.message || 'Failed to request password reset. Please try again.';
 		} finally {
 			loading = false;
 		}

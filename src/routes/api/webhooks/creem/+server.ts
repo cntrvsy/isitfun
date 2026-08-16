@@ -1,9 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq } from 'drizzle-orm';
-import { projects, processedWebhooks, payments, organizations } from '$lib/server/db/db-schema';
+import { projects, processedWebhooks, payments, organizations } from '#lib/server/db/db-schema.js';
 import { env } from '$env/dynamic/private';
-import { verifyWebhookSignature } from '$lib/server/crypto';
+import { verifyWebhookSignature } from '#lib/server/crypto.js';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const bodyText = await request.text();
@@ -54,25 +54,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid JSON body');
 	}
 
-	const eventType = body.eventType || 'checkout.completed';
-	const objectData = (body as any).object || (body as any).data || {};
-	const orderData = objectData.order || {};
+	const eventType = String(body.eventType || 'checkout.completed');
+	const bodyRecord = body as Record<string, unknown>;
+	const objectData = (bodyRecord.object || bodyRecord.data || {}) as Record<string, unknown>;
+	const orderData = (objectData.order || {}) as Record<string, unknown>;
 
 	const metadata = {
-		...(objectData.metadata || {}),
-		...(orderData.metadata || {})
+		...((objectData.metadata || {}) as Record<string, unknown>),
+		...((orderData.metadata || {}) as Record<string, unknown>)
 	};
-	const projectId = (metadata.projectId || metadata.project_id || objectData.request_id) as
+	const projectId = (metadata.projectId || metadata.project_id || objectData.request_id || null) as
 		| string
-		| null
-		| undefined;
-	const status = orderData.status || objectData.status;
-	const webhookId = body.id || objectData.id;
+		| null;
+	const status = String(orderData.status || objectData.status || '');
+	const webhookId = (body.id || objectData.id || null) as string | null;
 
 	const organizationId = (metadata.organizationId || metadata.organization_id || null) as
 		| string
 		| null;
-	const activeOrgId = (organizationId || projectId) as string | null | undefined;
+	const activeOrgId = (organizationId || projectId) as string | null;
 
 	// 1. Idempotency Check: prevent duplicate webhook processing
 	if (webhookId) {
@@ -87,6 +87,76 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		} catch (err) {
 			console.warn('[Creem Webhook] Idempotency check skipped due to DB error:', err);
+		}
+	}
+
+	const isDowngrade =
+		eventType === 'subscription.canceled' ||
+		eventType === 'subscription.expired' ||
+		eventType === 'customer.subscription.deleted' ||
+		status === 'canceled' ||
+		status === 'expired';
+
+	if (isDowngrade) {
+		try {
+			const subId = (objectData.subscription_id || objectData.id || null) as string | null;
+			let org = organizationId
+				? await locals.db
+						.select()
+						.from(organizations)
+						.where(eq(organizations.id, organizationId))
+						.get()
+				: null;
+
+			if (!org && subId) {
+				org = await locals.db
+					.select()
+					.from(organizations)
+					.where(eq(organizations.creemSubscriptionId, subId))
+					.get();
+			}
+
+			if (org) {
+				await locals.db.transaction(async (tx) => {
+					if (webhookId) {
+						await tx.insert(processedWebhooks).values({
+							id: webhookId,
+							processedAt: new Date()
+						});
+					}
+					await tx
+						.update(organizations)
+						.set({ tier: 'free', creemSubscriptionId: null })
+						.where(eq(organizations.id, org.id));
+				});
+				console.log(`[Creem Webhook] Downgraded organization ${org.id} to Free tier successfully.`);
+				return json({ received: true, downgradedOrg: org.id });
+			}
+
+			if (projectId) {
+				const project = await locals.db
+					.select()
+					.from(projects)
+					.where(eq(projects.id, projectId))
+					.get();
+
+				if (project) {
+					await locals.db.transaction(async (tx) => {
+						if (webhookId) {
+							await tx.insert(processedWebhooks).values({
+								id: webhookId,
+								processedAt: new Date()
+							});
+						}
+						await tx.update(projects).set({ tier: 'free' }).where(eq(projects.id, projectId));
+					});
+					console.log(`[Creem Webhook] Downgraded project ${projectId} to Free tier successfully.`);
+					return json({ received: true, downgradedProject: projectId });
+				}
+			}
+		} catch (err) {
+			console.error('[Creem Webhook] Failed to process downgrade event:', err);
+			throw error(500, 'Failed to process downgrade event');
 		}
 	}
 
@@ -115,7 +185,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					}
 
 					// Upgrade organization to team plan and save subscription ID
-					const subscriptionId = objectData.subscription_id || objectData.id || null;
+					const subscriptionId = (objectData.subscription_id || objectData.id || null) as
+						| string
+						| null;
 					await tx
 						.update(organizations)
 						.set({ tier: 'team', creemSubscriptionId: subscriptionId })
@@ -123,10 +195,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 					// Record payment ledger entry
 					const amount = typeof orderData.amount === 'number' ? orderData.amount : 500;
-					const currency = orderData.currency || 'gbp';
-					const checkoutId = objectData.id || body.id || null;
-					const orderId = orderData.id || null;
-					const customerId = orderData.customer || null;
+					const currency = String(orderData.currency || 'gbp');
+					const checkoutId = (objectData.id || body.id || null) as string | null;
+					const orderId = (orderData.id || null) as string | null;
+					const customerId = (orderData.customer || null) as string | null;
 
 					await tx.insert(payments).values({
 						id: crypto.randomUUID(),
@@ -180,10 +252,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 				// Record payment ledger entry
 				const amount = typeof orderData.amount === 'number' ? orderData.amount : 1500;
-				const currency = orderData.currency || 'gbp';
-				const checkoutId = objectData.id || body.id || null;
-				const orderId = orderData.id || null;
-				const customerId = orderData.customer || null;
+				const currency = String(orderData.currency || 'gbp');
+				const checkoutId = (objectData.id || body.id || null) as string | null;
+				const orderId = (orderData.id || null) as string | null;
+				const customerId = (orderData.customer || null) as string | null;
 
 				await tx.insert(payments).values({
 					id: crypto.randomUUID(),
@@ -200,12 +272,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			});
 
 			console.log(`[Creem Webhook] Upgraded project ${projectId} to Pro tier successfully.`);
-			return json({ received: true, upgraded: projectId });
+			return json({ received: true, upgradedProject: projectId });
 		} catch (err) {
-			console.error('[Creem Webhook] Failed to process webhook transaction in DB:', err);
-			throw error(500, 'Database transaction failed');
+			console.error('[Creem Webhook] Database update failed:', err);
+			throw error(500, 'Database error during upgrade');
 		}
 	}
 
-	return json({ received: true, message: 'No action taken' });
+	return json({ received: true, status: 'ignored' });
 };

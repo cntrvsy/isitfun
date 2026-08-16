@@ -1,13 +1,13 @@
-import { redirect, error, type Handle } from '@sveltejs/kit';
-import { building } from '$app/environment';
-import { getAuth } from '$lib/server/auth';
+import { redirect, error } from '@sveltejs/kit';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { building } from '$app/env';
+import { getAuth } from '#lib/server/auth.js';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { createD1Client, createLibSqlClient } from '$lib/server/db';
-import { sequence } from '@sveltejs/kit/hooks';
+import { createD1Client, createLibSqlClient } from '#lib/server/db/index.js';
 import { env } from '$env/dynamic/private';
 
-import type { DrizzleClient } from '$lib/server/db';
-import { resolvePendingInvite } from '$lib/server/invites';
+import type { DrizzleClient } from '#lib/server/db/index.js';
+import { resolvePendingInvite } from '#lib/server/invites.js';
 
 let db: DrizzleClient | null = null;
 
@@ -50,7 +50,12 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
 
 		// Resolve any pending organization invite token for authenticated users
-		await resolvePendingInvite(event.locals.db, event.cookies, event.locals.user.id);
+		await resolvePendingInvite(
+			event.locals.db,
+			event.cookies,
+			event.locals.user.id,
+			event.locals.user.email
+		);
 
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
 		const path = event.url.pathname.replace(/\/$/, '');
@@ -60,6 +65,11 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 			} else if (event.locals.user.role === 'game_developer') {
 				return redirect(302, '/portal/dashboard');
 			}
+		}
+	} else {
+		const path = event.url.pathname.replace(/\/$/, '');
+		if (path === '/auth/login') {
+			return redirect(302, '/auth');
 		}
 	}
 
@@ -89,7 +99,7 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-const handleSecurity: Handle = async ({ event, resolve }) => {
+export const handleSecurity: Handle = async ({ event, resolve }) => {
 	const referer = event.request.headers.get('referer');
 	if (referer) {
 		try {

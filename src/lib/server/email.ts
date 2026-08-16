@@ -1,11 +1,6 @@
 import { Resend } from 'resend';
 import { env } from '$env/dynamic/private';
 
-const resendApiKey = env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-const DEFAULT_FROM = env.RESEND_FROM_EMAIL || 'IsItFun <noreply@frstudios.co.ke>';
-
 export interface SendEmailOptions {
 	to: string;
 	subject: string;
@@ -15,7 +10,11 @@ export interface SendEmailOptions {
 }
 
 export async function sendEmail(options: SendEmailOptions) {
-	const from = options.from || DEFAULT_FROM;
+	const resendApiKey = env?.RESEND_API_KEY;
+	const resend = resendApiKey ? new Resend(resendApiKey) : null;
+	const defaultFrom = env?.RESEND_FROM_EMAIL || 'IsItFun <noreply@frstudios.co.ke>';
+
+	const from = options.from || defaultFrom;
 	const to = options.to;
 	const subject = options.subject;
 	const html = options.html;

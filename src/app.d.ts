@@ -1,5 +1,5 @@
 import type { User, Session } from 'better-auth/minimal';
-import type { DrizzleClient } from '$lib/server/db';
+import type { DrizzleClient } from '#lib/server/db/index.js';
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
@@ -15,7 +15,7 @@ declare global {
 			user?: User & { role: 'game_developer' | 'admin' };
 			session?: Session;
 			db: DrizzleClient;
-			auth: ReturnType<typeof import('$lib/server/auth').getAuth>;
+			auth: ReturnType<typeof import('#lib/server/auth.js').getAuth>;
 		}
 
 		// interface Error {}

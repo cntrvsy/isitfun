@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, projectQuotas, organizationMemberships } from '$lib/server/db/db-schema';
+import { projects, projectQuotas, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 export const POST: RequestHandler = async ({ params, request, locals, platform, url }) => {
 	const session = locals.session;
@@ -43,7 +43,15 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 		throw error(403, 'Forbidden: You do not have access to this project');
 	}
 
-	const contentLength = Number(request.headers.get('content-length') || 0);
+	const contentLengthHeader = request.headers.get('content-length');
+	if (!contentLengthHeader || isNaN(Number(contentLengthHeader))) {
+		throw error(411, 'Length Required: Content-Length header is missing or invalid');
+	}
+
+	const contentLength = Number(contentLengthHeader);
+	if (contentLength <= 0) {
+		throw error(400, 'Invalid file content length');
+	}
 
 	if (contentLength > 100 * 1024 * 1024) {
 		throw error(413, 'File size exceeds maximum 100 MB limit for game vertical slices');

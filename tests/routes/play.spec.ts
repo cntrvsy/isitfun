@@ -8,7 +8,7 @@ vi.mock('$env/dynamic/private', () => ({
 }));
 
 import { GET } from '../../src/routes/play/[projectId]/[...file]/+server';
-import { signSession } from '$lib/server/crypto';
+import { signSession } from '#lib/server/crypto.js';
 
 describe('GET /play/[projectId]/[...file]', () => {
 	beforeEach(() => {
@@ -229,5 +229,43 @@ describe('GET /play/[projectId]/[...file]', () => {
 		expect(res.status).toBe(200);
 		expect(mockDb.select).toHaveBeenCalled();
 		expect(mockBucket.get).toHaveBeenCalledWith('games/proj_passworded/assets/index.html');
+	});
+
+	it('should return 206 Partial Content when Range header is provided and returned by R2', async () => {
+		const validSessionToken = await signSession('proj_123');
+
+		const mockDb = { select: vi.fn() };
+		const mockBucket = {
+			get: vi.fn().mockResolvedValue({
+				body: 'audio-byte-slice',
+				size: 1000,
+				range: { offset: 0, length: 500 },
+				httpMetadata: { contentType: 'audio/mpeg' }
+			})
+		};
+
+		const mockCookies = {
+			get: vi.fn().mockImplementation((name) => {
+				if (name === 'play_session_proj_123') return validSessionToken;
+				return undefined;
+			})
+		};
+
+		const res = await GET({
+			params: { projectId: 'proj_123', file: 'audio/music.mp3' },
+			locals: { db: mockDb } as any,
+			platform: { env: { GAMES_BUCKET: mockBucket } } as any,
+			cookies: mockCookies as any,
+			request: new Request('http://localhost/play/proj_123/audio/music.mp3', {
+				headers: { range: 'bytes=0-499' }
+			}),
+			url: new URL('http://localhost/play/proj_123/audio/music.mp3'),
+			getClientAddress: () => '127.0.0.1'
+		} as any);
+
+		expect(res.status).toBe(206);
+		expect(res.headers.get('Content-Range')).toBe('bytes 0-499/1000');
+		expect(res.headers.get('Content-Length')).toBe('500');
+		expect(res.headers.get('Content-Type')).toBe('audio/mpeg');
 	});
 });

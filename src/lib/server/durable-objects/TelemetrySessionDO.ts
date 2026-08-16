@@ -1,5 +1,5 @@
-import { createD1Client } from '$lib/server/db';
-import { telemetrySessions } from '$lib/server/db/db-schema';
+import { createD1Client } from '#lib/server/db/index.js';
+import { telemetrySessions } from '#lib/server/db/db-schema.js';
 
 export interface Env {
 	DB: D1Database;
@@ -124,30 +124,45 @@ export class TelemetrySessionDO implements DurableObject {
 			await this.state.storage.put('logCount', count);
 		}
 
-		// 3. Set inactivity alarm (10 minutes from now)
-		await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
+		// 3. Set inactivity alarm efficiently (only if no alarm exists or expiring within 2 mins)
+		const existingAlarm =
+			typeof this.state.storage.getAlarm === 'function'
+				? await this.state.storage.getAlarm()
+				: null;
+		if (!existingAlarm || existingAlarm - Date.now() < 2 * 60 * 1000) {
+			await this.state.storage.setAlarm(Date.now() + 10 * 60 * 1000);
+		}
 
 		// 4. Ingest immediately if exiting
 		if (isExiting) {
-			await this.flush({
-				projectId,
-				sessionId,
-				logs: sessionLogs,
-				hasCrashed: finalHasCrashed,
-				createdAt,
-				logCount: count,
-				deviceHash,
-				browserInfo,
-				gameBuildId,
-				avgFps: storedAvgFps,
-				gpuRenderer: storedGpuRenderer,
-				sentiment: storedSentiment,
-				userComment: storedUserComment
-			});
-			await this.state.storage.deleteAll();
-			return new Response(JSON.stringify({ success: true, status: 'flushed' }), {
-				headers: { 'Content-Type': 'application/json' }
-			});
+			try {
+				await this.flush({
+					projectId,
+					sessionId,
+					logs: sessionLogs,
+					hasCrashed: finalHasCrashed,
+					createdAt,
+					logCount: count,
+					deviceHash,
+					browserInfo,
+					gameBuildId,
+					avgFps: storedAvgFps,
+					gpuRenderer: storedGpuRenderer,
+					sentiment: storedSentiment,
+					userComment: storedUserComment
+				});
+				await this.state.storage.deleteAll();
+				return new Response(JSON.stringify({ success: true, status: 'flushed' }), {
+					headers: { 'Content-Type': 'application/json' }
+				});
+			} catch (err) {
+				console.error('[TelemetrySessionDO] Failed immediate exit flush:', err);
+				await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+				return new Response(JSON.stringify({ success: false, status: 'flush_error' }), {
+					status: 500,
+					headers: { 'Content-Type': 'application/json' }
+				});
+			}
 		}
 
 		return new Response(JSON.stringify({ success: true, status: 'buffered', logCount: count }), {
@@ -172,24 +187,30 @@ export class TelemetrySessionDO implements DurableObject {
 		const sessionId = this.state.id.toString();
 
 		if (projectId && createdAt) {
-			await this.flush({
-				projectId,
-				sessionId,
-				logs,
-				hasCrashed: finalHasCrashed,
-				createdAt,
-				logCount: count,
-				deviceHash,
-				browserInfo,
-				gameBuildId,
-				avgFps: storedAvgFps,
-				gpuRenderer: storedGpuRenderer,
-				sentiment: storedSentiment,
-				userComment: storedUserComment
-			});
+			try {
+				await this.flush({
+					projectId,
+					sessionId,
+					logs,
+					hasCrashed: finalHasCrashed,
+					createdAt,
+					logCount: count,
+					deviceHash,
+					browserInfo,
+					gameBuildId,
+					avgFps: storedAvgFps,
+					gpuRenderer: storedGpuRenderer,
+					sentiment: storedSentiment,
+					userComment: storedUserComment
+				});
+				await this.state.storage.deleteAll();
+			} catch (err) {
+				console.error('[TelemetrySessionDO] Alarm flush failed, rescheduling retry:', err);
+				await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+			}
+		} else {
+			await this.state.storage.deleteAll();
 		}
-
-		await this.state.storage.deleteAll();
 	}
 
 	private async flush(params: {

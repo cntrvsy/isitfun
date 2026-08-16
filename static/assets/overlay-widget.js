@@ -141,7 +141,20 @@
 	// 6. Overwrite Console APIs to capture print statements
 	window.console.log = function (...args) {
 		_originalLog.apply(window.console, args);
-		queueTelemetry('console.log', { message: formatArgs(args) });
+		if (args.length > 1 && (args[0] === '[IsItFun]' || args[0] === '[event]')) {
+			const customEventName = String(args[1]);
+			let customData = args[2] || {};
+			if (typeof customData === 'string') {
+				try {
+					customData = JSON.parse(customData);
+				} catch {
+					customData = { detail: customData };
+				}
+			}
+			queueTelemetry(customEventName, customData);
+		} else {
+			queueTelemetry('console.log', { message: formatArgs(args) });
+		}
 	};
 
 	window.console.warn = function (...args) {
@@ -180,10 +193,15 @@
 			if (!eventName) return;
 			queueTelemetry(eventName, dataPayload);
 		},
+		track: function (eventName, dataPayload = {}) {
+			if (!eventName) return;
+			queueTelemetry(eventName, dataPayload);
+		},
 		getFps: function () {
 			return currentAvgFps;
 		}
 	};
+
 
 	// 9. Qualitative "Is It Fun?" Floating Feedback Widget UI
 	function injectFeedbackWidget() {

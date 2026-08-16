@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Footer from '$lib/components/Footer.svelte';
+	import Footer from '#lib/components/Footer.svelte';
 	import { resolve } from '$app/paths';
 	import { Play, ArrowUpRight, Terminal, Shield, Activity, Layers } from '@lucide/svelte';
 </script>

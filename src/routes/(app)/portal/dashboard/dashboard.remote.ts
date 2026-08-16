@@ -1,5 +1,5 @@
 import { form, getRequestEvent } from '$app/server';
-import type { DrizzleClient } from '$lib/server/db';
+import type { DrizzleClient } from '#lib/server/db/index.js';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -10,11 +10,11 @@ import {
 	organizationInvites,
 	projectAccessKeys,
 	generateNanoID
-} from '$lib/server/db/db-schema';
-import { getMaxUsesCapForTier } from '$lib/server/db/access-keys';
+} from '#lib/server/db/db-schema.js';
+import { getMaxUsesCapForTier } from '#lib/server/db/access-keys.js';
 import { env } from '$env/dynamic/private';
-import { hashPassword } from '$lib/server/crypto';
-import { sendOrganizationInviteEmail } from '$lib/server/email';
+import { hashPassword } from '#lib/server/crypto.js';
+import { sendOrganizationInviteEmail } from '#lib/server/email.js';
 
 // Helper to sync seats with Creem subscription
 async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: string) {
@@ -751,7 +751,7 @@ export const createAccessKey = form(
 export const toggleAccessKey = form(
 	v.object({
 		keyId: v.pipe(v.string(), v.nonEmpty('Key ID is required')),
-		isActive: v.boolean()
+		isActive: v.optional(v.boolean(), false)
 	}),
 	async (data) => {
 		const event = getRequestEvent();

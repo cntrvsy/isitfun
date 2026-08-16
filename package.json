@@ -25,21 +25,25 @@
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts"
 	},
+	"imports": {
+		"#lib/*": "./src/lib/*"
+	},
 	"sveltekit-cloudflare-do": {
 		"durableObjects": [
 			"src/lib/server/durable-objects/TelemetrySessionDO.ts"
 		]
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20260815.1",
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
 		"@libsql/client": "^0.17.2",
 		"@opentelemetry/api": "^1.9.1",
 		"@playwright/test": "^1.58.2",
-		"@sveltejs/adapter-auto": "^7.0.0",
-		"@sveltejs/adapter-cloudflare": "^7.2.8",
-		"@sveltejs/kit": "^2.57.0",
-		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@sveltejs/adapter-auto": "^8.0.0-next.3",
+		"@sveltejs/adapter-cloudflare": "^8.0.0-next.6",
+		"@sveltejs/kit": "^3.0.0-next.23",
+		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"@tailwindcss/forms": "^0.5.11",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.2.2",
@@ -58,13 +62,13 @@
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
-		"svelte": "^5.51.0",
+		"svelte": "^5.56.9",
 		"svelte-check": "^4.4.2",
 		"sveltekit-cloudflare-durable-objects": "^0.1.1",
 		"tailwindcss": "^4.2.2",
-		"typescript": "^5.9.3",
+		"typescript": "^6.0.0-beta",
 		"typescript-eslint": "^8.54.0",
-		"vite": "^8.0.7",
+		"vite": "^8.2.1",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vitest": "^4.0.18",
 		"vitest-browser-svelte": "^2.0.2",

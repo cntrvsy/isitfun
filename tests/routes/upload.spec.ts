@@ -26,6 +26,33 @@ describe('POST /api/games/[projectId]/upload', () => {
 		}
 	});
 
+	it('should throw 411 if Content-Length header is missing', async () => {
+		const request = new Request('http://localhost/api/games/proj_1/upload?path=index.html', {
+			method: 'POST'
+		});
+
+		const mockDb = {
+			select: vi.fn().mockReturnThis(),
+			from: vi.fn().mockReturnThis(),
+			where: vi.fn().mockReturnThis(),
+			get: vi.fn().mockResolvedValue({ id: 'proj_1', userId: 'user_1', tier: 'free' })
+		};
+
+		try {
+			await POST({
+				params: { projectId: 'proj_1' },
+				request,
+				locals: { session: { id: 'sess_1' }, user: { id: 'user_1' }, db: mockDb } as any,
+				platform: {} as any,
+				url: new URL('http://localhost/api/games/proj_1/upload?path=index.html')
+			} as any);
+			expect.fail('Should have thrown 411');
+		} catch (err: any) {
+			expect(err.status).toBe(411);
+			expect(err.body.message).toContain('Length Required');
+		}
+	});
+
 	it('should throw 413 if upload exceeds 100MB hard limit on pro tier', async () => {
 		const request = new Request('http://localhost/api/games/proj_pro/upload?path=index.html', {
 			method: 'POST',

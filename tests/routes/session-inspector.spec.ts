@@ -100,6 +100,29 @@ describe('GET /api/portal/projects/[projectId]/sessions/[sessionId]', () => {
 		expect(json.sentiment).toBe('fun');
 		expect(mockBucket.get).toHaveBeenCalledWith('games/proj_1/sessions/sess_1.json');
 	});
+
+	it('allows admin role user to inspect session details for any project', async () => {
+		const mockDb = {
+			select: vi.fn().mockReturnThis(),
+			from: vi.fn().mockReturnThis(),
+			where: vi.fn().mockReturnThis(),
+			get: vi.fn().mockResolvedValue({ id: 'proj_1', userId: 'owner_user' })
+		};
+
+		const res = await GET({
+			params: { projectId: 'proj_1', sessionId: 'sess_1' },
+			locals: {
+				session: { id: 's1' },
+				user: { id: 'admin_user', role: 'admin' },
+				db: mockDb
+			} as any,
+			platform: { env: {} } as any
+		} as any);
+
+		expect(res.status).toBe(200);
+		const json: any = await res.json();
+		expect(json.projectId).toBe('proj_1');
+	});
 });
 
 describe('DELETE /api/portal/projects/[projectId]/sessions/[sessionId]', () => {

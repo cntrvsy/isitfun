@@ -27,6 +27,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			console.error('[Resend Webhook] Signature verification failed:', err);
 			return json({ error: 'Invalid webhook signature' }, { status: 401 });
 		}
+	} else {
+		console.warn(
+			'[Resend Webhook] RESEND_WEBHOOK_SECRET is not configured. Webhook signature verification bypassed (dev/mock mode).'
+		);
 	}
 
 	try {

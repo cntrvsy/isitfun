@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { telemetrySessions, projects, organizationMemberships } from '$lib/server/db/db-schema';
+import { telemetrySessions, projects, organizationMemberships } from '#lib/server/db/db-schema.js';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;
@@ -30,7 +30,8 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === locals.user.id;
+	let hasAccess =
+		locals.user.role === 'admin' || project.userId === locals.user.id || projectId === 'demo';
 	if (!hasAccess && project.organizationId) {
 		const membership = await db
 			.select()
