@@ -2,7 +2,6 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and, gt } from 'drizzle-orm';
 import { telemetrySessions, projects } from '#lib/server/db/db-schema.js';
-import { user } from '#lib/server/db/auth-schema.js';
 
 // Secure salt for GDPR device hashing
 const GDPR_SALT = 'isitfun-gdpr-anonymity-salt-2026';
@@ -77,14 +76,13 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 		let dbProject = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
 
 		if (!dbProject && (projectId === 'demo' || projectId.startsWith('demo_'))) {
-			const ownerUser = locals.user || (await locals.db.select().from(user).limit(1).get());
-			if (ownerUser) {
+			if (locals.user) {
 				try {
 					await locals.db
 						.insert(projects)
 						.values({
 							id: projectId,
-							userId: ownerUser.id,
+							userId: locals.user.id,
 							name: '🏓 Interactive Demo (Ping Pong)',
 							tier: 'free',
 							passwordProtected: false,
@@ -101,6 +99,18 @@ export const POST: RequestHandler = async ({ request, locals, platform, getClien
 				} catch (err) {
 					console.error('Failed to auto-create demo project:', err);
 				}
+			} else {
+				// Ephemeral demo project config for anonymous playtests
+				dbProject = {
+					id: projectId,
+					userId: 'anonymous_demo',
+					organizationId: null,
+					name: '🏓 Interactive Demo (Ping Pong)',
+					tier: 'free',
+					passwordProtected: false,
+					passwordHash: null,
+					createdAt: new Date()
+				};
 			}
 		}
 

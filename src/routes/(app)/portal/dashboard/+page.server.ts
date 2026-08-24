@@ -57,9 +57,10 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		}
 	});
 
-	// Ensure the user has the Demo project available so demo playtest telemetry is tied to their workspace
+	// Ensure the user has their personal Demo project available so demo playtest telemetry is tied to their workspace
+	const demoProjectId = `demo_${user.id}`;
 	let demoProject = await db.query.projects.findFirst({
-		where: eq(projects.id, 'demo'),
+		where: eq(projects.id, demoProjectId),
 		with: {
 			projectQuotas: true,
 			payments: true
@@ -71,7 +72,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 			await db
 				.insert(projects)
 				.values({
-					id: 'demo',
+					id: demoProjectId,
 					userId: user.id,
 					name: '🏓 Interactive Demo (Ping Pong)',
 					tier: 'free',
@@ -82,7 +83,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 				.run();
 
 			demoProject = await db.query.projects.findFirst({
-				where: eq(projects.id, 'demo'),
+				where: eq(projects.id, demoProjectId),
 				with: {
 					projectQuotas: true,
 					payments: true
@@ -181,15 +182,13 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 
 					if (expiredSessions.length > 0) {
 						if (bucket) {
-							for (const sess of expiredSessions) {
-								try {
-									await bucket.delete(`games/${sess.projectId}/sessions/${sess.id}.json`);
-								} catch (r2Err) {
-									console.error(
-										`[R2 Session Cleanup] Failed to delete R2 log file for session ${sess.id}:`,
-										r2Err
-									);
-								}
+							const keysToDelete = expiredSessions.map(
+								(sess) => `games/${sess.projectId}/sessions/${sess.id}.json`
+							);
+							try {
+								await bucket.delete(keysToDelete);
+							} catch (r2Err) {
+								console.error('[R2 Session Cleanup] Batch delete failed:', r2Err);
 							}
 						}
 

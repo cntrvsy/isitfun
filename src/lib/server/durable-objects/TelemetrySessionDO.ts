@@ -74,55 +74,55 @@ export class TelemetrySessionDO implements DurableObject {
 			return new Response('Missing parameters', { status: 400 });
 		}
 
-		// 1. Load or initialize session state
+		// 1. Load session state
 		const sessionLogs = (await this.state.storage.get<TelemetryLog[]>('logs')) || [];
 		let finalHasCrashed = (await this.state.storage.get<boolean>('hasCrashed')) || false;
 		let createdAt = await this.state.storage.get<number>('createdAt');
 		let count = (await this.state.storage.get<number>('logCount')) || 0;
 
+		const storageData: Record<string, unknown> = {
+			sessionId,
+			projectId,
+			deviceHash,
+			browserInfo
+		};
+
 		if (!createdAt) {
 			createdAt = Date.now();
-			await this.state.storage.put('createdAt', createdAt);
+			storageData.createdAt = createdAt;
 		}
 
 		if (hasCrashed) {
 			finalHasCrashed = true;
-			await this.state.storage.put('hasCrashed', true);
+			storageData.hasCrashed = true;
 		}
 
-		// Save parameters for the alarm handler & updates
-		await this.state.storage.put('projectId', projectId);
-		await this.state.storage.put('deviceHash', deviceHash);
-		await this.state.storage.put('browserInfo', browserInfo);
-		if (gameBuildId) {
-			await this.state.storage.put('gameBuildId', gameBuildId);
-		}
-		if (typeof avgFps === 'number') {
-			await this.state.storage.put('avgFps', avgFps);
-		}
-		if (deviceSpecs?.gpuRenderer) {
-			await this.state.storage.put('gpuRenderer', deviceSpecs.gpuRenderer);
-		}
+		if (gameBuildId) storageData.gameBuildId = gameBuildId;
+		if (typeof avgFps === 'number') storageData.avgFps = avgFps;
+		if (deviceSpecs?.gpuRenderer) storageData.gpuRenderer = deviceSpecs.gpuRenderer;
 		if (feedback?.sentiment) {
-			await this.state.storage.put('sentiment', feedback.sentiment);
-			if (feedback.comment) {
-				await this.state.storage.put('userComment', feedback.comment);
-			}
+			storageData.sentiment = feedback.sentiment;
+			if (feedback.comment) storageData.userComment = feedback.comment;
 		}
 
-		const storedAvgFps = await this.state.storage.get<number>('avgFps');
-		const storedGpuRenderer = await this.state.storage.get<string>('gpuRenderer');
-		const storedSentiment = await this.state.storage.get<'fun' | 'neutral' | 'unfun'>('sentiment');
-		const storedUserComment = await this.state.storage.get<string>('userComment');
-
-		// 2. Append new logs (excluding heartbeat pings from final array to save R2 space)
+		// 2. Append new logs (excluding heartbeat pings from final array to save R2 space; cap at 500 to prevent OOM)
 		const cleanLogs = logs.filter((l) => l.event !== 'heartbeat');
 		if (cleanLogs.length > 0) {
 			sessionLogs.push(...cleanLogs);
-			await this.state.storage.put('logs', sessionLogs);
+			if (sessionLogs.length > 500) {
+				sessionLogs.splice(0, sessionLogs.length - 500);
+			}
+			storageData.logs = sessionLogs;
 			count += cleanLogs.length;
-			await this.state.storage.put('logCount', count);
+			storageData.logCount = count;
 		}
+
+		await this.state.storage.put(storageData);
+
+		const storedAvgFps = (storageData.avgFps as number) ?? (await this.state.storage.get<number>('avgFps'));
+		const storedGpuRenderer = (storageData.gpuRenderer as string) ?? (await this.state.storage.get<string>('gpuRenderer'));
+		const storedSentiment = (storageData.sentiment as 'fun' | 'neutral' | 'unfun') ?? (await this.state.storage.get<'fun' | 'neutral' | 'unfun'>('sentiment'));
+		const storedUserComment = (storageData.userComment as string) ?? (await this.state.storage.get<string>('userComment'));
 
 		// 3. Set inactivity alarm efficiently (only if no alarm exists or expiring within 2 mins)
 		const existingAlarm =
@@ -177,6 +177,8 @@ export class TelemetrySessionDO implements DurableObject {
 		const createdAt = await this.state.storage.get<number>('createdAt');
 		const count = (await this.state.storage.get<number>('logCount')) || 0;
 		const projectId = await this.state.storage.get<string>('projectId');
+		const storedSessionId = await this.state.storage.get<string>('sessionId');
+		const sessionId = storedSessionId || this.state.id.toString();
 		const deviceHash = (await this.state.storage.get<string>('deviceHash')) || '';
 		const browserInfo = (await this.state.storage.get<string>('browserInfo')) || '';
 		const gameBuildId = await this.state.storage.get<string>('gameBuildId');
@@ -184,7 +186,6 @@ export class TelemetrySessionDO implements DurableObject {
 		const storedGpuRenderer = await this.state.storage.get<string>('gpuRenderer');
 		const storedSentiment = await this.state.storage.get<'fun' | 'neutral' | 'unfun'>('sentiment');
 		const storedUserComment = await this.state.storage.get<string>('userComment');
-		const sessionId = this.state.id.toString();
 
 		if (projectId && createdAt) {
 			try {

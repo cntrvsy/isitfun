@@ -24,7 +24,11 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(404, 'Project not found');
 	}
 
-	let hasAccess = project.userId === user.id || projectId === 'demo';
+	let hasAccess =
+		user.role === 'admin' ||
+		project.userId === user.id ||
+		projectId === 'demo' ||
+		projectId.startsWith('demo_');
 
 	if (!hasAccess && project.organizationId) {
 		const membership = await locals.db
@@ -47,7 +51,7 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 
 	if (bucket) {
 		const prefix = `games/${projectId}/sessions/`;
-		const objectList = await bucket.list({ prefix, limit: 100 });
+		const objectList = await bucket.list({ prefix, limit: 50 });
 
 		for (const obj of objectList.objects) {
 			const fileObj = await bucket.get(obj.key);

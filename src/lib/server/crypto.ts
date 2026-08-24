@@ -99,12 +99,17 @@ export async function verifySession(token: string, projectId: string): Promise<b
 		const encoder = new TextEncoder();
 		const key = await getSessionSecretKey();
 
-		// Re-sign to compare
+		// Re-sign to compare using timing-safe constant-time check
 		const expectedBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
 		const expectedArray = Array.from(new Uint8Array(expectedBuffer));
 		const expectedHex = expectedArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-		return signatureHex === expectedHex;
+		if (signatureHex.length !== expectedHex.length) return false;
+		let result = 0;
+		for (let i = 0; i < signatureHex.length; i++) {
+			result |= signatureHex.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+		}
+		return result === 0;
 	} catch {
 		return false;
 	}

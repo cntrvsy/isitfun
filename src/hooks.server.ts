@@ -50,12 +50,14 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
 
 		// Resolve any pending organization invite token for authenticated users
-		await resolvePendingInvite(
-			event.locals.db,
-			event.cookies,
-			event.locals.user.id,
-			event.locals.user.email
-		);
+		if (event.cookies.get('pending_invite_token')) {
+			await resolvePendingInvite(
+				event.locals.db,
+				event.cookies,
+				event.locals.user.id,
+				event.locals.user.email
+			);
+		}
 
 		// Redirect authenticated users trying to access login/auth pages to their dashboards
 		const path = event.url.pathname.replace(/\/$/, '');
@@ -123,14 +125,15 @@ export const handleSecurity: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-const handleDrifter: Handle = async ({ event, resolve }) => {
+export const handleDrifter: Handle = async ({ event, resolve }) => {
 	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
 	if (drifterControl) {
 		const isDisabled = await drifterControl.get('DISABLED');
 		if (isDisabled === 'true') {
-			// Allow emergency admin override or portal admin route to bypass kill switch so admin can inspect/reset
+			// Allow authenticated platform admins or admin portal routes to bypass kill switch
+			const isAdmin = event.locals.user?.role === 'admin';
 			const isOverride =
-				event.url.searchParams.get('override') === 'true' ||
+				(isAdmin && event.url.searchParams.get('override') === 'true') ||
 				event.url.pathname.startsWith('/portal/admin');
 			if (!isOverride) {
 				return new Response(
@@ -148,4 +151,4 @@ const handleDrifter: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleDrifter, handleSecurity, handleDb, handleBetterAuth);
+export const handle: Handle = sequence(handleDb, handleBetterAuth, handleDrifter, handleSecurity);

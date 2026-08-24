@@ -56,7 +56,7 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 };
 
 export const actions: Actions = {
-	verify: async ({ request, locals }) => {
+	verify: async ({ request, locals, cookies }) => {
 		const formData = await request.formData();
 		const projectId = formData.get('projectId') as string;
 		const passwordInput = ((formData.get('password') as string) || '').trim();
@@ -99,6 +99,13 @@ export const actions: Actions = {
 		if (project.passwordProtected && project.passwordHash) {
 			const hashed = await hashPassword(passwordInput, projectId);
 			if (hashed === project.passwordHash) {
+				cookies.set(`play_auth_${projectId}`, project.passwordHash, {
+					path: `/play/${projectId}`,
+					maxAge: 60 * 60 * 24 * 7, // 7 days
+					sameSite: 'lax',
+					httpOnly: true,
+					secure: true
+				});
 				throw redirect(302, `/play/${projectId}`);
 			}
 		}

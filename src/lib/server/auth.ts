@@ -7,18 +7,36 @@ import { getRequestEvent } from '$app/server';
 import type { DrizzleClient } from '#lib/server/db/index.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '#lib/server/email.js';
 
-export const getAuth = (db: DrizzleClient, requestURL?: string) =>
-	betterAuth({
-		baseURL: requestURL
-			? `${requestURL}/api/auth`
-			: env.BETTER_AUTH_URL || (env.ORIGIN ? `${env.ORIGIN}/api/auth` : ''),
-		secret: env.BETTER_AUTH_SECRET || '',
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const authCache = new WeakMap<object, any>();
+
+export const getAuth = (db: DrizzleClient, requestURL?: string) => {
+	const dbKey = db as object;
+	if (authCache.has(dbKey)) {
+		return authCache.get(dbKey);
+	}
+
+	const baseURL =
+		env.BETTER_AUTH_URL ||
+		(env.ORIGIN ? `${env.ORIGIN}/api/auth` : requestURL ? `${requestURL}/api/auth` : '/api/auth');
+
+	const trustedOrigins = [
+		env.BETTER_AUTH_URL || '',
+		env.ORIGIN || '',
+		...(env.TRUSTED_ORIGINS?.split(',') || [])
+	]
+		.map((o) => o.trim())
+		.filter(Boolean);
+
+	if (requestURL && import.meta.env.DEV && !trustedOrigins.includes(requestURL)) {
+		trustedOrigins.push(requestURL);
+	}
+
+	const instance = betterAuth({
+		baseURL,
+		secret: env.BETTER_AUTH_SECRET || 'dev-secret-change-in-production',
 		database: drizzleAdapter(db, { provider: 'sqlite' }),
-		trustedOrigins: [
-			requestURL || '',
-			env.BETTER_AUTH_URL || '',
-			...(env.TRUSTED_ORIGINS?.split(',') || [])
-		].filter(Boolean),
+		trustedOrigins,
 		emailAndPassword: {
 			enabled: true,
 			async sendResetPassword({ user, url, token }) {
@@ -65,3 +83,7 @@ export const getAuth = (db: DrizzleClient, requestURL?: string) =>
 			sveltekitCookies(getRequestEvent)
 		] // make sure this is the last plugin in the array
 	});
+
+	authCache.set(dbKey, instance);
+	return instance;
+};

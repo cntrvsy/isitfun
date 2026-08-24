@@ -410,12 +410,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	:global(body) {
-		background-image:
-			radial-gradient(at 0% 0%, oklch(var(--p) / 0.12) 0px, transparent 50%),
-			radial-gradient(at 100% 100%, oklch(var(--s) / 0.12) 0px, transparent 50%);
-		background-attachment: fixed;
-	}
-</style>

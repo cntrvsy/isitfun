@@ -9,7 +9,7 @@ vi.mock('better-auth/svelte-kit', () => ({
 	svelteKitHandler: vi.fn(({ resolve, event }: any) => resolve(event))
 }));
 
-import { handleSecurity } from '../../src/hooks.server';
+import { handleSecurity, handleDrifter } from '../../src/hooks.server';
 
 describe('Server Security & Referer Hook', () => {
 	it('blocks game playtest iframe referers from targeting developer portal routes', async () => {
@@ -45,5 +45,49 @@ describe('Server Security & Referer Hook', () => {
 
 		const response = await handleSecurity({ event, resolve });
 		expect(response.status).toBe(200);
+	});
+});
+
+describe('Drifter Platform Maintenance Kill-Switch', () => {
+	it('blocks non-admin requests when DISABLED is true even if override param is passed', async () => {
+		const event: any = {
+			request: new Request('http://localhost/portal/dashboard?override=true'),
+			url: new URL('http://localhost/portal/dashboard?override=true'),
+			locals: { user: { role: 'game_developer' } },
+			platform: {
+				env: {
+					DRIFTER_CONTROL: {
+						get: vi.fn().mockResolvedValue('true')
+					}
+				}
+			}
+		};
+
+		const resolve = vi.fn().mockResolvedValue(new Response('OK', { status: 200 }));
+		const response = await handleDrifter({ event, resolve });
+
+		expect(response.status).toBe(503);
+		expect(resolve).not.toHaveBeenCalled();
+	});
+
+	it('allows admin users with override param when platform is disabled', async () => {
+		const event: any = {
+			request: new Request('http://localhost/portal/dashboard?override=true'),
+			url: new URL('http://localhost/portal/dashboard?override=true'),
+			locals: { user: { role: 'admin' } },
+			platform: {
+				env: {
+					DRIFTER_CONTROL: {
+						get: vi.fn().mockResolvedValue('true')
+					}
+				}
+			}
+		};
+
+		const resolve = vi.fn().mockResolvedValue(new Response('Admin OK', { status: 200 }));
+		const response = await handleDrifter({ event, resolve });
+
+		expect(response.status).toBe(200);
+		expect(resolve).toHaveBeenCalled();
 	});
 });

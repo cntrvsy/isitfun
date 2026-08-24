@@ -20,6 +20,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		if (!isValid) {
 			throw error(400, 'Invalid webhook signature');
 		}
+	} else if (!import.meta.env.DEV) {
+		console.error('[Creem Webhook] CREEM_WEBHOOK_SECRET is not configured in production.');
+		throw error(500, 'Server configuration error: Webhook secret is not configured');
 	} else {
 		console.warn(
 			'[Creem Webhook] CREEM_WEBHOOK_SECRET is not configured. Webhook signature verification bypassed (dev/mock mode).'

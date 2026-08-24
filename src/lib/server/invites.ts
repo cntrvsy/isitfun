@@ -34,7 +34,7 @@ export async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: strin
 		try {
 			const res = await fetch(`${baseUrl}/subscriptions/${org.creemSubscriptionId}`, {
 				headers: { 'x-api-key': creemApiKey },
-				signal: AbortSignal.timeout(5000)
+				signal: AbortSignal.timeout(2500)
 			});
 			if (res.ok) {
 				const subData = (await res.json()) as { items?: Array<{ id: string }> };
@@ -49,12 +49,12 @@ export async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: strin
 						body: JSON.stringify({
 							items: [{ id: itemId, units: totalSeats }]
 						}),
-						signal: AbortSignal.timeout(5000)
+						signal: AbortSignal.timeout(2500)
 					});
 				}
 			}
 		} catch (err) {
-			console.error('[Creem Sync] Failed to sync seats:', err);
+			console.error('[Creem Sync] Non-blocking seat sync warning:', err);
 		}
 	}
 }

@@ -77,13 +77,13 @@
 	"dependencies": {
 		"@devmischief/shaders-svelte": "^0.0.9",
 		"@lucide/svelte": "^1.16.0",
+		"@tanstack/svelte-table": "^9.1.2",
 		"better-sqlite3": "^12.6.2",
 		"d3-scale": "^4.0.2",
 		"daisyui": "^5.5.19",
 		"drizzle-valibot": "^0.4.2",
 		"fflate": "^0.8.3",
 		"layerchart": "^2.0.2",
-		"lucide-svelte": "^1.0.1",
 		"resend": "^6.18.0",
 		"svix": "^1.99.1",
 		"valibot": "^1.4.0"

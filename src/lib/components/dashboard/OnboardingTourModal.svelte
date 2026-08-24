@@ -9,7 +9,7 @@
 		ChevronRight,
 		X,
 		ExternalLink
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	interface Props {
 		isOpen: boolean;
@@ -89,7 +89,7 @@
 			</div>
 
 			<!-- Content Area -->
-			<div class="min-h-[280px]">
+			<div class="min-h-70">
 				{#if currentStep === 1}
 					<div class="space-y-4">
 						<div
@@ -149,7 +149,7 @@
 								href={resolve('/play/[projectId]/[...file]', { projectId: 'demo', file: '' })}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:from-purple-500 hover:to-indigo-500"
+								class="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:from-purple-500 hover:to-indigo-500"
 							>
 								<Play class="h-4 w-4 fill-current" /> Launch Ping Pong Game <ExternalLink
 									class="h-4 w-4"

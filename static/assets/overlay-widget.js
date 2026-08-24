@@ -61,28 +61,36 @@
 	}
 	requestAnimationFrame(fpsLoop);
 
-	// 5. Queue, crash tracking, feedback, and batching state
+	// 5. Queue, rate-limiting, recursion tracking, and batching state
 	let logQueue = [];
 	let hasCrashed = false;
-	let userFeedback = null; // { sentiment: 'fun' | 'neutral' | 'unfun', comment: '' }
-	const MAX_QUEUE_SIZE = 15;
+	let userFeedback = null;
+	const MAX_QUEUE_SIZE = 25;
 	let flushTimeout = null;
+	let isFlushing = false;
+
+	// Rate limiting state (Token bucket: max 20 console logs per second)
+	let logCountThisSecond = 0;
+	let lastLogSecond = Math.floor(Date.now() / 1000);
+	const MAX_LOGS_PER_SEC = 20;
 
 	const _originalLog = window.console.log;
 	const _originalWarn = window.console.warn;
 	const _originalError = window.console.error;
 
 	function formatArgs(args) {
-		return args.map(arg => {
-			if (typeof arg === 'object' && arg !== null) {
-				try {
-					return JSON.stringify(arg);
-				} catch {
-					return String(arg);
+		return args
+			.map((arg) => {
+				if (typeof arg === 'object' && arg !== null) {
+					try {
+						return JSON.stringify(arg);
+					} catch {
+						return String(arg);
+					}
 				}
-			}
-			return String(arg);
-		}).join(' ');
+				return String(arg);
+			})
+			.join(' ');
 	}
 
 	function flushTelemetry(isExiting = false) {
@@ -108,6 +116,7 @@
 		}
 
 		const body = JSON.stringify(payload);
+		isFlushing = true;
 		try {
 			if (isExiting && navigator.sendBeacon) {
 				navigator.sendBeacon('/api/telemetry', body);
@@ -117,14 +126,43 @@
 					headers: { 'Content-Type': 'application/json' },
 					body,
 					keepalive: true
+				}).catch(() => {
+					// Fail silently
 				});
 			}
 		} catch {
 			// Fail silently
+		} finally {
+			setTimeout(() => {
+				isFlushing = false;
+			}, 100);
 		}
 	}
 
 	function queueTelemetry(eventName, data) {
+		// Prevent recursion if fetch error or internal handlers log to console
+		if (isFlushing && (eventName === 'console.error' || eventName === 'error')) {
+			return;
+		}
+
+		// Enforce rate limiting on noisy game render loops
+		const currentSecond = Math.floor(Date.now() / 1000);
+		if (currentSecond !== lastLogSecond) {
+			lastLogSecond = currentSecond;
+			logCountThisSecond = 0;
+		}
+
+		if (eventName.startsWith('console.') && ++logCountThisSecond > MAX_LOGS_PER_SEC) {
+			if (logCountThisSecond === MAX_LOGS_PER_SEC + 1) {
+				logQueue.push({
+					event: 'console.warn',
+					data: { message: '[IsItFun] Console log rate limit exceeded (>20/sec). Throttling logs.' },
+					timestamp: Date.now()
+				});
+			}
+			return;
+		}
+
 		logQueue.push({
 			event: eventName,
 			data: data || {},
@@ -202,21 +240,29 @@
 		}
 	};
 
-
-	// 9. Qualitative "Is It Fun?" Floating Feedback Widget UI
+	// 9. Qualitative "Is It Fun?" Floating Feedback Widget UI (Shadow DOM Encapsulated)
 	function injectFeedbackWidget() {
-		if (document.getElementById('isitfun-feedback-root')) return;
+		if (document.getElementById('isitfun-feedback-host')) return;
+
+		const host = document.createElement('div');
+		host.id = 'isitfun-feedback-host';
+		host.style.cssText =
+			'position: fixed; z-index: 2147483647; bottom: 0; right: 0; pointer-events: auto;';
+
+		const shadow = host.attachShadow({ mode: 'open' });
 
 		const style = document.createElement('style');
 		style.textContent = `
+			* {
+				box-sizing: border-box;
+				font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			}
 			.isitfun-pill {
 				position: fixed;
 				bottom: 16px;
 				right: 16px;
-				z-index: 99999;
 				background: linear-gradient(135deg, #7c3aed, #4f46e5);
 				color: #ffffff;
-				font-family: system-ui, -apple-system, sans-serif;
 				font-size: 13px;
 				font-weight: 700;
 				padding: 10px 16px;
@@ -228,6 +274,7 @@
 				display: flex;
 				align-items: center;
 				gap: 6px;
+				user-select: none;
 			}
 			.isitfun-pill:hover {
 				transform: translateY(-2px);
@@ -236,14 +283,13 @@
 			.isitfun-modal-backdrop {
 				position: fixed;
 				inset: 0;
-				z-index: 999999;
-				background: rgba(15, 23, 42, 0.8);
+				background: rgba(15, 23, 42, 0.85);
 				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				padding: 16px;
-				font-family: system-ui, -apple-system, sans-serif;
 			}
 			.isitfun-modal-card {
 				background: #0f172a;
@@ -262,7 +308,7 @@
 				color: #f8fafc;
 				padding: 12px 8px;
 				border-radius: 12px;
-				font-size: 14px;
+				font-size: 13px;
 				font-weight: 700;
 				cursor: pointer;
 				transition: all 0.15s ease;
@@ -277,21 +323,19 @@
 				color: #c4b5fd;
 			}
 		`;
-		document.head.appendChild(style);
 
 		const root = document.createElement('div');
-		root.id = 'isitfun-feedback-root';
 		root.innerHTML = `
 			<button id="isitfun-pill-btn" class="isitfun-pill">
 				🎮 Was it fun?
 			</button>
 			<div id="isitfun-modal" class="isitfun-modal-backdrop" style="display: none;">
 				<div class="isitfun-modal-card">
-					<h3 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800;">Was this playtest fun?</h3>
+					<h3 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 800; color: #ffffff;">Was this playtest fun?</h3>
 					<p style="margin: 0 0 16px 0; font-size: 12px; color: #94a3b8;">Help the developer level up this game with quick feedback.</p>
 					
 					<div style="display: flex; gap: 8px; margin-bottom: 16px;">
-						<button class="isitfun-sentiment-btn" data-sentiment="fun">
+						<button class="isitfun-sentiment-btn selected" data-sentiment="fun">
 							<span style="font-size: 24px;">😀</span>
 							<span>Fun!</span>
 						</button>
@@ -305,7 +349,7 @@
 						</button>
 					</div>
 
-					<textarea id="isitfun-comment" placeholder="Optional comments, bugs, or suggestions..." style="width: 100%; box-sizing: border-box; background: #020617; border: 1px solid #334155; border-radius: 12px; padding: 10px; color: #f8fafc; font-size: 13px; min-height: 70px; resize: vertical; margin-bottom: 16px; font-family: inherit;"></textarea>
+					<textarea id="isitfun-comment" placeholder="Optional comments, bugs, or suggestions..." style="width: 100%; box-sizing: border-box; background: #020617; border: 1px solid #334155; border-radius: 12px; padding: 10px; color: #f8fafc; font-size: 13px; min-height: 70px; resize: vertical; margin-bottom: 16px; font-family: inherit; outline: none;"></textarea>
 
 					<div style="display: flex; justify-content: flex-end; gap: 8px;">
 						<button id="isitfun-cancel" style="background: transparent; border: none; color: #94a3b8; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;">Skip</button>
@@ -314,14 +358,17 @@
 				</div>
 			</div>
 		`;
-		document.body.appendChild(root);
 
-		const pillBtn = document.getElementById('isitfun-pill-btn');
-		const modal = document.getElementById('isitfun-modal');
-		const cancelBtn = document.getElementById('isitfun-cancel');
-		const submitBtn = document.getElementById('isitfun-submit');
-		const commentInput = document.getElementById('isitfun-comment');
-		const sentimentBtns = root.querySelectorAll('.isitfun-sentiment-btn');
+		shadow.appendChild(style);
+		shadow.appendChild(root);
+		document.body.appendChild(host);
+
+		const pillBtn = shadow.getElementById('isitfun-pill-btn');
+		const modal = shadow.getElementById('isitfun-modal');
+		const cancelBtn = shadow.getElementById('isitfun-cancel');
+		const submitBtn = shadow.getElementById('isitfun-submit');
+		const commentInput = shadow.getElementById('isitfun-comment');
+		const sentimentBtns = shadow.querySelectorAll('.isitfun-sentiment-btn');
 
 		let selectedSentiment = 'fun';
 
@@ -333,9 +380,9 @@
 			modal.style.display = 'none';
 		});
 
-		sentimentBtns.forEach(btn => {
+		sentimentBtns.forEach((btn) => {
 			btn.addEventListener('click', () => {
-				sentimentBtns.forEach(b => b.classList.remove('selected'));
+				sentimentBtns.forEach((b) => b.classList.remove('selected'));
 				btn.classList.add('selected');
 				selectedSentiment = btn.getAttribute('data-sentiment');
 			});

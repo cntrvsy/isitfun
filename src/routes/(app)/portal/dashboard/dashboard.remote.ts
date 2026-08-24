@@ -230,8 +230,8 @@ export const deleteProject = form(
 
 				while (truncated) {
 					const list = await bucket.list({ prefix, cursor });
-					for (const obj of list.objects) {
-						await bucket.delete(obj.key);
+					if (list.objects.length > 0) {
+						await bucket.delete(list.objects.map((obj) => obj.key));
 					}
 					if (list.truncated) {
 						cursor = list.cursor;
@@ -328,6 +328,9 @@ export const upgradeProject = form(
 				console.error('Failed to create Creem checkout:', err);
 				error(500, 'Failed to initialize payment gateway.');
 			}
+		} else if (!import.meta.env.DEV) {
+			console.error('Creem API keys missing in production environment');
+			error(500, 'Payment configuration missing.');
 		} else {
 			// Mock Upgrade mode for local development/testing without keys
 			try {
@@ -470,6 +473,9 @@ export const upgradeOrganization = form(
 				console.error('Failed to create Creem checkout for organization:', err);
 				error(500, 'Failed to initialize payment gateway.');
 			}
+		} else if (!import.meta.env.DEV) {
+			console.error('Creem API keys missing in production environment');
+			error(500, 'Payment configuration missing.');
 		} else {
 			// Mock upgrade for local testing
 			try {
@@ -874,3 +880,53 @@ export const deleteAccessKey = form(
 		}
 	}
 );
+
+export const leaveOrganization = form(
+	v.object({
+		organizationId: v.pipe(v.string(), v.nonEmpty('Organization ID is required'))
+	}),
+	async (data) => {
+		const event = getRequestEvent();
+		if (!event) error(500, 'Request context missing');
+		const { locals } = event;
+		const { session, user, db } = locals;
+
+		if (!session || !user) {
+			error(401, 'Unauthorized');
+		}
+
+		try {
+			const org = await db
+				.select()
+				.from(organizations)
+				.where(eq(organizations.id, data.organizationId))
+				.get();
+
+			if (!org) {
+				error(404, 'Organization not found');
+			}
+
+			if (org.ownerId === user.id) {
+				error(400, 'Organization owners cannot leave their team. Delete the team or transfer ownership.');
+			}
+
+			await db
+				.delete(organizationMemberships)
+				.where(
+					and(
+						eq(organizationMemberships.organizationId, data.organizationId),
+						eq(organizationMemberships.userId, user.id)
+					)
+				);
+
+			await syncCreemSubscriptionSeats(db, data.organizationId);
+
+			return { success: true };
+		} catch (err) {
+			console.error('Failed to leave organization:', err);
+			const message = err instanceof Error ? err.message : String(err);
+			error(500, `Failed to leave team: ${message}`);
+		}
+	}
+);
+

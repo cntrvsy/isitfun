@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { Lock, AlertCircle, ArrowLeft } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -16,61 +17,37 @@
 </svelte:head>
 
 <main
-	class="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 p-6 font-sans text-slate-100"
+	class="relative flex min-h-screen items-center justify-center bg-slate-950 p-6 font-sans text-slate-100 selection:bg-purple-900 selection:text-purple-100"
 >
-	<!-- Decorative space glows -->
-	<div
-		class="pointer-events-none absolute top-[20%] left-[20%] h-[350px] w-[350px] rounded-full bg-purple-600/10 blur-[100px]"
-	></div>
-	<div
-		class="pointer-events-none absolute right-[20%] bottom-[20%] h-[350px] w-[350px] rounded-full bg-indigo-600/10 blur-[100px]"
-	></div>
-
 	<div class="relative z-10 w-full max-w-md">
 		{#if data.notFound}
-			<div class="mb-8 flex flex-col items-center text-center">
-				<div
-					class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-3xl text-rose-400 shadow-xl"
-				>
-					🚫
+			<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 text-center shadow-xl">
+				<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400">
+					<AlertCircle class="h-6 w-6" />
 				</div>
-				<h1 class="mb-2 text-3xl font-black tracking-tight text-white">Playtest Unavailable</h1>
-				<p class="text-sm text-slate-400">
-					This playtest link is missing or no longer active. Please request an updated playtest
-					access key from the game developer.
+				<h1 class="text-xl font-bold tracking-tight text-white">Playtest Unavailable</h1>
+				<p class="mt-2 text-xs text-slate-400">
+					This playtest link is missing or no longer active. Please request an updated access key from the game developer.
 				</p>
-			</div>
-
-			<div class="mt-8 text-center">
 				<a
 					href={resolve('/(website)')}
-					class="btn w-full rounded-xl border border-slate-800 bg-slate-900 py-3 font-bold text-slate-300 hover:text-white"
+					class="mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
 				>
-					← Return to IsItFun Homepage
+					<ArrowLeft class="h-4 w-4" /> Return to Homepage
 				</a>
 			</div>
 		{:else}
-			<!-- Logomark -->
-			<div class="mb-8 flex flex-col items-center">
-				<div
-					class="mb-4 flex h-16 w-16 animate-bounce items-center justify-center rounded-2xl bg-linear-to-tr from-purple-600 to-indigo-600 text-3xl shadow-xl shadow-purple-500/25"
-				>
-					🔐
+			<div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl">
+				<!-- Header -->
+				<div class="mb-6 text-center">
+					<div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-400">
+						<Lock class="h-6 w-6" />
+					</div>
+					<h1 class="text-xl font-bold tracking-tight text-white">Private Playtest</h1>
+					<p class="mt-1 text-xs text-slate-400">
+						This build of <span class="font-semibold text-purple-300">{data.projectName}</span> requires access authorization.
+					</p>
 				</div>
-				<h1 class="mb-1 text-3xl font-black tracking-tight text-white">Private Playtest</h1>
-				<p class="text-center text-sm text-slate-400">
-					This session for <span class="font-bold text-purple-400">{data.projectName}</span> is password-protected.
-				</p>
-			</div>
-
-			<!-- Password Card -->
-			<div
-				class="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-xl"
-			>
-				<!-- Top glow -->
-				<div
-					class="absolute top-0 right-0 left-0 h-[2px] bg-linear-to-r from-purple-500 to-indigo-500"
-				></div>
 
 				<form
 					method="POST"
@@ -82,68 +59,56 @@
 							update();
 						};
 					}}
-					class="space-y-6"
+					class="space-y-4"
 				>
 					<input type="hidden" name="projectId" value={data.projectId} />
 
-					<div class="form-control">
-						<label class="label mb-2" for="playtest-password">
-							<span
-								class="label-text block text-xs font-bold tracking-wider text-slate-300 uppercase"
-								>Access Password</span
-							>
+					<div>
+						<label class="mb-1.5 block text-xs font-semibold text-slate-300" for="playtest-password">
+							Access Password / Code
 						</label>
-						<div class="relative">
-							<input
-								id="playtest-password"
-								type="password"
-								name="password"
-								placeholder="Enter password..."
-								class="border-slate-850 input w-full rounded-xl border bg-slate-950 py-6 pr-10 pl-4 text-center text-lg tracking-widest text-white placeholder-slate-700 transition-all focus:border-purple-500 focus:outline-none"
-								required
-							/>
-							<div class="absolute top-1/2 right-3 -translate-y-1/2 text-slate-600">🗝️</div>
-						</div>
+						<input
+							id="playtest-password"
+							type="password"
+							name="password"
+							placeholder="Enter password..."
+							class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-center font-mono text-sm tracking-wider text-white placeholder-slate-600 focus:border-purple-500 focus:outline-none"
+							required
+						/>
 
 						{#if data.urlError || form?.error}
 							<p
 								id="error-message"
-								class="mt-2 rounded-lg border border-rose-800/50 bg-rose-950/40 p-3 text-center text-xs font-bold text-rose-400"
+								class="mt-2 rounded-lg border border-rose-800/40 bg-rose-950/40 p-2.5 text-center text-xs font-medium text-rose-300"
 							>
-								⚠️ {data.urlError || form?.error}
+								{data.urlError || form?.error}
 							</p>
 						{:else if form?.incorrect}
 							<p
 								id="error-message"
-								class="mt-2 animate-pulse text-center text-xs font-bold text-rose-500"
+								class="mt-2 rounded-lg border border-rose-800/40 bg-rose-950/40 p-2.5 text-center text-xs font-medium text-rose-300"
 							>
-								⚠️ Incorrect password or access key! Please check with the developer.
+								Incorrect password or access key. Please verify with the developer.
 							</p>
 						{/if}
 					</div>
 
 					<button
 						type="submit"
-						class="btn w-full rounded-xl border-none bg-linear-to-r from-purple-600 to-indigo-600 py-4 font-bold text-white shadow-xl shadow-purple-500/20 transition-all duration-300 hover:-translate-y-0.5 hover:from-purple-500 hover:to-indigo-500"
+						class="w-full rounded-lg bg-purple-600 py-2.5 text-xs font-semibold text-white transition-all hover:bg-purple-700 disabled:opacity-50"
 						disabled={isSubmitting}
 					>
-						{#if isSubmitting}
-							<span class="loading mr-2 loading-sm loading-spinner"></span>
-							Unlocking...
-						{:else}
-							Unlock & Play Game
-						{/if}
+						{isSubmitting ? 'Verifying...' : 'Unlock & Launch Game'}
 					</button>
 				</form>
 			</div>
 
-			<!-- Footer Link -->
-			<div class="mt-8 text-center">
+			<div class="mt-6 text-center">
 				<a
 					href={resolve('/(website)')}
-					class="text-xs text-slate-500 transition-colors hover:text-slate-300"
+					class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300"
 				>
-					← Back to IsItFun Homepage
+					<ArrowLeft class="h-3.5 w-3.5" /> Back to IsItFun
 				</a>
 			</div>
 		{/if}

@@ -10,10 +10,22 @@ export const POST: RequestHandler = async ({ params, request, locals, platform, 
 	}
 
 	const projectId = params.projectId;
-	const filePath = url.searchParams.get('path');
-	if (!filePath) {
+	const rawPath = url.searchParams.get('path');
+	if (!rawPath) {
 		throw error(400, 'Missing path parameter');
 	}
+
+	// Normalize and sanitize path to prevent path traversal attacks
+	const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+	if (
+		normalizedPath.includes('..') ||
+		normalizedPath.includes('\0') ||
+		normalizedPath.startsWith('/') ||
+		!normalizedPath.trim()
+	) {
+		throw error(400, 'Invalid or unsafe file path');
+	}
+	const filePath = normalizedPath;
 
 	// Verify project ownership or organization membership
 	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
