@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { updateProfile } from './profile.remote';
 	import Footer from '#lib/components/Footer.svelte';
-	import { Shield, ArrowLeft } from '@lucide/svelte';
+	import { Shield } from '@lucide/svelte';
 
 	let { data } = $props();
 
@@ -85,12 +84,12 @@
 				</p>
 
 				<form
-					{...updateProfile.enhance(async ({ submit }: any) => {
+					{...updateProfile.enhance(async ({ submit }) => {
 						isSaving = true;
 						try {
 							if (await submit()) {
 								showStatus('Profile updated successfully!');
-								await invalidateAll();
+								await refreshAll();
 							}
 						} catch (e) {
 							console.error(e);

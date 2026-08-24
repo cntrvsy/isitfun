@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import {
 		upgradeOrganization,
 		inviteMember,
@@ -107,7 +107,7 @@
 											window.location.href = String(res.redirectUrl);
 										} else if ('success' in res && res.success) {
 											showStatus('Team upgraded to Team Plan subscription!');
-											await invalidateAll();
+											await refreshAll();
 										}
 									}
 								}
@@ -144,7 +144,7 @@
 									showStatus('Invitation link generated!');
 								}
 								inviteEmail = '';
-								await invalidateAll();
+								await refreshAll();
 							}
 						})}
 						class="flex gap-2"
@@ -198,7 +198,7 @@
 											{...removeMember.enhance(async ({ submit }: any) => {
 												if (await submit()) {
 													showStatus('Member removed');
-													await invalidateAll();
+													await refreshAll();
 												}
 											})}
 										>
@@ -234,7 +234,7 @@
 										{...cancelInvite.enhance(async ({ submit }: any) => {
 											if (await submit()) {
 												showStatus('Invite revoked');
-												await invalidateAll();
+												await refreshAll();
 											}
 										})}
 									>
@@ -266,7 +266,7 @@
 									if (confirm('Are you sure you want to leave this team workspace?')) {
 										if (await submit()) {
 											onClose();
-											await invalidateAll();
+											await refreshAll();
 										}
 									}
 								})}

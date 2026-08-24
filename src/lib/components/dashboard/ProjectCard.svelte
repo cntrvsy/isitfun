@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { deleteProject, upgradeProject } from '../../../routes/(app)/portal/dashboard/dashboard.remote';
 	import { Lock, Check, Trash2, BarChart2, Upload, Copy } from '@lucide/svelte';
 
@@ -152,7 +152,7 @@
 									if ('redirectUrl' in res && res.redirectUrl) {
 										window.location.href = String(res.redirectUrl);
 									} else if ('success' in res && res.success) {
-										await invalidateAll();
+										await refreshAll();
 									}
 								}
 							}
@@ -183,7 +183,7 @@
 				if (confirm('Permanently delete this project and all associated logs?')) {
 					isDeleting = true;
 					if (await submit()) {
-						await invalidateAll();
+						await refreshAll();
 					}
 					isDeleting = false;
 				}

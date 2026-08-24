@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { refreshAll } from '$app/navigation';
 	import { createOrganization } from '../../../routes/(app)/portal/dashboard/dashboard.remote';
 	import { X } from '@lucide/svelte';
 
@@ -39,7 +39,7 @@
 						}
 						orgNameInput = '';
 						onClose();
-						await invalidateAll();
+						await refreshAll();
 					}
 				})}
 				class="space-y-4"

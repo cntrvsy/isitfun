@@ -3,14 +3,11 @@
 	import { resolve } from '$app/paths';
 	import {
 		ArrowRight,
-		Play,
 		Layers,
 		Activity,
 		Terminal,
 		Check,
-		Zap,
-		ShieldCheck,
-		ExternalLink
+		
 	} from '@lucide/svelte';
 </script>
 
