@@ -1,0 +1,31 @@
+{
+	"name": "@isitfun/db",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./schema": "./src/schema/index.ts",
+		"./client": "./src/client.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:studio": "drizzle-kit studio",
+		"db:sync": "npm run db:generate && CI=true wrangler d1 migrations apply isitfun-db --local",
+		"db:sync:remote": "npm run db:generate && CI=true wrangler d1 migrations apply isitfun-db --remote"
+	},
+	"dependencies": {
+		"@isitfun/shared": "*",
+		"drizzle-orm": "^0.45.1"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^5.20260815.1",
+		"@libsql/client": "^0.17.2",
+		"drizzle-kit": "^0.31.8",
+		"typescript": "^6.0.0-beta",
+		"wrangler": "^4.76.0"
+	}
+}
