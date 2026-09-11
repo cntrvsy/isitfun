@@ -11,6 +11,7 @@ import {
 	validateAccessKey
 } from '@isitfun/shared';
 import type { AppEnv } from '../types';
+import type { ReadableStream as CFReadableStream } from '@cloudflare/workers-types';
 import { sessionMiddleware, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../lib/crypto';
 import { guessContentType } from '../lib/r2';
@@ -627,7 +628,9 @@ export const projectsRouter = new Hono<AppEnv>()
 	try {
 		const existingObject = await bucket.head(r2Key);
 		if (existingObject) existingSize = existingObject.size;
-	} catch {}
+	} catch {
+		// Object does not exist yet or head failed; default existingSize to 0
+	}
 
 	const sizeDifference = contentLength - existingSize;
 	const newStorageBytesUsed = quota.storageBytesUsed + sizeDifference;
@@ -643,7 +646,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const contentType = guessContentType(filePath);
 
 	try {
-		await bucket.put(r2Key, body as any, {
+		await bucket.put(r2Key, body as unknown as CFReadableStream, {
 			httpMetadata: { contentType }
 		});
 
