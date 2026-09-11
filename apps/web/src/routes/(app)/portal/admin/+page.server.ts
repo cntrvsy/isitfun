@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { sql } from 'drizzle-orm';
-import { projects, telemetrySessions, user } from '#lib/server/db/db-schema.js';
+import { projects, telemetrySessions, user } from '@isitfun/db';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Double check admin role authorization (even though hooks guards this, defense-in-depth is excellent)
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	try {
 		// Aggregate global platform stats
-		const db = locals.db as ReturnType<typeof import('#lib/server/db/index.js').createD1Client>;
+		const db = locals.db;
 
 		const projectsCountResult = await db
 			.select({ count: sql<number>`count(*)` })

@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, organizationMemberships, telemetrySessions } from '#lib/server/db/db-schema.js';
+import { projects, organizationMemberships, telemetrySessions } from '@isitfun/db';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;

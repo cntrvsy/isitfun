@@ -2,7 +2,7 @@ import { form, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { profile } from '#lib/server/db/db-schema.js';
+import { profile } from '@isitfun/db';
 
 export const updateProfile = form(
 	v.object({
@@ -18,6 +18,10 @@ export const updateProfile = form(
 
 		if (!session || !user) {
 			error(401, 'Unauthorized');
+		}
+
+		if (!db) {
+			error(500, 'Database connection missing');
 		}
 
 		try {

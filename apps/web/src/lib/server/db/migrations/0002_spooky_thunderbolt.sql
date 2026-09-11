@@ -1,1 +1,0 @@
-ALTER TABLE `user` ADD `role` text DEFAULT 'game_developer' NOT NULL;

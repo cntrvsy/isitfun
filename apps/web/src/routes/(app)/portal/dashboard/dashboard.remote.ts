@@ -1,5 +1,5 @@
 import { form, getRequestEvent } from '$app/server';
-import type { DrizzleClient } from '#lib/server/db/index.js';
+import type { DrizzleClient } from '@isitfun/db';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -10,10 +10,9 @@ import {
 	organizationInvites,
 	projectAccessKeys,
 	generateNanoID
-} from '#lib/server/db/db-schema.js';
-import { getMaxUsesCapForTier } from '#lib/server/db/access-keys.js';
+} from '@isitfun/db';
+import { getMaxUsesCapForTier, hashPassword } from '@isitfun/shared';
 import { env } from '$env/dynamic/private';
-import { hashPassword } from '#lib/server/crypto.js';
 import { sendOrganizationInviteEmail } from '#lib/server/email.js';
 
 // Helper to sync seats with Creem subscription

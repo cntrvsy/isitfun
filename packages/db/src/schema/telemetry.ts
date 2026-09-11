@@ -30,7 +30,8 @@ export const telemetrySessions = sqliteTable(
 	(table) => [
 		index('telemetry_sessions_projectId_idx').on(table.projectId),
 		index('telemetry_sessions_buildId_idx').on(table.gameBuildId),
-		index('telemetry_sessions_createdAt_idx').on(table.createdAt)
+		index('telemetry_sessions_createdAt_idx').on(table.createdAt),
+		index('telemetry_sessions_projectId_createdAt_idx').on(table.projectId, table.createdAt)
 	]
 );
 

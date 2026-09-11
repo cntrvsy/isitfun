@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateNanoID } from '#lib/server/db/db-schema.js';
+import { generateNanoID } from '@isitfun/db';
 
 describe('generateNanoID', () => {
 	it('should return a string of the default size 12', () => {

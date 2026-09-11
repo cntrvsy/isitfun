@@ -2,6 +2,7 @@ import { relations } from 'drizzle-orm';
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { user } from './auth';
 import { organizations } from './orgs';
+import { payments } from './payments';
 import { generateNanoID } from './utils';
 
 export const projects = sqliteTable(
@@ -80,7 +81,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 		references: [organizations.id]
 	}),
 	accessKeys: many(projectAccessKeys),
-	quotas: many(projectQuotas)
+	quotas: many(projectQuotas),
+	projectQuotas: many(projectQuotas),
+	payments: many(payments)
 }));
 
 export const projectAccessKeysRelations = relations(projectAccessKeys, ({ one }) => ({

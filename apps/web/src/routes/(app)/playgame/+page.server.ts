@@ -1,9 +1,8 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { eq, and } from 'drizzle-orm';
-import { projects, projectAccessKeys } from '#lib/server/db/db-schema.js';
-import { hashPassword } from '#lib/server/crypto.js';
-import { validateAccessKey } from '#lib/server/db/access-keys.js';
+import { projects, projectAccessKeys } from '@isitfun/db';
+import { hashPassword, validateAccessKey } from '@isitfun/shared';
 
 export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	const projectId = url.searchParams.get('projectId');

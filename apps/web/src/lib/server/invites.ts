@@ -1,11 +1,11 @@
 import type { Cookies } from '@sveltejs/kit';
-import type { DrizzleClient } from '#lib/server/db/index.js';
 import { eq, and } from 'drizzle-orm';
 import {
+	type DrizzleClient,
 	organizationInvites,
 	organizationMemberships,
 	organizations
-} from '#lib/server/db/db-schema.js';
+} from '@isitfun/db';
 import { env } from '$env/dynamic/private';
 
 // Helper to sync seats with Creem subscription

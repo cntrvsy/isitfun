@@ -22,13 +22,6 @@ export default defineConfig({
 		}),
 		devtoolsJson()
 	],
-	resolve: {
-		alias: {
-			'@opentelemetry/api': fileURLToPath(
-				new URL('./src/lib/server/stubs/otel.ts', import.meta.url)
-			)
-		}
-	},
 	ssr: {
 		noExternal: ['better-auth', '@better-auth/core', '@better-auth/utils', 'better-call']
 	},

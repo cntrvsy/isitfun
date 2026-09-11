@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import {
 		Gamepad2,
 		Play,
@@ -146,7 +145,7 @@
 								Click the button below to launch the Demo Ping Pong Playtest in a new tab:
 							</p>
 							<a
-								href={resolve('/play/[projectId]/[...file]', { projectId: 'demo', file: '' })}
+								href="/play/demo"
 								target="_blank"
 								rel="noopener noreferrer"
 								class="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:from-purple-500 hover:to-indigo-500"

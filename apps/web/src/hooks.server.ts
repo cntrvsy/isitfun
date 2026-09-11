@@ -1,83 +1,143 @@
 import { redirect, error } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
-import { building } from '$app/env';
-import { getAuth } from '#lib/server/auth.js';
-import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { createD1Client, createLibSqlClient } from '#lib/server/db/index.js';
+import { createApiClient } from '#lib/api/client.js';
+import { createD1Client, createLibSqlClient, type DrizzleClient } from '@isitfun/db';
+import { resolvePendingInvite } from '#lib/server/invites.js';
 import { env } from '$env/dynamic/private';
 
-import type { DrizzleClient } from '#lib/server/db/index.js';
-import { resolvePendingInvite } from '#lib/server/invites.js';
+let cachedDb: DrizzleClient | null = null;
 
-let db: DrizzleClient | null = null;
+// 1. Service Binding Gateway: transparently reverse-proxy /v1/*, /play/*, and legacy endpoints to Hono worker
+export const handleGateway: Handle = async ({ event, resolve }) => {
+	const pathname = event.url.pathname;
 
-const handleDb: Handle = async ({ event, resolve }) => {
-	const platformDb = event.platform?.env?.DB;
+	// Support /v1/*, /play/*, and legacy /api/auth, /api/telemetry, /api/webhooks routing to the API worker
+	if (
+		pathname.startsWith('/v1') ||
+		pathname.startsWith('/play') ||
+		pathname.startsWith('/api/auth') ||
+		pathname.startsWith('/api/telemetry') ||
+		pathname.startsWith('/api/webhooks')
+	) {
+		const apiBinding = event.platform?.env?.API;
 
-	if (platformDb) {
-		event.locals.db = createD1Client(platformDb);
-	} else {
-		// Fallback to LibSQL (local for npm run dev, remote for production)
-		const url = env.DATABASE_URL;
-		if (url) {
-			// Prevent 'file:' scheme in production worker bundles as it's not supported by @libsql/client/web
-			if (url.startsWith('file:') && !building && !import.meta.env.DEV) {
-				throw new Error(
-					'Local SQLite (file:) is not supported in the Cloudflare Worker environment. ' +
-						'Please ensure your D1 binding is correctly configured in wrangler.jsonc or use a remote libsql:// URL.'
-				);
-			}
+		// Map legacy /api paths to /v1
+		let targetPath = pathname;
+		if (targetPath.startsWith('/api/auth')) {
+			targetPath = targetPath.replace('/api/auth', '/v1/auth');
+		} else if (targetPath.startsWith('/api/telemetry')) {
+			targetPath = targetPath.replace('/api/telemetry', '/v1/telemetry');
+		} else if (targetPath.startsWith('/api/webhooks')) {
+			targetPath = targetPath.replace('/api/webhooks', '/v1/webhooks');
+		}
 
-			if (!db) {
-				db = createLibSqlClient(url);
-			}
-			event.locals.db = db;
-		} else {
-			throw new Error('No database found. Check your D1 binding or DATABASE_URL in .env');
+		if (apiBinding) {
+			const targetUrl = new URL(event.request.url);
+			targetUrl.pathname = targetPath;
+			const proxyRequest = new Request(targetUrl.toString(), event.request);
+			return apiBinding.fetch(proxyRequest);
+		}
+
+		if (import.meta.env.DEV) {
+			const targetUrl = `http://localhost:8787${targetPath}${event.url.search}`;
+			return fetch(targetUrl, {
+				method: event.request.method,
+				headers: event.request.headers,
+				body:
+					event.request.method !== 'GET' && event.request.method !== 'HEAD'
+						? event.request.body
+						: undefined,
+				// @ts-expect-error - duplex option required for streaming bodies in Node fetch
+				duplex: 'half'
+			});
 		}
 	}
+
 	return resolve(event);
 };
 
-const handleBetterAuth: Handle = async ({ event, resolve }) => {
-	const auth = getAuth(event.locals.db, event.url.origin);
-	event.locals.auth = auth;
-
-	const session = await auth.api.getSession({ headers: event.request.headers });
-
-	if (session) {
-		event.locals.session = session.session;
-		event.locals.user = session.user as App.Locals['user']; // Cast for role safety
-
-		// Resolve any pending organization invite token for authenticated users
-		if (event.cookies.get('pending_invite_token')) {
-			await resolvePendingInvite(
-				event.locals.db,
-				event.cookies,
-				event.locals.user.id,
-				event.locals.user.email
-			);
+// 2. Session Hydration, API Client Injection & Route Protection
+export const handleSession: Handle = async ({ event, resolve }) => {
+	// Initialize D1 / LibSQL DB for local web queries during transition
+	const platformDb = event.platform?.env?.DB;
+	if (platformDb) {
+		event.locals.db = createD1Client(platformDb);
+	} else if (env.DATABASE_URL) {
+		if (!cachedDb) {
+			cachedDb = createLibSqlClient(env.DATABASE_URL);
 		}
+		event.locals.db = cachedDb;
+	}
 
-		// Redirect authenticated users trying to access login/auth pages to their dashboards
-		const path = event.url.pathname.replace(/\/$/, '');
-		if (path === '/auth' || path === '/auth/login') {
-			if (event.locals.user.role === 'admin') {
-				return redirect(302, '/portal/admin');
-			} else if (event.locals.user.role === 'game_developer') {
-				return redirect(302, '/portal/dashboard');
+	const cookieHeader = event.request.headers.get('cookie') || '';
+
+	// Create typed Hono RPC client via Service Binding or dev server with cookie propagation
+	const rawFetch = event.platform?.env?.API?.fetch?.bind(event.platform.env.API) ?? fetch;
+	const serviceFetch: typeof fetch = (input, init) => {
+		const req = new Request(input, init);
+		if (cookieHeader && !req.headers.has('cookie')) {
+			req.headers.set('cookie', cookieHeader);
+		}
+		return rawFetch(req);
+	};
+	const baseUrl = event.platform?.env?.API ? 'https://api.internal/v1' : 'http://localhost:8787/v1';
+	event.locals.api = createApiClient(serviceFetch, baseUrl);
+
+	// Fetch active session from Hono Better-Auth via Service Binding
+	try {
+		const sessionUrl = event.platform?.env?.API
+			? 'https://api.internal/v1/auth/get-session'
+			: 'http://localhost:8787/v1/auth/get-session';
+
+		const sessionRes = await serviceFetch(sessionUrl, {
+			headers: { cookie: cookieHeader }
+		});
+
+		if (sessionRes.ok) {
+			const sessionData = (await sessionRes.json()) as {
+				user: App.Locals['user'];
+				session: App.Locals['session'];
+			} | null;
+
+			if (sessionData && sessionData.user) {
+				event.locals.user = sessionData.user;
+				event.locals.session = sessionData.session;
+
+				// Resolve any pending organization invite token for authenticated users
+				if (event.cookies.get('pending_invite_token') && event.locals.db) {
+					await resolvePendingInvite(
+						event.locals.db,
+						event.cookies,
+						event.locals.user.id,
+						event.locals.user.email
+					);
+				}
+
+				// Redirect authenticated users away from /auth and /auth/login
+				const path = event.url.pathname.replace(/\/$/, '');
+				if (path === '/auth' || path === '/auth/login') {
+					if (event.locals.user.role === 'admin') {
+						return redirect(302, '/portal/admin');
+					} else {
+						return redirect(302, '/portal/dashboard');
+					}
+				}
+			} else {
+				event.locals.user = null;
+				event.locals.session = null;
 			}
+		} else {
+			event.locals.user = null;
+			event.locals.session = null;
 		}
-	} else {
-		const path = event.url.pathname.replace(/\/$/, '');
-		if (path === '/auth/login') {
-			return redirect(302, '/auth');
-		}
+	} catch {
+		event.locals.user = null;
+		event.locals.session = null;
 	}
 
 	// 🔐 Centralized Sub-tree Route & RBAC Guards
 	if (event.url.pathname.startsWith('/portal')) {
-		if (!session || !event.locals.user) {
+		if (!event.locals.user) {
 			return redirect(302, '/auth');
 		}
 
@@ -98,9 +158,10 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	return svelteKitHandler({ event, resolve, auth, building });
+	return resolve(event);
 };
 
+// 3. Security referer protection
 export const handleSecurity: Handle = async ({ event, resolve }) => {
 	const referer = event.request.headers.get('referer');
 	if (referer) {
@@ -125,12 +186,12 @@ export const handleSecurity: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
+// 4. Drifter Maintenance Kill Switch
 export const handleDrifter: Handle = async ({ event, resolve }) => {
 	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
 	if (drifterControl) {
 		const isDisabled = await drifterControl.get('DISABLED');
 		if (isDisabled === 'true') {
-			// Allow authenticated platform admins or admin portal routes to bypass kill switch
 			const isAdmin = event.locals.user?.role === 'admin';
 			const isOverride =
 				(isAdmin && event.url.searchParams.get('override') === 'true') ||
@@ -151,4 +212,9 @@ export const handleDrifter: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleDb, handleBetterAuth, handleDrifter, handleSecurity);
+export const handle: Handle = sequence(
+	handleGateway,
+	handleSession,
+	handleDrifter,
+	handleSecurity
+);

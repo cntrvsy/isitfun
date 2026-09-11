@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { actions } from '../../src/routes/(app)/playgame/+page.server';
-import { hashPassword } from '../../src/lib/server/crypto';
+import { hashPassword } from '@isitfun/shared';
 
 describe('Playgame Password Verification & Cookie Security', () => {
 	beforeEach(() => {

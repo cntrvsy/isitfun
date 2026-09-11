@@ -1,2 +1,0 @@
-CREATE INDEX `org_mem_orgId_userId_idx` ON `organization_memberships` (`organization_id`,`user_id`);--> statement-breakpoint
-CREATE INDEX `telemetry_sessions_projectId_createdAt_idx` ON `telemetry_sessions` (`project_id`,`created_at`);

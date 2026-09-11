@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { eq, lt, and, inArray, desc, or, isNull, sql } from 'drizzle-orm';
-import { projects, telemetrySessions, organizationMemberships } from '#lib/server/db/db-schema.js';
+import { projects, telemetrySessions, organizationMemberships } from '@isitfun/db';
 
 import { resolvePendingInvite } from '#lib/server/invites.js';
 
@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ locals, cookies, platform }) => {
 		throw redirect(302, '/auth');
 	}
 
-	const db = locals.db as ReturnType<typeof import('#lib/server/db/index.js').createD1Client>;
+	const db = locals.db;
 
 	// Resolve pending organization invites
 	await resolvePendingInvite(db, cookies, user.id);
