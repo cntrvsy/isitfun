@@ -116,7 +116,10 @@ describe('IsItFun Hono API Service', () => {
 			{ path: '/v1/dashboard', method: 'GET' },
 			{ path: '/v1/profile', method: 'GET' },
 			{ path: '/v1/admin/stats', method: 'GET' },
-			{ path: '/v1/billing/checkout/project/proj_1', method: 'POST' }
+			{ path: '/v1/billing/checkout/project/proj_1', method: 'POST' },
+			{ path: '/v1/projects/proj_1/export/csv', method: 'GET' },
+			{ path: '/v1/projects/proj_1/export/json', method: 'GET' },
+			{ path: '/v1/projects/proj_1/export/zip', method: 'GET' }
 		];
 
 		for (const ep of endpoints) {

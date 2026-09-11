@@ -35,16 +35,9 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 			);
 		}
 
-		if (apiBinding) {
-			const targetUrl = new URL(event.request.url);
-			targetUrl.pathname = targetPath;
-			const proxyRequest = new Request(targetUrl.toString(), event.request);
-			return apiBinding.fetch(proxyRequest);
-		}
-
 		if (import.meta.env.DEV) {
 			const targetUrl = `http://localhost:8787${targetPath}${event.url.search}`;
-			return fetch(targetUrl, {
+			const res = await fetch(targetUrl, {
 				method: event.request.method,
 				headers: event.request.headers,
 				body:
@@ -54,18 +47,39 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 				// @ts-expect-error - duplex option required for streaming bodies in Node fetch
 				duplex: 'half'
 			});
+
+			const responseHeaders = new Headers(res.headers);
+			responseHeaders.delete('content-encoding');
+			responseHeaders.delete('content-length');
+
+			return new Response(res.body, {
+				status: res.status,
+				statusText: res.statusText,
+				headers: responseHeaders
+			});
+		}
+
+		if (apiBinding) {
+			const targetUrl = new URL(event.request.url);
+			targetUrl.pathname = targetPath;
+			const proxyRequest = new Request(targetUrl.toString(), event.request);
+			return apiBinding.fetch(proxyRequest);
 		}
 	}
 
 	return resolve(event);
 };
 
-// 2. Session Hydration, API Client Injection & Route Protection
+// 2. Session Context & Typed Hono RPC API Injection
 export const handleSession: Handle = async ({ event, resolve }) => {
 	const cookieHeader = event.request.headers.get('cookie') || '';
 
 	// Create typed Hono RPC client via Service Binding or dev server with cookie propagation
-	const rawFetch = event.platform?.env?.API?.fetch?.bind(event.platform.env.API) ?? fetch;
+	const isDev = import.meta.env.DEV;
+	const rawFetch =
+		!isDev && event.platform?.env?.API?.fetch
+			? event.platform.env.API.fetch.bind(event.platform.env.API)
+			: fetch;
 	const serviceFetch: typeof fetch = (input, init) => {
 		const req = new Request(input, init);
 		if (cookieHeader && !req.headers.has('cookie')) {
@@ -73,14 +87,15 @@ export const handleSession: Handle = async ({ event, resolve }) => {
 		}
 		return rawFetch(req);
 	};
-	const baseUrl = event.platform?.env?.API ? 'https://api.internal' : 'http://localhost:8787';
+	const baseUrl = !isDev && event.platform?.env?.API ? 'https://api.internal' : 'http://localhost:8787';
 	event.locals.api = createApiClient(serviceFetch, baseUrl);
 
 	// Fetch active session from Hono Better-Auth via Service Binding
 	try {
-		const sessionUrl = event.platform?.env?.API
-			? 'https://api.internal/v1/auth/get-session'
-			: 'http://localhost:8787/v1/auth/get-session';
+		const sessionUrl =
+			!isDev && event.platform?.env?.API
+				? 'https://api.internal/v1/auth/get-session'
+				: 'http://localhost:8787/v1/auth/get-session';
 
 		const sessionRes = await serviceFetch(sessionUrl, {
 			headers: { cookie: cookieHeader }
@@ -185,7 +200,7 @@ export const handleSecurity: Handle = async ({ event, resolve }) => {
 
 // 4. Drifter Maintenance Kill Switch
 export const handleDrifter: Handle = async ({ event, resolve }) => {
-	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
+	const drifterControl = (event.platform?.env as Record<string, any> | undefined)?.DRIFTER_CONTROL;
 	if (drifterControl) {
 		const isDisabled = await drifterControl.get('DISABLED');
 		if (isDisabled === 'true') {

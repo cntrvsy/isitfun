@@ -8,10 +8,15 @@ async function callAuthEndpoint(
 	endpoint: string,
 	body: Record<string, unknown>
 ) {
-	const serviceFetch = event.platform?.env?.API?.fetch?.bind(event.platform.env.API) ?? fetch;
-	const authBase = event.platform?.env?.API
-		? 'https://api.internal/v1/auth'
-		: 'http://localhost:8787/v1/auth';
+	const isDev = import.meta.env.DEV;
+	const serviceFetch =
+		!isDev && event.platform?.env?.API?.fetch
+			? event.platform.env.API.fetch.bind(event.platform.env.API)
+			: fetch;
+	const authBase =
+		!isDev && event.platform?.env?.API
+			? 'https://api.internal/v1/auth'
+			: 'http://localhost:8787/v1/auth';
 
 	const res = await serviceFetch(`${authBase}${endpoint}`, {
 		method: 'POST',

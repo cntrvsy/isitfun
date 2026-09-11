@@ -14,6 +14,7 @@ import type { AppEnv } from '../types';
 import { sessionMiddleware, requireAuth } from '../middleware/auth';
 import { hashPassword } from '../lib/crypto';
 import { guessContentType } from '../lib/r2';
+import { zipSync, strToU8 } from 'fflate';
 
 export const projectsRouter = new Hono<AppEnv>()
 	// Public endpoint for playtesters verifying access keys or passwords
@@ -759,4 +760,288 @@ export const projectsRouter = new Hono<AppEnv>()
 		);
 
 	return c.json({ success: true });
-});
+	})
+	// GET /v1/projects/:id/export/csv - Export session logs in CSV format
+	.get('/:id/export/csv', async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const db = createD1Client(c.env.DB);
+
+		const project = await db
+			.select()
+			.from(schema.projects)
+			.where(eq(schema.projects.id, projectId))
+			.get();
+
+		if (!project) return c.json({ error: 'Project not found' }, 404);
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(schema.organizationMemberships)
+				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
+				.get();
+			if (membership && membership.userId === user.id) hasAccess = true;
+		}
+
+		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+
+		const bucket = c.env.GAMES_BUCKET;
+		type SessionPayload = {
+			sessionId: string;
+			createdAt: string | number;
+			avgFps?: number | null;
+			gpuRenderer?: string | null;
+			sentiment?: string | null;
+			userComment?: string | null;
+			hasCrashed?: boolean;
+			browserInfo?: string | null;
+			logs: Array<{ event: string; data: Record<string, unknown>; timestamp?: number }>;
+		};
+
+		const compiledLogs: {
+			sessionId: string;
+			eventName: string;
+			parsedPayload: Record<string, unknown>;
+			createdAt: string | number;
+			avgFps: string;
+			gpuRenderer: string;
+			sentiment: string;
+			userComment: string;
+			hasCrashed: string;
+		}[] = [];
+
+		if (bucket) {
+			const listResult = await bucket.list({ prefix: `games/${projectId}/sessions/`, limit: 100 });
+			for (const obj of listResult.objects) {
+				const sessionObj = await bucket.get(obj.key);
+				if (sessionObj) {
+					try {
+						const data = (await sessionObj.json()) as SessionPayload;
+						if (data && Array.isArray(data.logs)) {
+							for (const log of data.logs) {
+								compiledLogs.push({
+									sessionId:
+										data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
+									eventName: log.event,
+									parsedPayload: (log.data as Record<string, unknown>) || {},
+									createdAt: log.timestamp || data.createdAt,
+									avgFps: data.avgFps ? String(data.avgFps) : '',
+									gpuRenderer: data.gpuRenderer || '',
+									sentiment: data.sentiment || '',
+									userComment: data.userComment || '',
+									hasCrashed: data.hasCrashed ? 'true' : 'false'
+								});
+							}
+						}
+					} catch {
+						// Skip corrupt files
+					}
+				}
+			}
+		}
+
+		const payloadKeysSet = new Set<string>();
+		for (const log of compiledLogs) {
+			const parsedPayload = log.parsedPayload;
+			if (parsedPayload && typeof parsedPayload === 'object' && !Array.isArray(parsedPayload)) {
+				Object.keys(parsedPayload).forEach((key) => payloadKeysSet.add(key));
+			}
+		}
+		const payloadKeys = Array.from(payloadKeysSet).sort();
+		const baseHeaders = [
+			'Session ID',
+			'Event Name',
+			'Timestamp',
+			'Avg FPS',
+			'GPU Renderer',
+			'Sentiment',
+			'User Comment',
+			'Has Crashed'
+		];
+		const headers = [...baseHeaders, ...payloadKeys];
+		const csvRows = [headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(',')];
+
+		for (const log of compiledLogs) {
+			const formattedDate = new Date(log.createdAt).toISOString();
+			const row = [
+				log.sessionId,
+				log.eventName,
+				formattedDate,
+				log.avgFps,
+				log.gpuRenderer,
+				log.sentiment,
+				log.userComment,
+				log.hasCrashed
+			];
+
+			for (const key of payloadKeys) {
+				const val = log.parsedPayload[key];
+				if (val === undefined || val === null) {
+					row.push('');
+				} else if (typeof val === 'object') {
+					row.push(`"${JSON.stringify(val).replace(/"/g, '""')}"`);
+				} else {
+					row.push(`"${String(val).replace(/"/g, '""')}"`);
+				}
+			}
+			csvRows.push(
+				row
+					.map((field, idx) => {
+						if (idx >= baseHeaders.length) return field;
+						return `"${field.replace(/"/g, '""')}"`;
+					})
+					.join(',')
+			);
+		}
+
+		return c.text(csvRows.join('\n'), 200, {
+			'Content-Type': 'text/csv',
+			'Content-Disposition': `attachment; filename="project_${projectId}_export.csv"`
+		});
+	})
+	// GET /v1/projects/:id/export/json - Export session logs in JSON format
+	.get('/:id/export/json', async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const db = createD1Client(c.env.DB);
+
+		const project = await db
+			.select()
+			.from(schema.projects)
+			.where(eq(schema.projects.id, projectId))
+			.get();
+
+		if (!project) return c.json({ error: 'Project not found' }, 404);
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(schema.organizationMemberships)
+				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
+				.get();
+			if (membership && membership.userId === user.id) hasAccess = true;
+		}
+
+		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+
+		const bucket = c.env.GAMES_BUCKET;
+		type SessionPayload = {
+			sessionId: string;
+			createdAt: string | number;
+			avgFps?: number | null;
+			gpuRenderer?: string | null;
+			sentiment?: string | null;
+			userComment?: string | null;
+			hasCrashed?: boolean;
+			browserInfo?: string | null;
+			logs: Array<{ event: string; data: unknown; timestamp?: number }>;
+		};
+
+		const compiledLogs: {
+			sessionId: string;
+			eventName: string;
+			payload: unknown;
+			createdAt: string | number;
+			sessionMetadata: {
+				avgFps?: number | null;
+				gpuRenderer?: string | null;
+				sentiment?: string | null;
+				userComment?: string | null;
+				hasCrashed?: boolean;
+				browserInfo?: string | null;
+			};
+		}[] = [];
+
+		if (bucket) {
+			const listResult = await bucket.list({ prefix: `games/${projectId}/sessions/`, limit: 100 });
+			for (const obj of listResult.objects) {
+				const sessionObj = await bucket.get(obj.key);
+				if (sessionObj) {
+					try {
+						const data = (await sessionObj.json()) as SessionPayload;
+						if (data && Array.isArray(data.logs)) {
+							for (const log of data.logs) {
+								compiledLogs.push({
+									sessionId:
+										data.sessionId || obj.key.split('/').pop()?.replace('.json', '') || 'unknown',
+									eventName: log.event,
+									payload: log.data,
+									createdAt: log.timestamp || data.createdAt,
+									sessionMetadata: {
+										avgFps: data.avgFps || null,
+										gpuRenderer: data.gpuRenderer || null,
+										sentiment: data.sentiment || null,
+										userComment: data.userComment || null,
+										hasCrashed: !!data.hasCrashed,
+										browserInfo: data.browserInfo || null
+									}
+								});
+							}
+						}
+					} catch {
+						// Skip corrupt files
+					}
+				}
+			}
+		}
+
+		return c.json(compiledLogs, 200, {
+			'Content-Disposition': `attachment; filename="project_${projectId}_export.json"`
+		});
+	})
+	// GET /v1/projects/:id/export/zip - Export session logs in ZIP archive
+	.get('/:id/export/zip', async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const db = createD1Client(c.env.DB);
+
+		const project = await db
+			.select()
+			.from(schema.projects)
+			.where(eq(schema.projects.id, projectId))
+			.get();
+
+		if (!project) return c.json({ error: 'Project not found' }, 404);
+
+		let hasAccess = user.role === 'admin' || project.userId === user.id;
+		if (!hasAccess && project.organizationId) {
+			const membership = await db
+				.select()
+				.from(schema.organizationMemberships)
+				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
+				.get();
+			if (membership && membership.userId === user.id) hasAccess = true;
+		}
+
+		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+
+		const bucket = c.env.GAMES_BUCKET;
+		const zipFiles: Record<string, Uint8Array> = {};
+
+		if (bucket) {
+			const prefix = `games/${projectId}/sessions/`;
+			const objectList = await bucket.list({ prefix, limit: 100 });
+
+			for (const obj of objectList.objects) {
+				const fileObj = await bucket.get(obj.key);
+				if (fileObj) {
+					const content = await fileObj.text();
+					const filename = obj.key.split('/').pop() || `${crypto.randomUUID()}.json`;
+					zipFiles[filename] = strToU8(content);
+				}
+			}
+		}
+
+		const readmeContent = `IsItFun Playtest Data Export\nProject: ${project.name} (ID: ${projectId})\nExported At: ${new Date().toISOString()}\n\nThis archive contains raw JSON playtest session logs collected from your HTML5 game builds.\n`;
+		zipFiles['README.txt'] = strToU8(readmeContent);
+
+		const zipUint8Array = zipSync(zipFiles);
+
+		return c.body(zipUint8Array, 200, {
+			'Content-Type': 'application/zip',
+			'Content-Disposition': `attachment; filename="playtests-${projectId}-${Date.now()}.zip"`
+		});
+	});

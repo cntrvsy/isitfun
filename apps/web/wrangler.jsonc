@@ -19,30 +19,6 @@
 			"service": "isitfun-api"
 		}
 	],
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "isitfun-db",
-			"database_id": "6e84ad32-88ff-4398-98f6-2d188d5e8c71",
-			"migrations_dir": "../../packages/db/migrations"
-		}
-	],
-	"kv_namespaces": [
-		{
-			"binding": "ISITFUN_KV",
-			"id": "19ac9d9ad7cb48959e05c2766419c419"
-		},
-		{
-			"binding": "DRIFTER_CONTROL",
-			"id": "9e69dd1ba52b453183fe69f07b719604"
-		}
-	],
-	"r2_buckets": [
-		{
-			"binding": "GAMES_BUCKET",
-			"bucket_name": "isitfun-games"
-		}
-	],
 	"observability": {
 		"enabled": true
 	}

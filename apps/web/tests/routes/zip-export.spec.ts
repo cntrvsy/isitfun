@@ -11,8 +11,7 @@ describe('GET /portal/dashboard/projects/[projectId]/export/zip', () => {
 		try {
 			await GET({
 				params: { projectId: 'proj_1' },
-				locals: {} as any,
-				platform: {} as any
+				locals: {} as any
 			} as any);
 			expect.fail('Should throw 401');
 		} catch (err: any) {
@@ -20,50 +19,40 @@ describe('GET /portal/dashboard/projects/[projectId]/export/zip', () => {
 		}
 	});
 
-	it('generates valid ZIP binary attachment stream from R2 files', async () => {
+	it('delegates to locals.api and returns valid ZIP binary attachment stream', async () => {
+		const mockZipBytes = new Uint8Array([80, 75, 3, 4]); // PK zip header
 		const mockApi = {
 			v1: {
 				projects: {
 					':id': {
-						$get: vi.fn().mockResolvedValue({
-							ok: true,
-							status: 200,
-							json: async () => ({
-								project: { id: 'proj_1', name: 'My Game', userId: 'user_1' }
-							})
-						})
+						export: {
+							zip: {
+								$get: vi.fn().mockResolvedValue({
+									ok: true,
+									status: 200,
+									headers: new Headers({
+										'content-type': 'application/zip',
+										'content-disposition': 'attachment; filename="playtests-proj_1-123.zip"'
+									}),
+									arrayBuffer: async () => mockZipBytes.buffer
+								})
+							}
+						}
 					}
 				}
 			}
 		};
 
-		const mockBucket = {
-			list: vi.fn().mockResolvedValue({
-				objects: [
-					{ key: 'games/proj_1/sessions/sess_1.json' },
-					{ key: 'games/proj_1/sessions/sess_2.json' }
-				]
-			}),
-			get: vi.fn().mockImplementation(async (key: string) => {
-				return {
-					text: async () => JSON.stringify({ sessionId: key, logs: [] })
-				};
-			})
-		};
-
 		const res = await GET({
 			params: { projectId: 'proj_1' },
-			locals: { session: { id: 's1' }, user: { id: 'user_1' }, api: mockApi } as any,
-			platform: { env: { GAMES_BUCKET: mockBucket } } as any
+			locals: { session: { id: 's1' }, user: { id: 'user_1' }, api: mockApi } as any
 		} as any);
 
 		expect(res.status).toBe(200);
 		expect(res.headers.get('content-type')).toBe('application/zip');
-		expect(res.headers.get('content-disposition')).toContain(
-			'attachment; filename="playtests-proj_1-'
-		);
+		expect(res.headers.get('content-disposition')).toContain('attachment; filename="playtests-proj_1-');
 
 		const arrayBuffer = await res.arrayBuffer();
-		expect(arrayBuffer.byteLength).toBeGreaterThan(0);
+		expect(arrayBuffer.byteLength).toBe(4);
 	});
 });

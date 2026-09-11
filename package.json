@@ -16,6 +16,7 @@
 		"build:web": "npm run build --workspace=@isitfun/web",
 		"check": "npm run check --workspaces --if-present",
 		"test": "npm run test --workspaces --if-present",
+		"test:e2e": "npm run test:e2e --workspace=@isitfun/web",
 		"db:generate": "npm run db:generate --workspace=@isitfun/db",
 		"db:migrate": "npm run db:migrate --workspace=@isitfun/db",
 		"db:sync": "npm run db:sync --workspace=@isitfun/db",
