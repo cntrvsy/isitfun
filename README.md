@@ -157,14 +157,22 @@ npm run format
 
 ---
 
-## 🚢 Production Deployment (CI/CD)
+## 🚢 Production Deployment (Cloudflare Git Integration)
 
-Deployments are automated via GitHub Actions:
-- **`.github/workflows/ci.yml`**: Runs type checks, linting, unit tests, and production worker builds on all PRs.
-- **`.github/workflows/deploy.yml`**: Deploys workers sequentially on push to `main`:
-  1. `apps/api` deploys first via Wrangler.
-  2. `apps/web` deploys with its Cloudflare Service Binding automatically linked.
+Deployments are natively automated via **Cloudflare Workers Git Integration (Push-to-Deploy)** connected to your GitHub repository:
 
-### Required GitHub Secrets:
-- `CLOUDFLARE_API_TOKEN`: Cloudflare API token with Workers Edit permissions.
-- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare Account ID.
+### Cloudflare Dashboard Configuration
+1. **API Worker (`isitfun-api`)**:
+   - Repository: `cntrvsy/isitfun` (branch: `main`)
+   - Root directory: `apps/api` (or monorepo root)
+   - Build command: `npm run build:api`
+   - Deploy command: `wrangler deploy`
+
+2. **Web Worker (`isitfun`)**:
+   - Repository: `cntrvsy/isitfun` (branch: `main`)
+   - Root directory: `apps/web` (or monorepo root)
+   - Build command: `npm run build:web`
+   - Deploy command: `wrangler deploy`
+   - Service Binding: `API` -> `isitfun-api` (already configured in `wrangler.jsonc`)
+
+Whenever you push commits to `main`, Cloudflare automatically builds and deploys both workers across the global edge network.
