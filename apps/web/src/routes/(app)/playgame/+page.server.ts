@@ -1,8 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { eq, and } from 'drizzle-orm';
-import { projects, projectAccessKeys } from '@isitfun/db';
-import { hashPassword, validateAccessKey } from '@isitfun/shared';
+import { validateAccessKey } from '@isitfun/shared';
 
 export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	const projectId = url.searchParams.get('projectId');
@@ -12,27 +10,33 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 		return { notFound: true, projectId: '', projectName: '', urlError: null };
 	}
 
-	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+	const res = await locals.api.v1.projects[':id'].public.$get({
+		param: { id: projectId }
+	});
 
-	if (!project) {
+	if (!res.ok) {
 		return { notFound: true, projectId, projectName: '', urlError: null };
 	}
 
-	// Check for active keys
-	const keys = await locals.db
-		.select()
-		.from(projectAccessKeys)
-		.where(and(eq(projectAccessKeys.projectId, projectId), eq(projectAccessKeys.isActive, true)))
-		.all();
+	const project = await res.json();
 
 	const keyCookie = cookies.get(`play_key_${projectId}`);
 	const legacyCookie = cookies.get(`play_auth_${projectId}`);
 
-	if (keys.length > 0) {
-		const matchingKey = keys.find((k) => k.code.toUpperCase() === (keyCookie || '').toUpperCase());
-		const validation = validateAccessKey(matchingKey);
-		if (validation.valid) {
-			throw redirect(302, `/play/${projectId}`);
+	if (project.keys && project.keys.length > 0) {
+		const matchingKey = project.keys.find(
+			(k: { code: string }) => k.code.toUpperCase() === (keyCookie || '').toUpperCase()
+		);
+		if (matchingKey) {
+			const validation = validateAccessKey({
+				isActive: matchingKey.isActive,
+				expiresAt: matchingKey.expiresAt ? new Date(matchingKey.expiresAt) : null,
+				maxUses: matchingKey.maxUses,
+				usedCount: matchingKey.usedCount
+			});
+			if (validation.valid) {
+				throw redirect(302, `/play/${projectId}`);
+			}
 		}
 	} else if (!project.passwordProtected || legacyCookie === project.passwordHash) {
 		throw redirect(302, `/play/${projectId}`);
@@ -64,41 +68,46 @@ export const actions: Actions = {
 			return fail(400, { missing: true });
 		}
 
-		const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+		const res = await locals.api.v1.projects[':id']['verify-key'].$post({
+			param: { id: projectId },
+			json: { password: passwordInput }
+		});
 
-		if (!project) {
-			return fail(404, { error: 'Project not found' });
-		}
-
-		// First check matching access key code
-		const keys = await locals.db
-			.select()
-			.from(projectAccessKeys)
-			.where(and(eq(projectAccessKeys.projectId, projectId), eq(projectAccessKeys.isActive, true)))
-			.all();
-
-		const matchingKey = keys.find((k) => k.code.toUpperCase() === passwordInput.toUpperCase());
-		if (matchingKey) {
-			const validation = validateAccessKey(matchingKey);
-			if (!validation.valid) {
-				if (validation.reason === 'limit_exceeded') {
-					return fail(400, { error: 'This access key has reached its playtester capacity limit.' });
-				} else if (validation.reason === 'expired') {
-					return fail(400, { error: 'This access key has expired.' });
-				} else {
-					return fail(400, { error: 'Access key is inactive or invalid.' });
-				}
+		if (!res.ok) {
+			const data = (await res.json().catch(() => ({}))) as {
+				reason?: string;
+				error?: string;
+			};
+			if (res.status === 404) {
+				return fail(404, { error: 'Project not found' });
 			}
-
-			// Redirect directly to play URL with key query param to trigger increment
-			throw redirect(302, `/play/${projectId}?key=${encodeURIComponent(matchingKey.code)}`);
+			if (data.reason === 'limit_exceeded') {
+				return fail(400, {
+					error: 'This access key has reached its playtester capacity limit.'
+				});
+			} else if (data.reason === 'expired') {
+				return fail(400, { error: 'This access key has expired.' });
+			} else if (data.reason === 'inactive') {
+				return fail(400, { error: 'Access key is inactive or invalid.' });
+			} else {
+				return fail(400, { incorrect: true });
+			}
 		}
 
-		// Fallback to legacy static password
-		if (project.passwordProtected && project.passwordHash) {
-			const hashed = await hashPassword(passwordInput, projectId);
-			if (hashed === project.passwordHash) {
-				cookies.set(`play_auth_${projectId}`, project.passwordHash, {
+		const data = (await res.json()) as {
+			valid: boolean;
+			isKey?: boolean;
+			key?: string;
+			isStatic?: boolean;
+			hash?: string;
+		};
+
+		if (data.valid) {
+			if (data.isKey && data.key) {
+				throw redirect(302, `/play/${projectId}?key=${encodeURIComponent(data.key)}`);
+			}
+			if (data.isStatic && data.hash) {
+				cookies.set(`play_auth_${projectId}`, data.hash, {
 					path: `/play/${projectId}`,
 					maxAge: 60 * 60 * 24 * 7, // 7 days
 					sameSite: 'lax',

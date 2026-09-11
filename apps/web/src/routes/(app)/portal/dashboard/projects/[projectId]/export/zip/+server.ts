@@ -1,7 +1,5 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { eq } from 'drizzle-orm';
-import { projects, organizationMemberships } from '@isitfun/db';
 import { zipSync, strToU8 } from 'fflate';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
@@ -17,34 +15,18 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 		throw error(400, 'Missing projectId parameter');
 	}
 
-	// 1. Verify project ownership or organization membership
-	const project = await locals.db.select().from(projects).where(eq(projects.id, projectId)).get();
+	// 1. Verify project ownership and access via API
+	const projectRes = await locals.api.v1.projects[':id'].$get({
+		param: { id: projectId }
+	});
 
-	if (!project) {
-		throw error(404, 'Project not found');
+	if (!projectRes.ok) {
+		if (projectRes.status === 404) throw error(404, 'Project not found');
+		if (projectRes.status === 403) throw error(403, 'Forbidden');
+		throw error(projectRes.status, 'Failed to fetch project');
 	}
 
-	let hasAccess =
-		user.role === 'admin' ||
-		project.userId === user.id ||
-		projectId === 'demo' ||
-		projectId.startsWith('demo_');
-
-	if (!hasAccess && project.organizationId) {
-		const membership = await locals.db
-			.select()
-			.from(organizationMemberships)
-			.where(eq(organizationMemberships.organizationId, project.organizationId))
-			.get();
-
-		if (membership && membership.userId === user.id) {
-			hasAccess = true;
-		}
-	}
-
-	if (!hasAccess) {
-		throw error(403, 'Forbidden');
-	}
+	const { project } = await projectRes.json();
 
 	const bucket = platform?.env.GAMES_BUCKET;
 	const zipFiles: Record<string, Uint8Array> = {};

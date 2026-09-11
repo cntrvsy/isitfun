@@ -1,18 +1,85 @@
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { vValidator } from '@hono/valibot-validator';
 import { createD1Client, schema } from '@isitfun/db';
 import { CreateOrgSchema, InviteMemberSchema } from '@isitfun/shared';
 import type { AppEnv } from '../types';
 import { sessionMiddleware, requireAuth } from '../middleware/auth';
 import { sendOrganizationInviteEmail } from '../lib/email';
+import { syncCreemSubscriptionSeats } from './billing';
 
-export const orgsRouter = new Hono<AppEnv>();
+export const orgsRouter = new Hono<AppEnv>()
+	// GET /v1/orgs/invites/token/:token - Validate invite token (public)
+	.get('/invites/token/:token', async (c) => {
+	const token = c.req.param('token');
+	const db = createD1Client(c.env.DB);
 
-orgsRouter.use('*', sessionMiddleware, requireAuth);
+	const invite = await db
+		.select()
+		.from(schema.organizationInvites)
+		.where(eq(schema.organizationInvites.token, token))
+		.get();
 
-// GET /v1/orgs - List user's organizations
-orgsRouter.get('/', async (c) => {
+	if (!invite) {
+		return c.json({ error: 'Invitation not found or revoked' }, 404);
+	}
+
+	if (new Date() > invite.expiresAt) {
+		await db.delete(schema.organizationInvites).where(eq(schema.organizationInvites.id, invite.id));
+		return c.json({ error: 'Invitation has expired' }, 410);
+	}
+
+	return c.json({ valid: true, email: invite.email, organizationId: invite.organizationId });
+	})
+	.use('*', sessionMiddleware, requireAuth)
+	// POST /v1/orgs/invites/accept - Accept invitation token for authenticated user
+	.post('/invites/accept', async (c) => {
+	const user = c.get('user')!;
+	const body = (await c.req.json().catch(() => ({}))) as { token?: string };
+	const token = body.token;
+	if (!token) return c.json({ error: 'Missing token' }, 400);
+
+	const db = createD1Client(c.env.DB);
+	const invite = await db
+		.select()
+		.from(schema.organizationInvites)
+		.where(eq(schema.organizationInvites.token, token))
+		.get();
+
+	if (!invite || new Date() > invite.expiresAt) {
+		return c.json({ error: 'Invalid or expired invite' }, 400);
+	}
+
+	if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+		return c.json({ error: 'Email mismatch for this invitation' }, 403);
+	}
+
+	const existing = await db
+		.select()
+		.from(schema.organizationMemberships)
+		.where(
+			and(
+				eq(schema.organizationMemberships.organizationId, invite.organizationId),
+				eq(schema.organizationMemberships.userId, user.id)
+			)
+		)
+		.get();
+
+	if (!existing) {
+		await db.insert(schema.organizationMemberships).values({
+			id: crypto.randomUUID(),
+			organizationId: invite.organizationId,
+			userId: user.id,
+			role: 'member',
+			createdAt: new Date()
+		});
+	}
+
+	await db.delete(schema.organizationInvites).where(eq(schema.organizationInvites.id, invite.id));
+	return c.json({ success: true, organizationId: invite.organizationId });
+	})
+	// GET /v1/orgs - List user's organizations
+	.get('/', async (c) => {
 	const user = c.get('user')!;
 	const db = createD1Client(c.env.DB);
 
@@ -30,10 +97,9 @@ orgsRouter.get('/', async (c) => {
 		.all();
 
 	return c.json({ organizations: memberships });
-});
-
-// POST /v1/orgs - Create a new organization
-orgsRouter.post('/', vValidator('json', CreateOrgSchema), async (c) => {
+	})
+	// POST /v1/orgs - Create new organization
+	.post('/', vValidator('json', CreateOrgSchema), async (c) => {
 	const user = c.get('user')!;
 	const data = c.req.valid('json');
 	const db = createD1Client(c.env.DB);
@@ -58,10 +124,9 @@ orgsRouter.post('/', vValidator('json', CreateOrgSchema), async (c) => {
 	});
 
 	return c.json({ success: true, organizationId: orgId }, 201);
-});
-
-// GET /v1/orgs/:id - Get organization details, members, invites
-orgsRouter.get('/:id', async (c) => {
+	})
+	// GET /v1/orgs/:id - Get organization details with members and pending invites
+	.get('/:id', async (c) => {
 	const user = c.get('user')!;
 	const orgId = c.req.param('id');
 	const db = createD1Client(c.env.DB);
@@ -112,10 +177,9 @@ orgsRouter.get('/:id', async (c) => {
 		.all();
 
 	return c.json({ organization: org, members, invites, myRole: myMembership?.role || 'member' });
-});
-
-// POST /v1/orgs/:id/invites - Invite a user to organization
-orgsRouter.post('/:id/invites', vValidator('json', InviteMemberSchema), async (c) => {
+	})
+	// POST /v1/orgs/:id/invites - Invite user by email to organization
+	.post('/:id/invites', vValidator('json', InviteMemberSchema), async (c) => {
 	const user = c.get('user')!;
 	const orgId = c.req.param('id');
 	const data = c.req.valid('json');
@@ -173,10 +237,9 @@ orgsRouter.post('/:id/invites', vValidator('json', InviteMemberSchema), async (c
 	});
 
 	return c.json({ success: true, inviteId }, 201);
-});
-
-// DELETE /v1/orgs/:id/invites/:inviteId - Cancel an invitation
-orgsRouter.delete('/:id/invites/:inviteId', async (c) => {
+	})
+	// DELETE /v1/orgs/:id/invites/:inviteId - Cancel invite
+	.delete('/:id/invites/:inviteId', async (c) => {
 	const user = c.get('user')!;
 	const orgId = c.req.param('id');
 	const inviteId = c.req.param('inviteId');
@@ -209,10 +272,9 @@ orgsRouter.delete('/:id/invites/:inviteId', async (c) => {
 		);
 
 	return c.json({ success: true });
-});
-
-// DELETE /v1/orgs/:id/members/:memberId - Remove member
-orgsRouter.delete('/:id/members/:memberId', async (c) => {
+	})
+	// DELETE /v1/orgs/:id/members/:memberId - Remove member
+	.delete('/:id/members/:memberId', async (c) => {
 	const user = c.get('user')!;
 	const orgId = c.req.param('id');
 	const memberId = c.req.param('memberId');
@@ -239,10 +301,51 @@ orgsRouter.delete('/:id/members/:memberId', async (c) => {
 		.delete(schema.organizationMemberships)
 		.where(
 			and(
-				eq(schema.organizationMemberships.id, memberId),
-				eq(schema.organizationMemberships.organizationId, orgId)
+				eq(schema.organizationMemberships.organizationId, orgId),
+				or(
+					eq(schema.organizationMemberships.id, memberId),
+					eq(schema.organizationMemberships.userId, memberId)
+				)
 			)
 		);
+
+	await syncCreemSubscriptionSeats(db, c.env, orgId);
+
+	return c.json({ success: true });
+	})
+	// POST /v1/orgs/:id/leave - Leave an organization
+	.post('/:id/leave', async (c) => {
+	const user = c.get('user')!;
+	const orgId = c.req.param('id');
+	const db = createD1Client(c.env.DB);
+
+	const org = await db
+		.select()
+		.from(schema.organizations)
+		.where(eq(schema.organizations.id, orgId))
+		.get();
+
+	if (!org) {
+		return c.json({ error: 'Organization not found' }, 404);
+	}
+
+	if (org.ownerId === user.id) {
+		return c.json(
+			{ error: 'Organization owners cannot leave their team. Delete the team or transfer ownership.' },
+			400
+		);
+	}
+
+	await db
+		.delete(schema.organizationMemberships)
+		.where(
+			and(
+				eq(schema.organizationMemberships.organizationId, orgId),
+				eq(schema.organizationMemberships.userId, user.id)
+			)
+		);
+
+	await syncCreemSubscriptionSeats(db, c.env, orgId);
 
 	return c.json({ success: true });
 });

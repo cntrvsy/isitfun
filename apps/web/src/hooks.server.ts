@@ -1,23 +1,20 @@
 import { redirect, error } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { createApiClient } from '#lib/api/client.js';
-import { createD1Client, createLibSqlClient, type DrizzleClient } from '@isitfun/db';
-import { resolvePendingInvite } from '#lib/server/invites.js';
-import { env } from '$env/dynamic/private';
-
-let cachedDb: DrizzleClient | null = null;
 
 // 1. Service Binding Gateway: transparently reverse-proxy /v1/*, /play/*, and legacy endpoints to Hono worker
 export const handleGateway: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
 
-	// Support /v1/*, /play/*, and legacy /api/auth, /api/telemetry, /api/webhooks routing to the API worker
+	// Support /v1/*, /play/*, and legacy /api endpoints routing to the API worker
 	if (
 		pathname.startsWith('/v1') ||
 		pathname.startsWith('/play') ||
 		pathname.startsWith('/api/auth') ||
 		pathname.startsWith('/api/telemetry') ||
-		pathname.startsWith('/api/webhooks')
+		pathname.startsWith('/api/webhooks') ||
+		pathname.startsWith('/api/games') ||
+		pathname.startsWith('/api/portal/projects')
 	) {
 		const apiBinding = event.platform?.env?.API;
 
@@ -29,6 +26,13 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 			targetPath = targetPath.replace('/api/telemetry', '/v1/telemetry');
 		} else if (targetPath.startsWith('/api/webhooks')) {
 			targetPath = targetPath.replace('/api/webhooks', '/v1/webhooks');
+		} else if (/^\/api\/games\/([^/]+)\/upload/.test(targetPath)) {
+			targetPath = targetPath.replace(/^\/api\/games\/([^/]+)\/upload/, '/v1/projects/$1/upload');
+		} else if (/^\/api\/(?:games|portal\/projects)\/([^/]+)\/sessions\/([^/]+)/.test(targetPath)) {
+			targetPath = targetPath.replace(
+				/^\/api\/(?:games|portal\/projects)\/([^/]+)\/sessions\/([^/]+)/,
+				'/v1/projects/$1/sessions/$2'
+			);
 		}
 
 		if (apiBinding) {
@@ -58,17 +62,6 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 
 // 2. Session Hydration, API Client Injection & Route Protection
 export const handleSession: Handle = async ({ event, resolve }) => {
-	// Initialize D1 / LibSQL DB for local web queries during transition
-	const platformDb = event.platform?.env?.DB;
-	if (platformDb) {
-		event.locals.db = createD1Client(platformDb);
-	} else if (env.DATABASE_URL) {
-		if (!cachedDb) {
-			cachedDb = createLibSqlClient(env.DATABASE_URL);
-		}
-		event.locals.db = cachedDb;
-	}
-
 	const cookieHeader = event.request.headers.get('cookie') || '';
 
 	// Create typed Hono RPC client via Service Binding or dev server with cookie propagation
@@ -80,7 +73,7 @@ export const handleSession: Handle = async ({ event, resolve }) => {
 		}
 		return rawFetch(req);
 	};
-	const baseUrl = event.platform?.env?.API ? 'https://api.internal/v1' : 'http://localhost:8787/v1';
+	const baseUrl = event.platform?.env?.API ? 'https://api.internal' : 'http://localhost:8787';
 	event.locals.api = createApiClient(serviceFetch, baseUrl);
 
 	// Fetch active session from Hono Better-Auth via Service Binding
@@ -104,13 +97,17 @@ export const handleSession: Handle = async ({ event, resolve }) => {
 				event.locals.session = sessionData.session;
 
 				// Resolve any pending organization invite token for authenticated users
-				if (event.cookies.get('pending_invite_token') && event.locals.db) {
-					await resolvePendingInvite(
-						event.locals.db,
-						event.cookies,
-						event.locals.user.id,
-						event.locals.user.email
-					);
+				const pendingInviteToken = event.cookies.get('pending_invite_token');
+				if (pendingInviteToken) {
+					try {
+						await event.locals.api.v1.orgs.invites.accept.$post({
+							json: { token: pendingInviteToken }
+						});
+					} catch (err) {
+						console.warn('[Invite] Failed to auto-accept pending invite token:', err);
+					} finally {
+						event.cookies.delete('pending_invite_token', { path: '/' });
+					}
 				}
 
 				// Redirect authenticated users away from /auth and /auth/login

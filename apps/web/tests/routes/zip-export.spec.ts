@@ -21,11 +21,20 @@ describe('GET /portal/dashboard/projects/[projectId]/export/zip', () => {
 	});
 
 	it('generates valid ZIP binary attachment stream from R2 files', async () => {
-		const mockDb = {
-			select: vi.fn().mockReturnThis(),
-			from: vi.fn().mockReturnThis(),
-			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({ id: 'proj_1', name: 'My Game', userId: 'user_1' })
+		const mockApi = {
+			v1: {
+				projects: {
+					':id': {
+						$get: vi.fn().mockResolvedValue({
+							ok: true,
+							status: 200,
+							json: async () => ({
+								project: { id: 'proj_1', name: 'My Game', userId: 'user_1' }
+							})
+						})
+					}
+				}
+			}
 		};
 
 		const mockBucket = {
@@ -44,7 +53,7 @@ describe('GET /portal/dashboard/projects/[projectId]/export/zip', () => {
 
 		const res = await GET({
 			params: { projectId: 'proj_1' },
-			locals: { session: { id: 's1' }, user: { id: 'user_1' }, db: mockDb } as any,
+			locals: { session: { id: 's1' }, user: { id: 'user_1' }, api: mockApi } as any,
 			platform: { env: { GAMES_BUCKET: mockBucket } } as any
 		} as any);
 

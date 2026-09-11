@@ -1,7 +1,5 @@
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { eq } from 'drizzle-orm';
-import { organizationInvites } from '@isitfun/db';
 
 export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 	const token = url.searchParams.get('token');
@@ -9,21 +7,18 @@ export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 		throw error(400, 'Missing invitation token');
 	}
 
-	const db = locals.db;
-	const invite = await db
-		.select()
-		.from(organizationInvites)
-		.where(eq(organizationInvites.token, token))
-		.get();
+	const res = await locals.api.v1.orgs.invites.token[':token'].$get({
+		param: { token }
+	});
 
-	if (!invite) {
-		throw error(404, 'Invitation not found or has been revoked');
-	}
-
-	if (new Date() > invite.expiresAt) {
-		// Clean up expired invite
-		await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.id));
-		throw error(410, 'This invitation has expired');
+	if (!res.ok) {
+		if (res.status === 404) {
+			throw error(404, 'Invitation not found or has been revoked');
+		}
+		if (res.status === 410) {
+			throw error(410, 'This invitation has expired');
+		}
+		throw error(res.status, 'Failed to validate invitation');
 	}
 
 	// Drop a secure cookie to store the invite token across the login flow

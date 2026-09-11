@@ -1,5 +1,4 @@
 import type { User, Session } from 'better-auth';
-import type { DrizzleClient } from '@isitfun/db';
 import type { ApiClient } from '#lib/api/client.js';
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
@@ -18,7 +17,6 @@ declare global {
 			user: (User & { role: 'game_developer' | 'admin' }) | null;
 			session: Session | null;
 			api: ApiClient;
-			db: DrizzleClient;
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			auth?: any;
 		}

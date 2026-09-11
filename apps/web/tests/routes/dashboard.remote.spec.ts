@@ -41,19 +41,26 @@ describe('dashboard.remote', () => {
 	});
 
 	describe('createProject', () => {
-		it('enforces limit of 1 active free project', async () => {
-			const mockDb = {
-				select: vi.fn().mockReturnThis(),
-				from: vi.fn().mockReturnThis(),
-				where: vi.fn().mockReturnThis(),
-				all: vi.fn().mockResolvedValue([{ id: 'existing-free' }])
+		it('enforces limit of 1 active free project via API response', async () => {
+			const mockApi = {
+				v1: {
+					projects: {
+						$post: vi.fn().mockResolvedValue({
+							ok: false,
+							status: 400,
+							json: async () => ({
+								error: 'Free tier is limited to 1 active project. Delete your existing project or upgrade.'
+							})
+						})
+					}
+				}
 			};
 
 			const mockEvent = {
 				locals: {
 					session: { id: 'sess_1' },
 					user: { id: 'user_1' },
-					db: mockDb
+					api: mockApi
 				}
 			};
 
@@ -67,21 +74,27 @@ describe('dashboard.remote', () => {
 			).rejects.toThrow();
 		});
 
-		it('allows creating project if no free project exists', async () => {
-			const mockDb = {
-				select: vi.fn().mockReturnThis(),
-				from: vi.fn().mockReturnThis(),
-				where: vi.fn().mockReturnThis(),
-				all: vi.fn().mockResolvedValue([]),
-				insert: vi.fn().mockReturnThis(),
-				values: vi.fn().mockResolvedValue({})
+		it('allows creating project when API returns success', async () => {
+			const mockApi = {
+				v1: {
+					projects: {
+						$post: vi.fn().mockResolvedValue({
+							ok: true,
+							status: 201,
+							json: async () => ({
+								success: true,
+								projectId: 'new_proj_123'
+							})
+						})
+					}
+				}
 			};
 
 			const mockEvent = {
 				locals: {
 					session: { id: 'sess_1' },
 					user: { id: 'user_1' },
-					db: mockDb
+					api: mockApi
 				}
 			};
 
@@ -92,8 +105,8 @@ describe('dashboard.remote', () => {
 				passwordProtected: false
 			});
 
-			expect(result).toEqual({ success: true });
-			expect(mockDb.insert).toHaveBeenCalled();
+			expect(result).toEqual({ success: true, projectId: 'new_proj_123' });
+			expect(mockApi.v1.projects.$post).toHaveBeenCalled();
 		});
 	});
 });

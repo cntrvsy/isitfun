@@ -1,7 +1,5 @@
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { eq, and } from 'drizzle-orm';
-import { projects, organizationMemberships } from '@isitfun/db';
 
 export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	const session = locals.session;
@@ -10,35 +8,19 @@ export const GET: RequestHandler = async ({ params, locals, platform }) => {
 	}
 
 	const projectId = params.id;
-	const db = locals.db;
-
-	// Verify project existence
-	const project = await db.select().from(projects).where(eq(projects.id, projectId)).get();
-
-	if (!project) {
-		throw error(404, 'Project not found');
+	if (!projectId) {
+		throw error(400, 'Missing project ID');
 	}
 
-	// Verify project access
-	let hasAccess = project.userId === locals.user.id || projectId === 'demo';
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(organizationMemberships)
-			.where(
-				and(
-					eq(organizationMemberships.organizationId, project.organizationId),
-					eq(organizationMemberships.userId, locals.user.id)
-				)
-			)
-			.get();
-		if (membership) {
-			hasAccess = true;
-		}
-	}
+	// Verify project existence and access via API
+	const projectRes = await locals.api.v1.projects[':id'].$get({
+		param: { id: projectId }
+	});
 
-	if (!hasAccess) {
-		throw error(403, 'Forbidden: You do not have access to this project');
+	if (!projectRes.ok) {
+		if (projectRes.status === 404) throw error(404, 'Project not found');
+		if (projectRes.status === 403) throw error(403, 'Forbidden: You do not have access to this project');
+		throw error(projectRes.status, 'Failed to fetch project');
 	}
 
 	const bucket = platform?.env.GAMES_BUCKET;

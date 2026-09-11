@@ -18,6 +18,10 @@ export interface Bindings {
 	RESEND_FROM_EMAIL?: string;
 	CREEM_API_KEY?: string;
 	CREEM_WEBHOOK_SECRET?: string;
+	CREEM_TEST_MODE?: string;
+	CREEM_PRODUCT_ID?: string;
+	CREEM_PRODUCT_ID_PROJECT_PASS?: string;
+	CREEM_PRODUCT_ID_TEAM_SEAT?: string;
 }
 
 export type AuthUser = User & {

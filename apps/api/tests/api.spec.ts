@@ -96,4 +96,33 @@ describe('IsItFun Hono API Service', () => {
 		const data = (await res.json()) as { error: string };
 		expect(data.error).toBe('Invalid webhook signature');
 	});
+
+	it('POST /v1/projects/:id/verify-key rejects requests with missing password', async () => {
+		const req = new Request('http://localhost/v1/projects/demo/verify-key', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({})
+		});
+
+		const res = await app.request(req, {}, mockEnv as any);
+		expect(res.status).toBe(400);
+		const data = (await res.json()) as { valid: boolean; reason: string };
+		expect(data.valid).toBe(false);
+		expect(data.reason).toBe('missing_password');
+	});
+
+	it('Guarded endpoints return 401 Unauthorized for unauthenticated requests', async () => {
+		const endpoints = [
+			{ path: '/v1/dashboard', method: 'GET' },
+			{ path: '/v1/profile', method: 'GET' },
+			{ path: '/v1/admin/stats', method: 'GET' },
+			{ path: '/v1/billing/checkout/project/proj_1', method: 'POST' }
+		];
+
+		for (const ep of endpoints) {
+			const req = new Request(`http://localhost${ep.path}`, { method: ep.method });
+			const res = await app.request(req, {}, mockEnv as any);
+			expect(res.status).toBe(401);
+		}
+	});
 });

@@ -8,6 +8,10 @@ import { projectsRouter } from './routes/projects';
 import { orgsRouter } from './routes/orgs';
 import { webhooksRouter } from './routes/webhooks';
 import { playRouter } from './routes/play';
+import { dashboardRouter } from './routes/dashboard';
+import { profileRouter } from './routes/profile';
+import { adminRouter } from './routes/admin';
+import { billingRouter } from './routes/billing';
 
 // 1. Native Durable Object export for Cloudflare Workers
 export { TelemetrySessionDO };
@@ -37,24 +41,26 @@ app.use('*', async (c, next) => {
 	return corsMiddleware(c, next);
 });
 
-// 3. Health check route
-const healthRoute = new Hono<AppEnv>().get('/health', (c) => {
-	return c.json({ status: 'ok', timestamp: Date.now() });
-});
-
-// 4. Mount modular routes
-const routes = app
-	.basePath('/v1')
-	.route('/', healthRoute)
+// 3. Mount modular routes under /v1
+const v1 = new Hono<AppEnv>()
+	.get('/health', (c) => {
+		return c.json({ status: 'ok', timestamp: Date.now() });
+	})
 	.route('/auth', authRouter)
 	.route('/telemetry', telemetryRouter)
 	.route('/projects', projectsRouter)
 	.route('/orgs', orgsRouter)
-	.route('/webhooks', webhooksRouter);
+	.route('/webhooks', webhooksRouter)
+	.route('/dashboard', dashboardRouter)
+	.route('/profile', profileRouter)
+	.route('/admin', adminRouter)
+	.route('/billing', billingRouter);
 
-// Mount game streaming routes at /play and /v1/play
-app.route('/play', playRouter);
-app.route('/v1/play', playRouter);
+// 4. Mount routes with types preserved
+const routes = app
+	.route('/v1', v1)
+	.route('/play', playRouter)
+	.route('/v1/play', playRouter);
 
 export default app;
 export type AppType = typeof routes;

@@ -1,8 +1,6 @@
 import { form, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
-import { profile } from '@isitfun/db';
 
 export const updateProfile = form(
 	v.object({
@@ -14,45 +12,24 @@ export const updateProfile = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		if (!db) {
-			error(500, 'Database connection missing');
-		}
-
-		try {
-			const existingProfile = await db
-				.select()
-				.from(profile)
-				.where(eq(profile.userId, user.id))
-				.get();
-
-			if (existingProfile) {
-				await db
-					.update(profile)
-					.set({
-						firstName: data.firstName.trim(),
-						lastName: data.lastName.trim(),
-						organizationName: data.organizationName?.trim() || null
-					})
-					.where(eq(profile.userId, user.id));
-			} else {
-				await db.insert(profile).values({
-					userId: user.id,
-					firstName: data.firstName.trim(),
-					lastName: data.lastName.trim(),
-					organizationName: data.organizationName?.trim() || null
-				});
+		const res = await locals.api.v1.profile.$patch({
+			json: {
+				firstName: data.firstName.trim(),
+				lastName: data.lastName.trim(),
+				organizationName: data.organizationName?.trim() || null
 			}
+		});
 
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to update profile:', err);
-			error(500, 'Database update failed');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to update profile');
 		}
+
+		return { success: true };
 	}
 );

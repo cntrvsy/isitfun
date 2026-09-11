@@ -1,70 +1,6 @@
 import { form, getRequestEvent } from '$app/server';
-import type { DrizzleClient } from '@isitfun/db';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
-import { eq, and, isNull } from 'drizzle-orm';
-import {
-	projects,
-	organizations,
-	organizationMemberships,
-	organizationInvites,
-	projectAccessKeys,
-	generateNanoID
-} from '@isitfun/db';
-import { getMaxUsesCapForTier, hashPassword } from '@isitfun/shared';
-import { env } from '$env/dynamic/private';
-import { sendOrganizationInviteEmail } from '#lib/server/email.js';
-
-// Helper to sync seats with Creem subscription
-async function syncCreemSubscriptionSeats(db: DrizzleClient, orgId: string) {
-	const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
-	if (!org || !org.creemSubscriptionId) return;
-
-	const memberships = await db
-		.select()
-		.from(organizationMemberships)
-		.where(eq(organizationMemberships.organizationId, orgId))
-		.all();
-
-	const invites = await db
-		.select()
-		.from(organizationInvites)
-		.where(eq(organizationInvites.organizationId, orgId))
-		.all();
-
-	const totalSeats = memberships.length + invites.length;
-	const creemApiKey = env.CREEM_API_KEY;
-
-	if (creemApiKey) {
-		try {
-			// Fetch subscription from Creem to extract item ID
-			const res = await fetch(`https://api.creem.io/v1/subscriptions/${org.creemSubscriptionId}`, {
-				headers: { 'x-api-key': creemApiKey }
-			});
-			if (res.ok) {
-				const subData = (await res.json()) as { items?: Array<{ id: string }> };
-				const itemId = subData.items?.[0]?.id;
-				if (itemId) {
-					await fetch(`https://api.creem.io/v1/subscriptions/${org.creemSubscriptionId}`, {
-						method: 'PATCH',
-						headers: {
-							'x-api-key': creemApiKey,
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							items: [{ id: itemId, units: totalSeats }]
-						})
-					});
-					console.log(
-						`[Creem Sync] Successfully synced seat count of ${totalSeats} for org ${orgId}`
-					);
-				}
-			}
-		} catch (err) {
-			console.error('[Creem Sync] Failed to sync Creem seats:', err);
-		}
-	}
-}
 
 export const createProject = form(
 	v.object({
@@ -77,102 +13,27 @@ export const createProject = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		let organizationId: string | null = null;
-
-		if (data.organizationId) {
-			// Verify user is a member of this organization
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, user.id)
-					)
-				)
-				.get();
-
-			if (!membership) {
-				error(403, 'Forbidden: You are not a member of this organization');
-			}
-
-			organizationId = data.organizationId;
-
-			// Verify limits if org is on free tier
-			const org = await db
-				.select()
-				.from(organizations)
-				.where(eq(organizations.id, organizationId))
-				.get();
-			if (!org) {
-				error(404, 'Organization not found');
-			}
-
-			if (org.tier !== 'team') {
-				const activeFreeProjects = await db
-					.select()
-					.from(projects)
-					.where(eq(projects.organizationId, organizationId))
-					.all();
-
-				if (activeFreeProjects.length >= 1) {
-					error(
-						400,
-						'Free organizations are limited to 1 active project. Please upgrade to Team Plan.'
-					);
-				}
-			}
-		} else {
-			// Solo Free Tier project count limit (max 1 active free project)
-			const activeFreeProjects = await db
-				.select()
-				.from(projects)
-				.where(
-					and(
-						eq(projects.userId, user.id),
-						isNull(projects.organizationId),
-						eq(projects.tier, 'free')
-					)
-				)
-				.all();
-
-			if (activeFreeProjects.length >= 1) {
-				error(
-					400,
-					'Free tier is limited to 1 active project. Please delete your existing project or upgrade to a Project Pass to create more.'
-				);
-			}
-		}
-
-		try {
-			const projectId = generateNanoID(12);
-			let passwordHash: string | null = null;
-			if (data.passwordProtected && data.password) {
-				passwordHash = await hashPassword(data.password, projectId);
-			}
-
-			await db.insert(projects).values({
-				id: projectId,
-				userId: user.id,
-				organizationId,
+		const res = await locals.api.v1.projects.$post({
+			json: {
 				name: data.name.trim(),
 				passwordProtected: data.passwordProtected,
-				passwordHash,
-				tier: 'free',
-				createdAt: new Date()
-			});
+				password: data.password,
+				organizationId: data.organizationId || null
+			}
+		});
 
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to create project:', err);
-			error(500, 'Database insertion failed');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to create project');
 		}
+
+		const json = await res.json();
+		return { success: true, projectId: json.projectId };
 	}
 );
 
@@ -183,71 +44,22 @@ export const deleteProject = form(
 	async (data) => {
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
-		const { locals, platform } = event;
-		const { session, user, db } = locals;
+		const { locals } = event;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		try {
-			// Verify ownership, org admin membership, or system super admin before deleting
-			const project = await db.select().from(projects).where(eq(projects.id, data.id)).get();
+		const res = await locals.api.v1.projects[':id'].$delete({
+			param: { id: data.id }
+		});
 
-			if (!project) {
-				error(404, 'Project not found');
-			}
-
-			let hasAccess = user.role === 'admin' || project.userId === user.id;
-			if (!hasAccess && project.organizationId) {
-				const membership = await db
-					.select()
-					.from(organizationMemberships)
-					.where(
-						and(
-							eq(organizationMemberships.organizationId, project.organizationId),
-							eq(organizationMemberships.userId, user.id),
-							eq(organizationMemberships.role, 'admin')
-						)
-					)
-					.get();
-				if (membership) {
-					hasAccess = true;
-				}
-			}
-
-			if (!hasAccess) {
-				error(403, 'Forbidden: You do not have permission to delete this project');
-			}
-
-			// 1. Delete associated files in R2 GAMES_BUCKET
-			const bucket = platform?.env.GAMES_BUCKET;
-			if (bucket) {
-				const prefix = `games/${data.id}/`;
-				let truncated = true;
-				let cursor: string | undefined = undefined;
-
-				while (truncated) {
-					const list = await bucket.list({ prefix, cursor });
-					if (list.objects.length > 0) {
-						await bucket.delete(list.objects.map((obj) => obj.key));
-					}
-					if (list.truncated) {
-						cursor = list.cursor;
-					}
-					truncated = list.truncated;
-				}
-			}
-
-			// 2. Delete project in D1 (cascade handles telemetry sessions and logs)
-			await db.delete(projects).where(eq(projects.id, data.id));
-
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to delete project:', err);
-			const message = err instanceof Error ? err.message : String(err);
-			error(500, `Deletion failed: ${message}`);
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to delete project');
 		}
+
+		return { success: true };
 	}
 );
 
@@ -259,88 +71,28 @@ export const upgradeProject = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		// Verify project ownership, Org Leader membership, or System admin
-		const project = await db.select().from(projects).where(eq(projects.id, data.id)).get();
+		const successUrl = `${event.url.origin}/portal/dashboard?upgrade_success=true&project_id=${data.id}`;
+		const res = await locals.api.v1.billing.checkout.project[':id'].$post({
+			param: { id: data.id },
+			json: { successUrl }
+		});
 
-		if (!project) {
-			error(404, 'Project not found');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to initialize project upgrade');
 		}
 
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, project.organizationId),
-						eq(organizationMemberships.userId, user.id),
-						eq(organizationMemberships.role, 'admin')
-					)
-				)
-				.get();
-			if (membership) {
-				hasAccess = true;
-			}
+		const json = await res.json();
+		if ('redirectUrl' in json && json.redirectUrl) {
+			return { redirectUrl: json.redirectUrl };
 		}
 
-		if (!hasAccess) {
-			error(403, 'Forbidden: You do not have permission to upgrade this project');
-		}
-
-		const creemApiKey = env.CREEM_API_KEY;
-		const creemProductId = env.CREEM_PRODUCT_ID_PROJECT_PASS || env.CREEM_PRODUCT_ID;
-		const isTestMode = env.CREEM_TEST_MODE !== 'false';
-
-		if (creemApiKey && creemProductId) {
-			const baseUrl = isTestMode
-				? 'https://test-api.creem.io/v1/checkouts'
-				: 'https://api.creem.io/v1/checkouts';
-			try {
-				const res = await fetch(baseUrl, {
-					method: 'POST',
-					headers: {
-						'x-api-key': creemApiKey,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						product_id: creemProductId,
-						request_id: data.id,
-						success_url: `${event.url.origin}/portal/dashboard?upgrade_success=true&project_id=${data.id}`
-					})
-				});
-
-				if (!res.ok) {
-					const errorText = await res.text();
-					throw new Error(`Creem API returned ${res.status}: ${errorText}`);
-				}
-
-				const checkoutData = (await res.json()) as { checkout_url: string };
-				return { redirectUrl: checkoutData.checkout_url };
-			} catch (err) {
-				console.error('Failed to create Creem checkout:', err);
-				error(500, 'Failed to initialize payment gateway.');
-			}
-		} else if (!import.meta.env.DEV) {
-			console.error('Creem API keys missing in production environment');
-			error(500, 'Payment configuration missing.');
-		} else {
-			// Mock Upgrade mode for local development/testing without keys
-			try {
-				await db.update(projects).set({ tier: 'pro' }).where(eq(projects.id, data.id));
-
-				return { success: true, mockUpgraded: true };
-			} catch (err) {
-				console.error('Failed to upgrade project (mock):', err);
-				error(500, 'Mock upgrade failed');
-			}
-		}
+		return { success: true, mockUpgraded: true };
 	}
 );
 
@@ -352,37 +104,22 @@ export const createOrganization = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		try {
-			const orgId = crypto.randomUUID();
-			await db.transaction(async (tx) => {
-				await tx.insert(organizations).values({
-					id: orgId,
-					name: data.name.trim(),
-					ownerId: user.id,
-					tier: 'free',
-					createdAt: new Date()
-				});
+		const res = await locals.api.v1.orgs.$post({
+			json: { name: data.name.trim() }
+		});
 
-				await tx.insert(organizationMemberships).values({
-					id: crypto.randomUUID(),
-					organizationId: orgId,
-					userId: user.id,
-					role: 'admin',
-					createdAt: new Date()
-				});
-			});
-
-			return { success: true, organizationId: orgId };
-		} catch (err) {
-			console.error('Failed to create organization:', err);
-			error(500, 'Failed to create organization');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to create organization');
 		}
+
+		const json = await res.json();
+		return { success: true, organizationId: json.organizationId };
 	}
 );
 
@@ -394,172 +131,61 @@ export const upgradeOrganization = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		// Verify organization ownership/admin or system admin
-		let membership = null;
-		if (user.role !== 'admin') {
-			membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.id),
-						eq(organizationMemberships.userId, user.id),
-						eq(organizationMemberships.role, 'admin')
-					)
-				)
-				.get();
+		const successUrl = `${event.url.origin}/portal/dashboard?org_upgrade_success=true&org_id=${data.id}`;
+		const res = await locals.api.v1.billing.checkout.org[':id'].$post({
+			param: { id: data.id },
+			json: { successUrl }
+		});
 
-			if (!membership) {
-				error(403, 'Forbidden: Admin access required to upgrade organization');
-			}
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to initialize organization upgrade');
 		}
 
-		// Get current seats count (memberships + pending invites)
-		const members = await db
-			.select()
-			.from(organizationMemberships)
-			.where(eq(organizationMemberships.organizationId, data.id))
-			.all();
-
-		const invites = await db
-			.select()
-			.from(organizationInvites)
-			.where(eq(organizationInvites.organizationId, data.id))
-			.all();
-
-		const totalSeats = members.length + invites.length;
-
-		const creemApiKey = env.CREEM_API_KEY;
-		const creemProductId = env.CREEM_PRODUCT_ID_TEAM_PLAN;
-		const isTestMode = env.CREEM_TEST_MODE !== 'false';
-
-		if (creemApiKey && creemProductId) {
-			const baseUrl = isTestMode
-				? 'https://test-api.creem.io/v1/checkouts'
-				: 'https://api.creem.io/v1/checkouts';
-			try {
-				const res = await fetch(baseUrl, {
-					method: 'POST',
-					headers: {
-						'x-api-key': creemApiKey,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						product_id: creemProductId,
-						quantity: totalSeats,
-						request_id: data.id,
-						metadata: {
-							organizationId: data.id
-						},
-						success_url: `${event.url.origin}/portal/dashboard?upgrade_success=true&org_id=${data.id}`
-					})
-				});
-
-				if (!res.ok) {
-					const errorText = await res.text();
-					throw new Error(`Creem API returned ${res.status}: ${errorText}`);
-				}
-
-				const checkoutData = (await res.json()) as { checkout_url: string };
-				return { redirectUrl: checkoutData.checkout_url };
-			} catch (err) {
-				console.error('Failed to create Creem checkout for organization:', err);
-				error(500, 'Failed to initialize payment gateway.');
-			}
-		} else if (!import.meta.env.DEV) {
-			console.error('Creem API keys missing in production environment');
-			error(500, 'Payment configuration missing.');
-		} else {
-			// Mock upgrade for local testing
-			try {
-				await db.update(organizations).set({ tier: 'team' }).where(eq(organizations.id, data.id));
-
-				return { success: true, mockUpgraded: true };
-			} catch (err) {
-				console.error('Failed to upgrade organization (mock):', err);
-				error(500, 'Mock upgrade failed');
-			}
+		const json = await res.json();
+		if ('redirectUrl' in json && json.redirectUrl) {
+			return { redirectUrl: json.redirectUrl };
 		}
+
+		return { success: true, mockUpgraded: true };
 	}
 );
 
 export const inviteMember = form(
 	v.object({
 		organizationId: v.pipe(v.string(), v.nonEmpty('Organization ID is required')),
-		email: v.pipe(v.string(), v.nonEmpty('Email is required'), v.email('Invalid email address'))
+		email: v.pipe(v.string(), v.email('A valid email address is required')),
+		role: v.optional(v.picklist(['admin', 'member']), 'member')
 	}),
 	async (data) => {
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin of the organization or system admin
-		if (user.role !== 'admin') {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, user.id),
-						eq(organizationMemberships.role, 'admin')
-					)
-				)
-				.get();
-
-			if (!membership) {
-				error(403, 'Forbidden: Admin access required to invite members');
-			}
-		}
-
-		// Create invite entry
-		const token = crypto.randomUUID();
-		const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days expiration
-
-		try {
-			await db.insert(organizationInvites).values({
-				id: crypto.randomUUID(),
-				organizationId: data.organizationId,
+		const res = await locals.api.v1.orgs[':id'].invites.$post({
+			param: { id: data.organizationId },
+			json: {
 				email: data.email.trim().toLowerCase(),
-				token,
-				expiresAt,
-				createdAt: new Date()
-			});
+				role: data.role || 'member'
+			}
+		});
 
-			const inviteUrl = `${event.url.origin}/invites/accept?token=${token}`;
-
-			const org = await db
-				.select()
-				.from(organizations)
-				.where(eq(organizations.id, data.organizationId))
-				.get();
-
-			await sendOrganizationInviteEmail({
-				to: data.email.trim().toLowerCase(),
-				inviterName: user.name || user.email,
-				orgName: org?.name || 'Organization',
-				inviteUrl
-			});
-
-			// Sync seats with Creem
-			await syncCreemSubscriptionSeats(db, data.organizationId);
-
-			return { success: true, inviteUrl };
-		} catch (err) {
-			console.error('Failed to create invitation:', err);
-			error(500, 'Failed to create invitation');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to send invite');
 		}
+
+		const json = await res.json();
+		return { success: true, inviteId: json.inviteId };
 	}
 );
 
@@ -572,42 +198,24 @@ export const cancelInvite = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin of the organization or system admin
-		if (user.role !== 'admin') {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, user.id),
-						eq(organizationMemberships.role, 'admin')
-					)
-				)
-				.get();
-
-			if (!membership) {
-				error(403, 'Forbidden: Admin access required to cancel invites');
+		const res = await locals.api.v1.orgs[':id'].invites[':inviteId'].$delete({
+			param: {
+				id: data.organizationId,
+				inviteId: data.id
 			}
+		});
+
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to cancel invitation');
 		}
 
-		try {
-			await db.delete(organizationInvites).where(eq(organizationInvites.id, data.id));
-
-			// Sync seats with Creem
-			await syncCreemSubscriptionSeats(db, data.organizationId);
-
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to cancel invitation:', err);
-			error(500, 'Failed to cancel invitation');
-		}
+		return { success: true };
 	}
 );
 
@@ -620,59 +228,24 @@ export const removeMember = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		// Verify user is an admin of the org or system admin
-		if (user.role !== 'admin') {
-			const adminMembership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, user.id),
-						eq(organizationMemberships.role, 'admin')
-					)
-				)
-				.get();
-
-			if (!adminMembership) {
-				error(403, 'Forbidden: Admin access required to remove members');
+		const res = await locals.api.v1.orgs[':id'].members[':memberId'].$delete({
+			param: {
+				id: data.organizationId,
+				memberId: data.userId
 			}
+		});
+
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to remove team member');
 		}
 
-		// Prevent removing the owner of the organization
-		const org = await db
-			.select()
-			.from(organizations)
-			.where(eq(organizations.id, data.organizationId))
-			.get();
-		if (org && org.ownerId === data.userId) {
-			error(400, 'Cannot remove the owner of the organization');
-		}
-
-		try {
-			await db
-				.delete(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, data.userId)
-					)
-				);
-
-			// Sync seats with Creem
-			await syncCreemSubscriptionSeats(db, data.organizationId);
-
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to remove member:', err);
-			error(500, 'Failed to remove member');
-		}
+		return { success: true };
 	}
 );
 
@@ -680,76 +253,34 @@ export const createAccessKey = form(
 	v.object({
 		projectId: v.pipe(v.string(), v.nonEmpty('Project ID is required')),
 		name: v.pipe(v.string(), v.nonEmpty('Key name is required')),
-		maxUses: v.pipe(v.number(), v.minValue(1, 'Max uses must be at least 1'))
+		maxUses: v.optional(v.number()),
+		expiresAt: v.optional(v.string())
 	}),
 	async (data) => {
 		const event = getRequestEvent();
-		if (!event) error(500, 'Request event missing');
+		if (!event) error(500, 'Request context missing');
+		const { locals } = event;
 
-		const user = event.locals.user;
-		if (!user) error(401, 'Unauthorized');
-
-		const db = event.locals.db;
-
-		// Verify project ownership, org membership, or system admin
-		const project = await db.select().from(projects).where(eq(projects.id, data.projectId)).get();
-
-		if (!project) {
-			error(404, 'Project not found');
+		if (!locals.session || !locals.user) {
+			error(401, 'Unauthorized');
 		}
 
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, project.organizationId),
-						eq(organizationMemberships.userId, user.id)
-					)
-				)
-				.get();
-			if (membership) {
-				hasAccess = true;
+		const res = await locals.api.v1.projects[':id'].keys.$post({
+			param: { id: data.projectId },
+			json: {
+				name: data.name.trim(),
+				maxUses: data.maxUses,
+				expiresAt: data.expiresAt
 			}
+		});
+
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to create access key');
 		}
 
-		if (!hasAccess) {
-			error(403, 'Forbidden: You do not have permission to add access keys for this project');
-		}
-
-		// Enforce tier hard cap
-		const tier = project.tier || 'free';
-		const cap = getMaxUsesCapForTier(tier);
-
-		if (user.role !== 'admin' && data.maxUses > cap) {
-			error(
-				400,
-				`Max uses (${data.maxUses}) exceeds your ${tier.toUpperCase()} tier cap of ${cap} uses per key. Upgrade your plan for higher limits.`
-			);
-		}
-
-		try {
-			const code = `${project.id.slice(0, 4)}-${generateNanoID(6)}`.toUpperCase();
-			const newKey = await db
-				.insert(projectAccessKeys)
-				.values({
-					projectId: data.projectId,
-					name: data.name,
-					code,
-					maxUses: data.maxUses,
-					usedCount: 0,
-					isActive: true
-				})
-				.returning()
-				.get();
-
-			return { success: true, key: newKey };
-		} catch (err) {
-			console.error('Failed to create access key:', err);
-			error(500, 'Failed to create access key');
-		}
+		const json = await res.json();
+		return { success: true, key: json.key };
 	}
 );
 
@@ -761,61 +292,23 @@ export const toggleAccessKey = form(
 	async (data) => {
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request event missing');
+		const { locals } = event;
 
-		const user = event.locals.user;
-		if (!user) error(401, 'Unauthorized');
-
-		const db = event.locals.db;
-
-		// Fetch key and project to verify authorization
-		const key = await db
-			.select()
-			.from(projectAccessKeys)
-			.where(eq(projectAccessKeys.id, data.keyId))
-			.get();
-
-		if (!key) {
-			error(404, 'Access key not found');
+		if (!locals.session || !locals.user) {
+			error(401, 'Unauthorized');
 		}
 
-		const project = await db.select().from(projects).where(eq(projects.id, key.projectId)).get();
+		const res = await locals.api.v1.projects.keys[':keyId'].$patch({
+			param: { keyId: data.keyId },
+			json: { isActive: data.isActive }
+		});
 
-		if (!project) {
-			error(404, 'Project not found');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to toggle access key');
 		}
 
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, project.organizationId),
-						eq(organizationMemberships.userId, user.id)
-					)
-				)
-				.get();
-			if (membership) {
-				hasAccess = true;
-			}
-		}
-
-		if (!hasAccess) {
-			error(403, 'Forbidden: You do not have permission to modify this access key');
-		}
-
-		try {
-			await db
-				.update(projectAccessKeys)
-				.set({ isActive: data.isActive })
-				.where(eq(projectAccessKeys.id, data.keyId));
-
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to toggle access key:', err);
-			error(500, 'Failed to update access key status');
-		}
+		return { success: true };
 	}
 );
 
@@ -826,57 +319,22 @@ export const deleteAccessKey = form(
 	async (data) => {
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request event missing');
+		const { locals } = event;
 
-		const user = event.locals.user;
-		if (!user) error(401, 'Unauthorized');
-
-		const db = event.locals.db;
-
-		// Fetch key and project to verify authorization
-		const key = await db
-			.select()
-			.from(projectAccessKeys)
-			.where(eq(projectAccessKeys.id, data.keyId))
-			.get();
-
-		if (!key) {
-			error(404, 'Access key not found');
+		if (!locals.session || !locals.user) {
+			error(401, 'Unauthorized');
 		}
 
-		const project = await db.select().from(projects).where(eq(projects.id, key.projectId)).get();
+		const res = await locals.api.v1.projects.keys[':keyId'].$delete({
+			param: { keyId: data.keyId }
+		});
 
-		if (!project) {
-			error(404, 'Project not found');
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to delete access key');
 		}
 
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, project.organizationId),
-						eq(organizationMemberships.userId, user.id)
-					)
-				)
-				.get();
-			if (membership) {
-				hasAccess = true;
-			}
-		}
-
-		if (!hasAccess) {
-			error(403, 'Forbidden: You do not have permission to delete this access key');
-		}
-
-		try {
-			await db.delete(projectAccessKeys).where(eq(projectAccessKeys.id, data.keyId));
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to delete access key:', err);
-			error(500, 'Failed to delete access key');
-		}
+		return { success: true };
 	}
 );
 
@@ -888,44 +346,20 @@ export const leaveOrganization = form(
 		const event = getRequestEvent();
 		if (!event) error(500, 'Request context missing');
 		const { locals } = event;
-		const { session, user, db } = locals;
 
-		if (!session || !user) {
+		if (!locals.session || !locals.user) {
 			error(401, 'Unauthorized');
 		}
 
-		try {
-			const org = await db
-				.select()
-				.from(organizations)
-				.where(eq(organizations.id, data.organizationId))
-				.get();
+		const res = await locals.api.v1.orgs[':id'].leave.$post({
+			param: { id: data.organizationId }
+		});
 
-			if (!org) {
-				error(404, 'Organization not found');
-			}
-
-			if (org.ownerId === user.id) {
-				error(400, 'Organization owners cannot leave their team. Delete the team or transfer ownership.');
-			}
-
-			await db
-				.delete(organizationMemberships)
-				.where(
-					and(
-						eq(organizationMemberships.organizationId, data.organizationId),
-						eq(organizationMemberships.userId, user.id)
-					)
-				);
-
-			await syncCreemSubscriptionSeats(db, data.organizationId);
-
-			return { success: true };
-		} catch (err) {
-			console.error('Failed to leave organization:', err);
-			const message = err instanceof Error ? err.message : String(err);
-			error(500, `Failed to leave team: ${message}`);
+		if (!res.ok) {
+			const err = (await res.json().catch(() => ({}))) as { error?: string };
+			error(res.status, err.error || 'Failed to leave organization');
 		}
+
+		return { success: true };
 	}
 );
-

@@ -1,6 +1,4 @@
 import { redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
-import { profile } from '@isitfun/db';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -8,14 +6,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/auth');
 	}
 
-	const userProfile = await locals.db
-		.select()
-		.from(profile)
-		.where(eq(profile.userId, locals.user.id))
-		.get();
+	const res = await locals.api.v1.profile.$get();
+	const data = res.ok ? await res.json() : { profile: null };
 
 	return {
 		user: locals.user,
-		profile: userProfile || null
+		profile: data.profile || null
 	};
 };

@@ -13,17 +13,19 @@ describe('Playgame Password Verification & Cookie Security', () => {
 		const rawPassword = 'SuperSecretPassword!';
 		const passwordHash = await hashPassword(rawPassword, projectId);
 
-		const mockDb = {
-			select: vi.fn().mockReturnThis(),
-			from: vi.fn().mockReturnThis(),
-			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({
-				id: projectId,
-				name: 'Secret Game',
-				passwordProtected: true,
-				passwordHash
-			}),
-			all: vi.fn().mockResolvedValue([]) // No access keys, use legacy static password
+		const mockApi = {
+			v1: {
+				projects: {
+					':id': {
+						'verify-key': {
+							$post: vi.fn().mockResolvedValue({
+								ok: true,
+								json: async () => ({ valid: true, isStatic: true, hash: passwordHash })
+							})
+						}
+					}
+				}
+			}
 		};
 
 		const mockCookies = {
@@ -43,12 +45,11 @@ describe('Playgame Password Verification & Cookie Security', () => {
 		try {
 			await actions.verify({
 				request,
-				locals: { db: mockDb } as any,
+				locals: { api: mockApi } as any,
 				cookies: mockCookies as any
 			} as any);
 			expect.fail('Expected redirect');
 		} catch (err: any) {
-			// SvelteKit redirect throws a redirect object with status 302 and location
 			expect(err.status).toBe(302);
 			expect(err.location).toBe(`/play/${projectId}`);
 			expect(mockCookies.set).toHaveBeenCalledWith(
@@ -66,19 +67,21 @@ describe('Playgame Password Verification & Cookie Security', () => {
 
 	it('fails when static password is wrong and does not set cookie', async () => {
 		const projectId = 'proj_secret_123';
-		const passwordHash = await hashPassword('CorrectPassword', projectId);
 
-		const mockDb = {
-			select: vi.fn().mockReturnThis(),
-			from: vi.fn().mockReturnThis(),
-			where: vi.fn().mockReturnThis(),
-			get: vi.fn().mockResolvedValue({
-				id: projectId,
-				name: 'Secret Game',
-				passwordProtected: true,
-				passwordHash
-			}),
-			all: vi.fn().mockResolvedValue([])
+		const mockApi = {
+			v1: {
+				projects: {
+					':id': {
+						'verify-key': {
+							$post: vi.fn().mockResolvedValue({
+								ok: false,
+								status: 400,
+								json: async () => ({ valid: false, reason: 'incorrect_password' })
+							})
+						}
+					}
+				}
+			}
 		};
 
 		const mockCookies = {
@@ -97,7 +100,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 
 		const result: any = await actions.verify({
 			request,
-			locals: { db: mockDb } as any,
+			locals: { api: mockApi } as any,
 			cookies: mockCookies as any
 		} as any);
 
