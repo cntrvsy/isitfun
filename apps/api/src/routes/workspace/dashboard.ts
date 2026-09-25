@@ -3,6 +3,7 @@ import { eq, and, inArray, desc, or, isNull, sql, lt } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
 import type { AppEnv } from '../../types';
 import { sessionMiddleware, requireAuth } from '../../middleware/auth';
+import { ensurePersonalOrganization, getUserPersonalOrg } from '../../lib/orgs';
 
 export const dashboardRouter = new Hono<AppEnv>()
 	.use('*', sessionMiddleware, requireAuth)
@@ -10,6 +11,9 @@ export const dashboardRouter = new Hono<AppEnv>()
 	.get('/', async (c) => {
 	const user = c.get('user')!;
 	const db = createD1Client(c.env.DB);
+
+	// 0. Ensure user has a personal organization
+	await ensurePersonalOrganization(db, user);
 
 	// 1. Fetch user's organizations with members and invites
 	const memberships = await db.query.organizationMemberships.findMany({
@@ -35,23 +39,21 @@ export const dashboardRouter = new Hono<AppEnv>()
 
 	const orgIds = userOrgs.map((o) => o.id);
 
-	// 2. Fetch projects (Personal + Org memberships)
-	const userProjects = await db.query.projects.findMany({
-		where:
-			orgIds.length > 0
-				? or(
-						and(eq(schema.projects.userId, user.id), isNull(schema.projects.organizationId)),
-						inArray(schema.projects.organizationId, orgIds)
-					)
-				: and(eq(schema.projects.userId, user.id), isNull(schema.projects.organizationId)),
-		with: {
-			projectQuotas: true,
-			payments: true
-		}
-	});
+	// 2. Fetch projects (scoped uniformly by organization memberships)
+	const userProjects =
+		orgIds.length > 0
+			? await db.query.projects.findMany({
+					where: inArray(schema.projects.organizationId, orgIds),
+					with: {
+						projectQuotas: true,
+						payments: true
+					}
+				})
+			: [];
 
-	// 3. Ensure user has personal interactive Demo project
+	// 3. Ensure user has interactive Demo project scoped to their personal organization
 	const demoProjectId = `demo_${user.id}`;
+	const personalOrg = await getUserPersonalOrg(db, user);
 	let demoProject = await db.query.projects.findFirst({
 		where: eq(schema.projects.id, demoProjectId),
 		with: {
@@ -67,6 +69,7 @@ export const dashboardRouter = new Hono<AppEnv>()
 				.values({
 					id: demoProjectId,
 					userId: user.id,
+					organizationId: personalOrg.id,
 					name: '🏓 Interactive Demo (Ping Pong)',
 					tier: 'free',
 					passwordProtected: false,
@@ -85,6 +88,12 @@ export const dashboardRouter = new Hono<AppEnv>()
 		} catch (e) {
 			console.error('[Dashboard] Failed to auto-create demo project:', e);
 		}
+	} else if (!demoProject.organizationId) {
+		await db
+			.update(schema.projects)
+			.set({ organizationId: personalOrg.id })
+			.where(eq(schema.projects.id, demoProjectId));
+		demoProject.organizationId = personalOrg.id;
 	}
 
 	if (demoProject && !userProjects.some((p) => p.id === demoProject.id)) {

@@ -85,6 +85,13 @@
 			"when": 1784927073101,
 			"tag": "0011_violet_wolfpack",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1785000000000,
+			"tag": "0012_personal_workspaces",
+			"breakpoints": true
 		}
 	]
 }

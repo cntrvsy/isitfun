@@ -211,6 +211,13 @@ export const orgsRouter = new Hono<AppEnv>()
 
 	if (!org) return c.json({ error: 'Organization not found' }, 404);
 
+	if (org.type === 'personal') {
+		return c.json(
+			{ error: 'Cannot invite members to a personal workspace. Create a team organization to collaborate.' },
+			400
+		);
+	}
+
 	const token = crypto.randomUUID();
 	const inviteId = crypto.randomUUID();
 	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -327,6 +334,10 @@ export const orgsRouter = new Hono<AppEnv>()
 
 	if (!org) {
 		return c.json({ error: 'Organization not found' }, 404);
+	}
+
+	if (org.type === 'personal') {
+		return c.json({ error: 'Cannot leave your personal workspace.' }, 400);
 	}
 
 	if (org.ownerId === user.id) {

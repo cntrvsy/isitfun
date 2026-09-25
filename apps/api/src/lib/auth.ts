@@ -3,6 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { createD1Client, schema } from '@isitfun/db';
 import type { Bindings } from '../types';
 import { sendPasswordResetEmail, sendVerificationEmail } from './email';
+import { ensurePersonalOrganization } from './orgs';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const authCache = new WeakMap<object, any>();
@@ -85,6 +86,19 @@ export function getAuth(env: Bindings, requestURL?: string) {
 					type: 'string',
 					defaultValue: 'game_developer',
 					input: false
+				}
+			}
+		},
+		databaseHooks: {
+			user: {
+				create: {
+					after: async (newUser) => {
+						try {
+							await ensurePersonalOrganization(db, newUser);
+						} catch (err) {
+							console.error('[auth] Failed to auto-create personal organization:', err);
+						}
+					}
 				}
 			}
 		},

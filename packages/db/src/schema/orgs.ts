@@ -2,22 +2,27 @@ import { relations } from 'drizzle-orm';
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { user } from './auth';
 
-export const organizations = sqliteTable('organizations', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	name: text('name').notNull(),
-	ownerId: text('owner_id')
-		.notNull()
-		.references(() => user.id, { onDelete: 'cascade' }),
-	creemSubscriptionId: text('creem_subscription_id'),
-	creemCustomerId: text('creem_customer_id'),
-	subscriptionStatus: text('subscription_status').default('active'),
-	tier: text('tier').$type<'free' | 'pro' | 'team'>().default('free'),
-	createdAt: integer('created_at', { mode: 'timestamp' })
-		.notNull()
-		.$defaultFn(() => new Date())
-});
+export const organizations = sqliteTable(
+	'organizations',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: text('name').notNull(),
+		ownerId: text('owner_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		type: text('type').$type<'personal' | 'team'>().notNull().default('team'),
+		creemSubscriptionId: text('creem_subscription_id'),
+		creemCustomerId: text('creem_customer_id'),
+		subscriptionStatus: text('subscription_status').default('active'),
+		tier: text('tier').$type<'free' | 'pro' | 'team'>().default('free'),
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [index('org_owner_type_idx').on(table.ownerId, table.type)]
+);
 
 export const organizationMemberships = sqliteTable(
 	'organization_memberships',

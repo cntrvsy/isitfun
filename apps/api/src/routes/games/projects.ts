@@ -16,6 +16,8 @@ import { sessionMiddleware, requireAuth } from '../../middleware/auth';
 import { hashPassword } from '../../lib/crypto';
 import { guessContentType } from '../../lib/r2';
 import { zipSync, strToU8 } from 'fflate';
+import { requireProjectAccess, requireOrgAccess } from '../../lib/auth-guard';
+import { getUserPersonalOrg } from '../../lib/orgs';
 
 export const projectsRouter = new Hono<AppEnv>()
 	// Public endpoint for playtesters verifying access keys or passwords
@@ -121,20 +123,11 @@ export const projectsRouter = new Hono<AppEnv>()
 	})
 	// Apply session extraction and require authentication for all project management routes
 	.use('*', sessionMiddleware, requireAuth)
-	// GET /v1/projects - List user's projects (direct or via organization membership)
+	// GET /v1/projects - List user's projects (via organization memberships)
 	.get('/', async (c) => {
 	const user = c.get('user')!;
 	const db = createD1Client(c.env.DB);
 
-	// Get projects owned by the user
-	const userProjects = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.userId, user.id))
-		.orderBy(desc(schema.projects.createdAt))
-		.all();
-
-	// Also get projects from organizations the user is a member of
 	const memberships = await db
 		.select({ orgId: schema.organizationMemberships.organizationId })
 		.from(schema.organizationMemberships)
@@ -142,22 +135,18 @@ export const projectsRouter = new Hono<AppEnv>()
 		.all();
 
 	const orgIds = memberships.map((m) => m.orgId);
-	let orgProjects: typeof userProjects = [];
-
-	if (orgIds.length > 0) {
-		orgProjects = await db
-			.select()
-			.from(schema.projects)
-			.where(inArray(schema.projects.organizationId, orgIds))
-			.all();
+	if (orgIds.length === 0) {
+		return c.json({ projects: [] });
 	}
 
-	// Merge and deduplicate by project ID
-	const allProjectsMap = new Map<string, (typeof userProjects)[0]>();
-	for (const p of userProjects) allProjectsMap.set(p.id, p);
-	for (const p of orgProjects) allProjectsMap.set(p.id, p);
+	const orgProjects = await db
+		.select()
+		.from(schema.projects)
+		.where(inArray(schema.projects.organizationId, orgIds))
+		.orderBy(desc(schema.projects.createdAt))
+		.all();
 
-	return c.json({ projects: Array.from(allProjectsMap.values()) });
+	return c.json({ projects: orgProjects });
 	})
 	// POST /v1/projects - Create a new project
 	.post('/', vValidator('json', CreateProjectSchema), async (c) => {
@@ -165,73 +154,31 @@ export const projectsRouter = new Hono<AppEnv>()
 	const data = c.req.valid('json');
 	const db = createD1Client(c.env.DB);
 
-	let organizationId: string | null = null;
+	let targetOrg: typeof schema.organizations.$inferSelect;
 
 	if (data.organizationId) {
-		// Verify membership
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(
-				and(
-					eq(schema.organizationMemberships.organizationId, data.organizationId),
-					eq(schema.organizationMemberships.userId, user.id)
-				)
-			)
-			.get();
-
-		if (!membership) {
-			return c.json({ error: 'Forbidden: Not a member of this organization' }, 403);
-		}
-
-		organizationId = data.organizationId;
-
-		// Check org tier limit
-		const org = await db
-			.select()
-			.from(schema.organizations)
-			.where(eq(schema.organizations.id, organizationId))
-			.get();
-
-		if (!org) return c.json({ error: 'Organization not found' }, 404);
-
-		if (org.tier !== 'team') {
-			const activeProjects = await db
-				.select()
-				.from(schema.projects)
-				.where(eq(schema.projects.organizationId, organizationId))
-				.all();
-
-			if (activeProjects.length >= TierLimits.free.maxActiveProjects) {
-				return c.json(
-					{
-						error: 'Free organizations are limited to 1 active project. Upgrade to Team Plan.'
-					},
-					400
-				);
-			}
-		}
+		const { organization } = await requireOrgAccess(db, data.organizationId, user, 'member');
+		targetOrg = organization;
 	} else {
-		// Solo free tier project limit
-		const activeFreeProjects = await db
+		targetOrg = await getUserPersonalOrg(db, user);
+	}
+
+	const organizationId = targetOrg.id;
+
+	// Check org tier limit
+	if (targetOrg.tier !== 'team') {
+		const activeProjects = await db
 			.select()
 			.from(schema.projects)
-			.where(
-				and(
-					eq(schema.projects.userId, user.id),
-					isNull(schema.projects.organizationId),
-					eq(schema.projects.tier, 'free')
-				)
-			)
+			.where(eq(schema.projects.organizationId, organizationId))
 			.all();
 
-		if (activeFreeProjects.length >= TierLimits.free.maxActiveProjects) {
-			return c.json(
-				{
-					error: 'Free tier is limited to 1 active project. Delete your existing project or upgrade.'
-				},
-				400
-			);
+		if (activeProjects.length >= TierLimits.free.maxActiveProjects) {
+			const errorMsg =
+				targetOrg.type === 'personal'
+					? 'Free personal tier is limited to 1 active project. Delete your existing project or upgrade.'
+					: 'Free organizations are limited to 1 active project. Upgrade to Team Plan.';
+			return c.json({ error: errorMsg }, 400);
 		}
 	}
 
@@ -270,32 +217,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const projectId = c.req.param('id');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	// Check access permissions
-	if (project.userId !== user.id && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(
-				and(
-					eq(schema.organizationMemberships.organizationId, project.organizationId),
-					eq(schema.organizationMemberships.userId, user.id)
-				)
-			)
-			.get();
-		if (!membership && user.role !== 'admin') {
-			return c.json({ error: 'Forbidden' }, 403);
-		}
-	} else if (project.userId !== user.id && user.role !== 'admin') {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
 
 	const accessKeys = await db
 		.select()
@@ -318,16 +240,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const data = c.req.valid('json');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-	if (project.userId !== user.id && user.role !== 'admin') {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	const { project } = await requireProjectAccess(db, projectId, user, 'editor');
 
 	const updates: Partial<typeof schema.projects.$inferInsert> = {};
 	if (data.name) updates.name = data.name.trim();
@@ -350,16 +263,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const projectId = c.req.param('id');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-	if (project.userId !== user.id && user.role !== 'admin') {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	const { project } = await requireProjectAccess(db, projectId, user, 'admin');
 
 	// Delete from D1 (cascades related tables)
 	await db.delete(schema.projects).where(eq(schema.projects.id, projectId));
@@ -373,16 +277,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const data = c.req.valid('json');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-	if (project.userId !== user.id && user.role !== 'admin') {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	const { project } = await requireProjectAccess(db, projectId, user, 'editor');
 
 	const code = schema.generateNanoID(8).toUpperCase();
 	const keyId = crypto.randomUUID();
@@ -410,16 +305,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const keyId = c.req.param('keyId');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-	if (project.userId !== user.id && user.role !== 'admin') {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	await requireProjectAccess(db, projectId, user, 'editor');
 
 	await db
 		.delete(schema.projectAccessKeys)
@@ -450,30 +336,7 @@ export const projectsRouter = new Hono<AppEnv>()
 
 	if (!key) return c.json({ error: 'Access key not found' }, 404);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, key.projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	let hasAccess = user.role === 'admin' || project.userId === user.id;
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(
-				and(
-					eq(schema.organizationMemberships.organizationId, project.organizationId),
-					eq(schema.organizationMemberships.userId, user.id)
-				)
-			)
-			.get();
-		if (membership) hasAccess = true;
-	}
-
-	if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+	await requireProjectAccess(db, key.projectId, user, 'editor');
 
 	const isActive = body.isActive !== undefined ? Boolean(body.isActive) : true;
 	await db
@@ -497,30 +360,7 @@ export const projectsRouter = new Hono<AppEnv>()
 
 	if (!key) return c.json({ error: 'Access key not found' }, 404);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, key.projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	let hasAccess = user.role === 'admin' || project.userId === user.id;
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(
-				and(
-					eq(schema.organizationMemberships.organizationId, project.organizationId),
-					eq(schema.organizationMemberships.userId, user.id)
-				)
-			)
-			.get();
-		if (membership) hasAccess = true;
-	}
-
-	if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+	await requireProjectAccess(db, key.projectId, user, 'editor');
 
 	await db.delete(schema.projectAccessKeys).where(eq(schema.projectAccessKeys.id, keyId));
 
@@ -549,32 +389,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	}
 	const filePath = normalizedPath;
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	let hasAccess = user.role === 'admin' || project.userId === user.id;
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(
-				and(
-					eq(schema.organizationMemberships.organizationId, project.organizationId),
-					eq(schema.organizationMemberships.userId, user.id)
-				)
-			)
-			.get();
-		if (membership) hasAccess = true;
-	}
-
-	if (!hasAccess) {
-		return c.json({ error: 'Forbidden' }, 403);
-	}
+	const { project } = await requireProjectAccess(db, projectId, user, 'editor');
 
 	const contentLengthHeader = c.req.header('content-length');
 	if (!contentLengthHeader || isNaN(Number(contentLengthHeader))) {
@@ -668,25 +483,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const sessionId = c.req.param('sessionId');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	let hasAccess = user.role === 'admin' || project.userId === user.id || projectId === 'demo';
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
-			.get();
-		if (membership && membership.userId === user.id) hasAccess = true;
-	}
-
-	if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+	const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
 
 	const bucket = c.env.GAMES_BUCKET;
 	const r2Key = `games/${projectId}/sessions/${sessionId}.json`;
@@ -723,25 +520,7 @@ export const projectsRouter = new Hono<AppEnv>()
 	const sessionId = c.req.param('sessionId');
 	const db = createD1Client(c.env.DB);
 
-	const project = await db
-		.select()
-		.from(schema.projects)
-		.where(eq(schema.projects.id, projectId))
-		.get();
-
-	if (!project) return c.json({ error: 'Project not found' }, 404);
-
-	let hasAccess = user.role === 'admin' || project.userId === user.id;
-	if (!hasAccess && project.organizationId) {
-		const membership = await db
-			.select()
-			.from(schema.organizationMemberships)
-			.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
-			.get();
-		if (membership && membership.userId === user.id) hasAccess = true;
-	}
-
-	if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+	const { project } = await requireProjectAccess(db, projectId, user, 'editor');
 
 	const bucket = c.env.GAMES_BUCKET;
 	if (bucket) {
@@ -770,25 +549,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const project = await db
-			.select()
-			.from(schema.projects)
-			.where(eq(schema.projects.id, projectId))
-			.get();
-
-		if (!project) return c.json({ error: 'Project not found' }, 404);
-
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(schema.organizationMemberships)
-				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
-				.get();
-			if (membership && membership.userId === user.id) hasAccess = true;
-		}
-
-		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		type SessionPayload = {
@@ -910,25 +671,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const project = await db
-			.select()
-			.from(schema.projects)
-			.where(eq(schema.projects.id, projectId))
-			.get();
-
-		if (!project) return c.json({ error: 'Project not found' }, 404);
-
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(schema.organizationMemberships)
-				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
-				.get();
-			if (membership && membership.userId === user.id) hasAccess = true;
-		}
-
-		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		type SessionPayload = {
@@ -1001,25 +744,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const project = await db
-			.select()
-			.from(schema.projects)
-			.where(eq(schema.projects.id, projectId))
-			.get();
-
-		if (!project) return c.json({ error: 'Project not found' }, 404);
-
-		let hasAccess = user.role === 'admin' || project.userId === user.id;
-		if (!hasAccess && project.organizationId) {
-			const membership = await db
-				.select()
-				.from(schema.organizationMemberships)
-				.where(eq(schema.organizationMemberships.organizationId, project.organizationId))
-				.get();
-			if (membership && membership.userId === user.id) hasAccess = true;
-		}
-
-		if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
+		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		const zipFiles: Record<string, Uint8Array> = {};
@@ -1047,4 +772,49 @@ export const projectsRouter = new Hono<AppEnv>()
 			'Content-Type': 'application/zip',
 			'Content-Disposition': `attachment; filename="playtests-${projectId}-${Date.now()}.zip"`
 		});
-	});
+	})
+	// POST /v1/projects/:id/transfer - Transfer project to another organization
+	.post(
+		'/:id/transfer',
+		vValidator('json', v.object({ targetOrganizationId: v.string() })),
+		async (c) => {
+			const user = c.get('user')!;
+			const projectId = c.req.param('id');
+			const { targetOrganizationId } = c.req.valid('json');
+			const db = createD1Client(c.env.DB);
+
+			// Must be admin/owner of current project
+			await requireProjectAccess(db, projectId, user, 'admin');
+
+			// Must be admin/owner of target organization
+			const { organization: targetOrg } = await requireOrgAccess(
+				db,
+				targetOrganizationId,
+				user,
+				'admin'
+			);
+
+			// Check target organization project quota
+			if (targetOrg.tier !== 'team') {
+				const activeProjects = await db
+					.select()
+					.from(schema.projects)
+					.where(eq(schema.projects.organizationId, targetOrganizationId))
+					.all();
+
+				if (activeProjects.length >= TierLimits.free.maxActiveProjects) {
+					return c.json(
+						{ error: 'Target organization has reached its project limit under the free tier.' },
+						400
+					);
+				}
+			}
+
+			await db
+				.update(schema.projects)
+				.set({ organizationId: targetOrganizationId })
+				.where(eq(schema.projects.id, projectId));
+
+			return c.json({ success: true, organizationId: targetOrganizationId });
+		}
+	);

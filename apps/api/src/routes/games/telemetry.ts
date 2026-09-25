@@ -27,23 +27,3 @@ telemetryRouter.post('/', vValidator('json', TelemetryPayloadSchema), async (c) 
 	return c.json(result, response.status as 200 | 400 | 500);
 });
 
-// GET /v1/telemetry/session/:sessionId - Retrieve raw session logs from R2
-telemetryRouter.get('/session/:sessionId', async (c) => {
-	const sessionId = c.req.param('sessionId');
-	const bucket = c.env.GAMES_BUCKET;
-
-	if (!bucket) {
-		return c.json({ error: 'GAMES_BUCKET binding missing' }, 500);
-	}
-
-	// Raw session logs are stored at telemetry/sessions/{sessionId}.json
-	const r2Key = `telemetry/sessions/${sessionId}.json`;
-	const object = await bucket.get(r2Key);
-
-	if (!object) {
-		return c.notFound();
-	}
-
-	const data = await object.json();
-	return c.json({ session: data });
-});

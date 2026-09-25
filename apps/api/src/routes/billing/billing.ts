@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { vValidator } from '@hono/valibot-validator';
 import * as v from 'valibot';
 import { createD1Client, schema } from '@isitfun/db';
 import type { AppEnv } from '../../types';
 import { sessionMiddleware, requireAuth } from '../../middleware/auth';
+import { requireProjectAccess, requireOrgAccess } from '../../lib/auth-guard';
 
 // Helper to sync seats with Creem subscription
 export async function syncCreemSubscriptionSeats(
@@ -77,33 +78,7 @@ export const billingRouter = new Hono<AppEnv>()
 			const projectId = c.req.param('id');
 			const db = createD1Client(c.env.DB);
 
-			const project = await db
-				.select()
-				.from(schema.projects)
-				.where(eq(schema.projects.id, projectId))
-				.get();
-
-			if (!project) return c.json({ error: 'Project not found' }, 404);
-
-			let hasAccess = user.role === 'admin' || project.userId === user.id;
-			if (!hasAccess && project.organizationId) {
-				const membership = await db
-					.select()
-					.from(schema.organizationMemberships)
-					.where(
-						and(
-							eq(schema.organizationMemberships.organizationId, project.organizationId),
-							eq(schema.organizationMemberships.userId, user.id),
-							eq(schema.organizationMemberships.role, 'admin')
-						)
-					)
-					.get();
-				if (membership) hasAccess = true;
-			}
-
-			if (!hasAccess) {
-				return c.json({ error: 'Forbidden: Insufficient permissions to upgrade project' }, 403);
-			}
+			await requireProjectAccess(db, projectId, user, 'admin');
 
 			const body = c.req.valid('json');
 		const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';
@@ -163,31 +138,7 @@ export const billingRouter = new Hono<AppEnv>()
 			const orgId = c.req.param('id');
 			const db = createD1Client(c.env.DB);
 
-			const org = await db
-				.select()
-				.from(schema.organizations)
-				.where(eq(schema.organizations.id, orgId))
-				.get();
-
-			if (!org) return c.json({ error: 'Organization not found' }, 404);
-
-			const membership = await db
-				.select()
-				.from(schema.organizationMemberships)
-				.where(
-					and(
-						eq(schema.organizationMemberships.organizationId, orgId),
-						eq(schema.organizationMemberships.userId, user.id)
-					)
-				)
-				.get();
-
-			if (
-				(!membership || (membership.role !== 'owner' && membership.role !== 'admin')) &&
-				user.role !== 'admin'
-			) {
-				return c.json({ error: 'Forbidden: Organization admin access required' }, 403);
-			}
+			await requireOrgAccess(db, orgId, user, 'admin');
 
 			const body = c.req.valid('json');
 		const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
-import { telemetrySessions, organizationMemberships } from '@isitfun/db';
+import { telemetrySessions, organizationMemberships, organizations } from '@isitfun/db';
 
 describe('Database Schema Composite Indexes', () => {
 	it('should define a composite index (projectId, createdAt) on telemetrySessions', () => {
@@ -29,5 +29,17 @@ describe('Database Schema Composite Indexes', () => {
 
 		const columnNames = compositeIndex?.config.columns.map((col) => (col as { name: string }).name);
 		expect(columnNames).toEqual(['organization_id', 'user_id']);
+	});
+
+	it('should define a composite index (ownerId, type) on organizations for multi-tenancy', () => {
+		const config = getTableConfig(organizations);
+		const indexNames = config.indexes.map((idx) => idx.config.name);
+		expect(indexNames).toContain('org_owner_type_idx');
+
+		const compositeIndex = config.indexes.find((idx) => idx.config.name === 'org_owner_type_idx');
+		expect(compositeIndex).toBeDefined();
+
+		const columnNames = compositeIndex?.config.columns.map((col) => (col as { name: string }).name);
+		expect(columnNames).toEqual(['owner_id', 'type']);
 	});
 });

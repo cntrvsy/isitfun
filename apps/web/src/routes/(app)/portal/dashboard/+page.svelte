@@ -35,7 +35,17 @@
 	let origin = $state('https://isitfun.frstudios.co.ke');
 
 	// Multi-tenancy States
-	let selectedWorkspaceId = $state('personal');
+	let selectedWorkspaceId = $state('');
+	const personalOrg = $derived(
+		data.organizations.find((o: any) => o.type === 'personal') || data.organizations[0]
+	);
+
+	$effect(() => {
+		if (!selectedWorkspaceId && personalOrg) {
+			selectedWorkspaceId = personalOrg.id;
+		}
+	});
+
 	let showCreateOrgModal = $state(false);
 	let showOrgSettings = $state(false);
 
@@ -58,16 +68,12 @@
 	}
 
 	// Derived Workspace Variables
-	const activeWorkspaceProjects = $derived(
-		selectedWorkspaceId === 'personal'
-			? data.projects.filter((p) => !p.organizationId)
-			: data.projects.filter((p) => p.organizationId === selectedWorkspaceId)
+	const activeOrg = $derived(
+		data.organizations.find((o) => o.id === selectedWorkspaceId) || personalOrg
 	);
 
-	const activeOrg = $derived(
-		selectedWorkspaceId === 'personal'
-			? null
-			: data.organizations.find((o) => o.id === selectedWorkspaceId)
+	const activeWorkspaceProjects = $derived(
+		data.projects.filter((p) => p.organizationId === selectedWorkspaceId)
 	);
 
 	// Workspace aggregated storage & session counts
@@ -216,10 +222,9 @@
 					bind:value={selectedWorkspaceId}
 					class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-xs transition-all focus:border-purple-600 focus:outline-none"
 				>
-					<option value="personal">Personal Workspace</option>
 					{#each data.organizations as org (org.id)}
 						<option value={org.id}>
-							{org.name} ({org.tier === 'team' ? 'Team Plan' : 'Free'})
+							{(org as any).type === 'personal' ? '👤 Personal Workspace' : `🏢 ${org.name}`} ({org.tier === 'team' ? 'Team Plan' : 'Free'})
 						</option>
 					{/each}
 				</select>
@@ -239,7 +244,7 @@
 			>
 				<Plus class="h-3.5 w-3.5" /> New Team
 			</button>
-			{#if selectedWorkspaceId !== 'personal' && activeOrg}
+			{#if activeOrg && (activeOrg as any).type !== 'personal'}
 				<button
 					onclick={() => (showOrgSettings = !showOrgSettings)}
 					class="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-800 hover:bg-purple-100"
@@ -470,7 +475,7 @@
 <!-- Modals -->
 <CreateProjectModal
 	bind:show={showCreateModal}
-	organizationId={selectedWorkspaceId === 'personal' ? '' : selectedWorkspaceId}
+	organizationId={selectedWorkspaceId}
 />
 
 <UploadModal
