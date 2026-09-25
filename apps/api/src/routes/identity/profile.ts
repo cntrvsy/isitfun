@@ -3,8 +3,8 @@ import { eq } from 'drizzle-orm';
 import { vValidator } from '@hono/valibot-validator';
 import { createD1Client, schema } from '@isitfun/db';
 import { UpdateProfileSchema } from '@isitfun/shared';
-import type { AppEnv } from '../types';
-import { sessionMiddleware, requireAuth } from '../middleware/auth';
+import type { AppEnv } from '../../types';
+import { sessionMiddleware, requireAuth } from '../../middleware/auth';
 
 export const profileRouter = new Hono<AppEnv>()
 	.use('*', sessionMiddleware, requireAuth)

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { eq } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
-import type { AppEnv } from '../types';
-import { verifyWebhookSignature } from '../lib/crypto';
+import type { AppEnv } from '../../types';
+import { verifyWebhookSignature } from '../../lib/crypto';
 
 export const webhooksRouter = new Hono<AppEnv>();
 

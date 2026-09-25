@@ -3,8 +3,8 @@ import { eq, and } from 'drizzle-orm';
 import { vValidator } from '@hono/valibot-validator';
 import * as v from 'valibot';
 import { createD1Client, schema } from '@isitfun/db';
-import type { AppEnv } from '../types';
-import { sessionMiddleware, requireAuth } from '../middleware/auth';
+import type { AppEnv } from '../../types';
+import { sessionMiddleware, requireAuth } from '../../middleware/auth';
 
 // Helper to sync seats with Creem subscription
 export async function syncCreemSubscriptionSeats(

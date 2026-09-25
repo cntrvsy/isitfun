@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { vValidator } from '@hono/valibot-validator';
 import { TelemetryPayloadSchema } from '@isitfun/shared';
-import type { AppEnv } from '../types';
+import type { AppEnv } from '../../types';
 
 export const telemetryRouter = new Hono<AppEnv>();
 

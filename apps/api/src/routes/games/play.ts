@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import { eq, and, sql } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
 import { validateAccessKey } from '@isitfun/shared';
-import type { AppEnv } from '../types';
-import { createR2Response } from '../lib/r2';
-import { signSession, verifySession } from '../lib/crypto';
-import { getDemoPingPongHtml } from '../lib/demo-game';
+import type { AppEnv } from '../../types';
+import { createR2Response } from '../../lib/r2';
+import { signSession, verifySession } from '../../lib/crypto';
+import { getDemoPingPongHtml } from '../../lib/demo-game';
 
 export const playRouter = new Hono<AppEnv>();
 

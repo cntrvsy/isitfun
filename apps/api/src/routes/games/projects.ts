@@ -10,11 +10,11 @@ import {
 	TierLimits,
 	validateAccessKey
 } from '@isitfun/shared';
-import type { AppEnv } from '../types';
+import type { AppEnv } from '../../types';
 import type { ReadableStream as CFReadableStream } from '@cloudflare/workers-types';
-import { sessionMiddleware, requireAuth } from '../middleware/auth';
-import { hashPassword } from '../lib/crypto';
-import { guessContentType } from '../lib/r2';
+import { sessionMiddleware, requireAuth } from '../../middleware/auth';
+import { hashPassword } from '../../lib/crypto';
+import { guessContentType } from '../../lib/r2';
 import { zipSync, strToU8 } from 'fflate';
 
 export const projectsRouter = new Hono<AppEnv>()

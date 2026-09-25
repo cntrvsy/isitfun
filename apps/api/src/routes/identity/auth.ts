@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import type { AppEnv } from '../types';
-import { getAuth } from '../lib/auth';
+import type { AppEnv } from '../../types';
+import { getAuth } from '../../lib/auth';
 
 export const authRouter = new Hono<AppEnv>();
 

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { eq, and, inArray, desc, or, isNull, sql, lt } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
-import type { AppEnv } from '../types';
-import { sessionMiddleware, requireAuth } from '../middleware/auth';
+import type { AppEnv } from '../../types';
+import { sessionMiddleware, requireAuth } from '../../middleware/auth';
 
 export const dashboardRouter = new Hono<AppEnv>()
 	.use('*', sessionMiddleware, requireAuth)

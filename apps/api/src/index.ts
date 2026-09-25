@@ -2,16 +2,11 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { TelemetrySessionDO } from './durable-objects/TelemetrySessionDO';
 import type { AppEnv } from './types';
-import { authRouter } from './routes/auth';
-import { telemetryRouter } from './routes/telemetry';
-import { projectsRouter } from './routes/projects';
-import { orgsRouter } from './routes/orgs';
-import { webhooksRouter } from './routes/webhooks';
-import { playRouter } from './routes/play';
-import { dashboardRouter } from './routes/dashboard';
-import { profileRouter } from './routes/profile';
+import { authRouter, profileRouter } from './routes/identity';
+import { projectsRouter, playRouter, telemetryRouter } from './routes/games';
+import { orgsRouter, dashboardRouter } from './routes/workspace';
+import { billingRouter, webhooksRouter } from './routes/billing';
 import { adminRouter } from './routes/admin';
-import { billingRouter } from './routes/billing';
 
 // 1. Native Durable Object export for Cloudflare Workers
 export { TelemetrySessionDO };
@@ -62,5 +57,6 @@ const routes = app
 	.route('/play', playRouter)
 	.route('/v1/play', playRouter);
 
-export default app;
+export default routes;
 export type AppType = typeof routes;
+

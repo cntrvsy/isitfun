@@ -117,14 +117,11 @@ isitfun/
 │   │   │   │   ├── guard.ts           # RBAC & Org tier guards
 │   │   │   │   └── rate-limit.ts      # Cloudflare KV rate limiting
 │   │   │   ├── routes/
-│   │   │   │   ├── auth.ts            # Better-Auth handler mounting
-│   │   │   │   ├── orgs.ts            # Organization CRUD & membership
-│   │   │   │   ├── projects.ts        # Game projects & metadata
-│   │   │   │   ├── access-keys.ts     # Playtest access keys & caps
-│   │   │   │   ├── builds.ts          # Build upload & R2 unpack
-│   │   │   │   ├── play.ts            # Game streaming & token auth
-│   │   │   │   ├── telemetry.ts       # Telemetry ingestion endpoint
-│   │   │   │   └── webhooks.ts        # Payment webhook idempotency
+│   │   │   │   ├── identity/          # auth, profile
+│   │   │   │   ├── games/             # projects, play, telemetry
+│   │   │   │   ├── workspace/         # orgs, dashboard
+│   │   │   │   ├── billing/           # billing, webhooks
+│   │   │   │   └── admin/             # admin stats & governance
 │   │   │   ├── lib/
 │   │   │   │   ├── auth.ts            # Better-Auth Hono configuration
 │   │   │   │   ├── crypto.ts          # Play session token signatures
@@ -298,10 +295,8 @@ In `apps/api/src/index.ts`:
 ```ts
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { authRouter } from './routes/auth';
-import { projectsRouter } from './routes/projects';
-import { telemetryRouter } from './routes/telemetry';
-import { playRouter } from './routes/play';
+import { authRouter } from './routes/identity';
+import { projectsRouter, telemetryRouter, playRouter } from './routes/games';
 import { TelemetrySessionDO } from './durable-objects/TelemetrySessionDO';
 
 // 1. Export DO class directly (Clean native Cloudflare Workers pattern)

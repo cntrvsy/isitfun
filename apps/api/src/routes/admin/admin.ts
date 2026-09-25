@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { sql } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
-import type { AppEnv } from '../types';
-import { sessionMiddleware, requireAuth, requireRole } from '../middleware/auth';
+import type { AppEnv } from '../../types';
+import { sessionMiddleware, requireAuth, requireRole } from '../../middleware/auth';
 
 export const adminRouter = new Hono<AppEnv>()
 	.use('*', sessionMiddleware, requireAuth, requireRole('admin'))
