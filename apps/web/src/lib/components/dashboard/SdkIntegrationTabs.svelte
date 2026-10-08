@@ -31,28 +31,31 @@
 </script>
 
 <div class="mt-14 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-	<h2 class="text-xl font-bold tracking-tight text-slate-900">
-		Telemetry Integration Guide
-	</h2>
+	<h2 class="text-xl font-bold tracking-tight text-slate-900">Telemetry Integration Guide</h2>
 	<p class="mt-1 text-sm text-slate-600">
-		IsItFun exposes a window-level logging API. Embed the script and call our logging function from any HTML5 game engine.
+		IsItFun exposes a window-level logging API. Embed the script and call our logging function from
+		any HTML5 game engine.
 	</p>
 
 	<div class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
 		<!-- Setup Snippet -->
 		<div class="space-y-6 lg:col-span-2">
 			<div>
-				<h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+				<h3 class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
 					1. Include Script (Auto-injected on hosted builds)
 				</h3>
-				<div class="mt-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200">
-					<pre><code>&lt;script src="{origin}/assets/overlay-widget.js" data-project="YOUR_PROJECT_ID"&gt;&lt;/script&gt;</code></pre>
+				<div
+					class="mt-2 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200"
+				>
+					<pre><code
+							>&lt;script src="{origin}/assets/overlay-widget.js" data-project="YOUR_PROJECT_ID"&gt;&lt;/script&gt;</code
+						></pre>
 				</div>
 			</div>
 
 			<div>
 				<div class="flex items-center justify-between">
-					<h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+					<h3 class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
 						2. Call Log API from Game Engine
 					</h3>
 					<button
@@ -72,7 +75,7 @@
 					<button
 						onclick={() => (activeGuideTab = 'js')}
 						class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'js'
-							? 'border-purple-600 text-purple-700 font-bold'
+							? 'border-purple-600 font-bold text-purple-700'
 							: 'border-transparent text-slate-500 hover:text-slate-900'}"
 					>
 						JavaScript
@@ -80,7 +83,7 @@
 					<button
 						onclick={() => (activeGuideTab = 'godot')}
 						class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'godot'
-							? 'border-purple-600 text-purple-700 font-bold'
+							? 'border-purple-600 font-bold text-purple-700'
 							: 'border-transparent text-slate-500 hover:text-slate-900'}"
 					>
 						Godot 4
@@ -88,7 +91,7 @@
 					<button
 						onclick={() => (activeGuideTab = 'unity')}
 						class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'unity'
-							? 'border-purple-600 text-purple-700 font-bold'
+							? 'border-purple-600 font-bold text-purple-700'
 							: 'border-transparent text-slate-500 hover:text-slate-900'}"
 					>
 						Unity WebGL
@@ -96,29 +99,36 @@
 					<button
 						onclick={() => (activeGuideTab = 'phaser')}
 						class="border-b-2 px-4 py-2 transition-all {activeGuideTab === 'phaser'
-							? 'border-purple-600 text-purple-700 font-bold'
+							? 'border-purple-600 font-bold text-purple-700'
 							: 'border-transparent text-slate-500 hover:text-slate-900'}"
 					>
 						Phaser
 					</button>
 				</div>
 
-				<div class="mt-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200">
+				<div
+					class="mt-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200"
+				>
 					{#if activeGuideTab === 'js'}
-						<pre><code>// Native JS / HTML5 Canvas
+						<pre><code
+								>// Native JS / HTML5 Canvas
 window.IsItFun?.log("level_complete", &#123;
   level_id: "world_1_1",
   score: 12500,
   coins: 42
-&#125;);</code></pre>
+&#125;);</code
+							></pre>
 					{:else if activeGuideTab === 'godot'}
-						<pre><code># Godot 4 GDScript Web Bridge
+						<pre><code
+								># Godot 4 GDScript Web Bridge
 func log_event(event_name: String, data: Dictionary):
     if OS.has_feature("web"):
         var js_code = "window.IsItFun.log(%s, %s);" % [JSON.stringify(event_name), JSON.stringify(data)]
-        JavaScriptBridge.eval(js_code, true)</code></pre>
+        JavaScriptBridge.eval(js_code, true)</code
+							></pre>
 					{:else if activeGuideTab === 'unity'}
-						<pre><code>// 1. Create Assets/Plugins/WebGL/IsItFunBridge.jslib:
+						<pre><code
+								>// 1. Create Assets/Plugins/WebGL/IsItFunBridge.jslib:
 // mergeInto(LibraryManager.library, &#123;
 //   IsItFunLog: function(evtPtr, jsonPtr) &#123;
 //     var evt = UTF8ToString(evtPtr);
@@ -135,12 +145,15 @@ public void LogEvent(string name, object data) &#123;
     #if !UNITY_EDITOR && UNITY_WEBGL
     IsItFunLog(name, JsonUtility.ToJson(data));
     #endif
-&#125;</code></pre>
+&#125;</code
+							></pre>
 					{:else if activeGuideTab === 'phaser'}
-						<pre><code>// Phaser 3 Scene Event Logging
+						<pre><code
+								>// Phaser 3 Scene Event Logging
 this.events.on('score_changed', (newScore) => &#123;
     window.IsItFun?.log("score_update", &#123; score: newScore &#125;);
-&#125;);</code></pre>
+&#125;);</code
+							></pre>
 					{/if}
 				</div>
 			</div>
@@ -148,7 +161,7 @@ this.events.on('score_changed', (newScore) => &#123;
 
 		<!-- Rate Limits & Retention -->
 		<div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-6">
-			<h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+			<h3 class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
 				Limits & Retention
 			</h3>
 
@@ -157,7 +170,8 @@ this.events.on('score_changed', (newScore) => &#123;
 				<div>
 					<h4 class="text-xs font-bold text-slate-900">Protective Rate Limits</h4>
 					<p class="text-[11px] leading-relaxed text-slate-600">
-						Projects are protected with a rate limit of 5,000 logs/day to guard against infinite game loops.
+						Projects are protected with a rate limit of 5,000 logs/day to guard against infinite
+						game loops.
 					</p>
 				</div>
 			</div>
@@ -167,7 +181,8 @@ this.events.on('score_changed', (newScore) => &#123;
 				<div>
 					<h4 class="text-xs font-bold text-slate-900">7-Day Log Decay</h4>
 					<p class="text-[11px] leading-relaxed text-slate-600">
-						Free tier sessions decay after 7 days. Commercial projects retain lifetime historical logs.
+						Free tier sessions decay after 7 days. Commercial projects retain lifetime historical
+						logs.
 					</p>
 				</div>
 			</div>

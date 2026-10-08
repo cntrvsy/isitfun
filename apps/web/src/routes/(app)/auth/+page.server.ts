@@ -1,11 +1,12 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { getApiBaseUrl } from '#lib/api/config.js';
 
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
 		if (event.locals.user.role === 'admin') {
 			return redirect(302, '/portal/admin');
-		} else if (event.locals.user.role === 'game_developer') {
+		} else {
 			return redirect(302, '/portal/dashboard');
 		}
 	}
@@ -13,27 +14,14 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
-	signInSocial: async (event) => {
-		const formData = await event.request.formData();
-		const provider = formData.get('provider')?.toString() ?? 'github';
-		const callbackURL = formData.get('callbackURL')?.toString() ?? '/auth';
-
-		const result = await event.locals.auth.api.signInSocial({
-			body: {
-				provider: provider as 'github' | 'google',
-				callbackURL
-			}
-		});
-
-		if (result.url) {
-			return redirect(302, result.url);
-		}
-		return fail(400, { message: 'Social sign-in failed' });
-	},
 	signOut: async (event) => {
-		await event.locals.auth.api.signOut({
-			headers: event.request.headers
-		});
+		const baseUrl = getApiBaseUrl(event.platform);
+		await fetch(`${baseUrl}/v1/auth/sign-out`, {
+			method: 'POST',
+			headers: { cookie: event.request.headers.get('cookie') || '' }
+		}).catch(() => {});
+
+		event.cookies.delete('better-auth.session_token', { path: '/' });
 		return redirect(302, '/auth');
 	}
 };

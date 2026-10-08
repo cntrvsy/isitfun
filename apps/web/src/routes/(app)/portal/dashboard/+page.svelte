@@ -157,7 +157,7 @@
 </script>
 
 {#snippet startedCell({ getValue }: any)}
-	<span class="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+	<span class="font-mono text-[11px] whitespace-nowrap text-slate-500">
 		{new Date(getValue()).toLocaleString()}
 	</span>
 {/snippet}
@@ -170,11 +170,16 @@
 
 {#snippet sentimentCell({ getValue }: any)}
 	{#if getValue() === 'fun'}
-		<span class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Fun</span>
+		<span class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
+			>Fun</span
+		>
 	{:else if getValue() === 'neutral'}
-		<span class="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Neutral</span>
+		<span class="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+			>Neutral</span
+		>
 	{:else if getValue() === 'unfun'}
-		<span class="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">Unfun</span>
+		<span class="rounded bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">Unfun</span
+		>
 	{:else}
 		<span class="text-slate-400">—</span>
 	{/if}
@@ -182,11 +187,15 @@
 
 {#snippet statusCell({ getValue }: any)}
 	{#if getValue()}
-		<span class="inline-flex items-center gap-1 rounded bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+		<span
+			class="inline-flex items-center gap-1 rounded bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700"
+		>
 			<span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Crashed
 		</span>
 	{:else}
-		<span class="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+		<span
+			class="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
+		>
 			<span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Clean
 		</span>
 	{/if}
@@ -214,7 +223,9 @@
 <!-- Main Content Area -->
 <main class="mx-auto mt-8 w-full max-w-7xl flex-1 px-6 pb-24 lg:px-12">
 	<!-- Workspace Switcher Ribbon -->
-	<div class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+	<div
+		class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-5"
+	>
 		<div class="flex items-center gap-3">
 			<span class="text-xs font-semibold text-slate-500">Workspace</span>
 			<div class="relative">
@@ -224,7 +235,10 @@
 				>
 					{#each data.organizations as org (org.id)}
 						<option value={org.id}>
-							{(org as any).type === 'personal' ? '👤 Personal Workspace' : `🏢 ${org.name}`} ({org.tier === 'team' ? 'Team Plan' : 'Free'})
+							{(org as any).type === 'personal' ? '👤 Personal Workspace' : `🏢 ${org.name}`} ({org.tier ===
+							'team'
+								? 'Team Plan'
+								: 'Free'})
 						</option>
 					{/each}
 				</select>
@@ -290,7 +304,9 @@
 	<div class="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
 		<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Active Builds</span>
+				<span class="text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>Active Builds</span
+				>
 				<Activity class="h-4 w-4 text-purple-600" />
 			</div>
 			<div class="mt-3 text-2xl font-bold tracking-tight text-slate-900">
@@ -300,11 +316,15 @@
 
 		<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Storage Usage</span>
+				<span class="text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>Storage Usage</span
+				>
 				<HardDrive class="h-4 w-4 text-indigo-600" />
 			</div>
 			<div class="mt-3 flex items-baseline gap-1.5">
-				<span class="text-2xl font-bold tracking-tight text-slate-900">{workspaceStorageUsedMB} MB</span>
+				<span class="text-2xl font-bold tracking-tight text-slate-900"
+					>{workspaceStorageUsedMB} MB</span
+				>
 				<span class="text-xs font-medium text-slate-400">/ {workspaceStorageMaxMB} MB</span>
 			</div>
 			<div class="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -317,7 +337,9 @@
 
 		<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
 			<div class="flex items-center justify-between">
-				<span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Sessions</span>
+				<span class="text-xs font-medium tracking-wider text-slate-500 uppercase"
+					>Total Sessions</span
+				>
 				<BarChart3 class="h-4 w-4 text-emerald-600" />
 			</div>
 			<div class="mt-3 text-2xl font-bold tracking-tight text-slate-900">
@@ -338,7 +360,9 @@
 			{#if activeProject}
 				<div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
 					<!-- Breadcrumb Header -->
-					<div class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+					<div
+						class="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5"
+					>
 						<div class="flex items-center gap-3">
 							<button
 								onclick={() => (activeProjectAnalyticsId = null)}
@@ -349,15 +373,21 @@
 							<div class="h-4 w-px bg-slate-200"></div>
 							<h3 class="text-lg font-bold text-slate-900">
 								{activeProject.name}
-								<span class="font-mono text-xs font-normal text-slate-400">({activeProject.id})</span>
+								<span class="font-mono text-xs font-normal text-slate-400"
+									>({activeProject.id})</span
+								>
 							</h3>
 						</div>
 						<div class="flex items-center gap-2">
-							<span class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 uppercase">
+							<span
+								class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 uppercase"
+							>
 								{activeProject.tier}
 							</span>
 							{#if activeProject.passwordProtected}
-								<span class="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+								<span
+									class="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+								>
 									Protected
 								</span>
 							{/if}
@@ -386,9 +416,11 @@
 					</div>
 
 					<!-- Export Data Options -->
-					<div class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-5">
+					<div
+						class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-5"
+					>
 						<div>
-							<h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">
+							<h4 class="text-xs font-bold tracking-wider text-slate-900 uppercase">
 								Export Raw Playtest Data
 							</h4>
 							<p class="mt-0.5 text-xs text-slate-500">
@@ -429,13 +461,15 @@
 					<!-- Sessions Table powered by TanStack Table -->
 					<div class="space-y-3">
 						<div class="flex items-center justify-between">
-							<h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+							<h4 class="text-xs font-bold tracking-wider text-slate-500 uppercase">
 								Playtest Sessions
 							</h4>
 						</div>
 
 						{#if projectSessions.length === 0}
-							<div class="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center">
+							<div
+								class="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12 text-center"
+							>
 								<Inbox class="mx-auto h-8 w-8 text-slate-400" />
 								<h4 class="mt-2 text-xs font-bold text-slate-800">No playtests yet</h4>
 								<p class="mt-1 text-xs text-slate-500">
@@ -473,10 +507,7 @@
 <Footer />
 
 <!-- Modals -->
-<CreateProjectModal
-	bind:show={showCreateModal}
-	organizationId={selectedWorkspaceId}
-/>
+<CreateProjectModal bind:show={showCreateModal} organizationId={selectedWorkspaceId} />
 
 <UploadModal
 	bind:show={showUploadModal}

@@ -156,7 +156,9 @@
 			if (logCountThisSecond === MAX_LOGS_PER_SEC + 1) {
 				logQueue.push({
 					event: 'console.warn',
-					data: { message: '[IsItFun] Console log rate limit exceeded (>20/sec). Throttling logs.' },
+					data: {
+						message: '[IsItFun] Console log rate limit exceeded (>20/sec). Throttling logs.'
+					},
 					timestamp: Date.now()
 				});
 			}

@@ -140,9 +140,7 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 	let setKeyCookieHeader: string | null = null;
 
 	if (keys.length > 0) {
-		const matchingKey = keys.find(
-			(k) => k.code.toUpperCase() === (targetCode || '').toUpperCase()
-		);
+		const matchingKey = keys.find((k) => k.code.toUpperCase() === (targetCode || '').toUpperCase());
 		const validation = validateAccessKey(matchingKey);
 
 		if (!validation.valid) {

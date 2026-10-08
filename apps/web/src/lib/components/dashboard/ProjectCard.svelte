@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
-	import { deleteProject, upgradeProject } from '../../../routes/(app)/portal/dashboard/dashboard.remote';
+	import {
+		deleteProject,
+		upgradeProject
+	} from '../../../routes/(app)/portal/dashboard/dashboard.remote';
 	import { Lock, Check, Trash2, BarChart2, Upload, Copy } from '@lucide/svelte';
 
 	interface Quota {

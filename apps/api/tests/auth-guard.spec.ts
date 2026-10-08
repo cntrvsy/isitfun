@@ -104,23 +104,13 @@ describe('Multi-Tenant Auth Guard & RBAC Hierarchy', () => {
 
 		it('grants owner access to view and delete project', async () => {
 			const db = createMockDb('owner');
-			const result = await requireProjectAccess(
-				db,
-				'proj_123',
-				{ id: 'user_owner' },
-				'admin'
-			);
+			const result = await requireProjectAccess(db, 'proj_123', { id: 'user_owner' }, 'admin');
 			expect(result.membershipRole).toBe('owner');
 		});
 
 		it('grants admin access to edit and delete project', async () => {
 			const db = createMockDb('admin');
-			const result = await requireProjectAccess(
-				db,
-				'proj_123',
-				{ id: 'user_admin' },
-				'admin'
-			);
+			const result = await requireProjectAccess(db, 'proj_123', { id: 'user_admin' }, 'admin');
 			expect(result.membershipRole).toBe('admin');
 		});
 
@@ -160,12 +150,7 @@ describe('Multi-Tenant Auth Guard & RBAC Hierarchy', () => {
 
 		it('grants owner access to personal demo project', async () => {
 			const db = createMockDb(null);
-			const result = await requireProjectAccess(
-				db,
-				'demo_user_1',
-				{ id: 'user_1' },
-				'viewer'
-			);
+			const result = await requireProjectAccess(db, 'demo_user_1', { id: 'user_1' }, 'viewer');
 			expect(result.membershipRole).toBe('owner');
 		});
 	});

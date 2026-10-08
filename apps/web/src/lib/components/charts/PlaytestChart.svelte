@@ -72,15 +72,11 @@
 
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 	<!-- Chart 1: 14-Day Playtest Sessions Trend (layerchart LineChart) -->
-	<div
-		class="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs lg:col-span-2"
-	>
+	<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs lg:col-span-2">
 		<div class="mb-6 flex items-center justify-between">
 			<div>
 				<h3 class="text-base font-bold text-slate-900">Daily Playtest Sessions</h3>
-				<p class="text-xs text-slate-500">
-					Volume of playtest runs over the past 14 days.
-				</p>
+				<p class="text-xs text-slate-500">Volume of playtest runs over the past 14 days.</p>
 			</div>
 			<span
 				class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 uppercase"
@@ -106,9 +102,7 @@
 	>
 		<div>
 			<h3 class="text-base font-bold text-slate-900">Player Sentiment</h3>
-			<p class="text-xs text-slate-500">
-				Qualitative ratings from playtesters.
-			</p>
+			<p class="text-xs text-slate-500">Qualitative ratings from playtesters.</p>
 
 			<div class="mt-6 space-y-4">
 				<!-- Fun -->

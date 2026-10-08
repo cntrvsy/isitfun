@@ -60,6 +60,7 @@ export function getAuth(env: Bindings, requestURL?: string) {
 		trustedOrigins,
 		emailAndPassword: {
 			enabled: true,
+			disableSignUp: true,
 			async sendResetPassword({ user, url }) {
 				await sendPasswordResetEmail({
 					apiKey: env.RESEND_API_KEY,

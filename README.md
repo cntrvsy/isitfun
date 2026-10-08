@@ -54,6 +54,7 @@ flowchart LR
 ```
 
 ### Key Architectural Wins:
+
 1. **Zero-Storage Isolation**: `apps/web` has zero direct database (D1) or storage (R2/KV) bindings. It communicates purely via typed Hono RPC (`locals.api`) over Cloudflare Service Bindings.
 2. **Native Durable Objects**: `TelemetrySessionDO` is exported directly as a native class from `apps/api/src/index.ts`, eliminating AST patch hacks.
 3. **Sub-5ms Telemetry Ingestion**: High-frequency game telemetry bypasses SSR, cookie extraction, and user auth overhead, forwarding directly to in-memory Durable Object buffers.
@@ -95,25 +96,33 @@ isitfun/
 ## 🚀 Quickstart & Local Development
 
 ### 1. Prerequisites
+
 - Node.js `22.x` or higher
 - npm `10.x` or higher
 
 ### 2. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 3. Environment Configuration
+
 Copy `.env.example` to set up local environment files:
+
 - Backend worker secrets: `apps/api/.dev.vars` (see `.env.example`)
 - Frontend client configs: `apps/web/.env`
 
 ### 4. Start Development Servers
+
 Run both workers concurrently (`apps/api` on `8787` and `apps/web` on `5173`):
+
 ```bash
 npm run dev
 ```
+
 Or run individually:
+
 ```bash
 npm run dev:api   # Hono API Worker (http://localhost:8787)
 npm run dev:web   # SvelteKit Frontend (http://localhost:5173)
@@ -162,6 +171,7 @@ npm run format
 Deployments are natively automated via **Cloudflare Workers Git Integration (Push-to-Deploy)** connected to your GitHub repository:
 
 ### Cloudflare Dashboard Configuration
+
 1. **API Worker (`isitfun-api`)**:
    - Repository: `cntrvsy/isitfun` (branch: `main`)
    - Root directory: `apps/api` (or monorepo root)

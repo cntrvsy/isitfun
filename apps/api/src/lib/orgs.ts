@@ -15,10 +15,7 @@ export async function ensurePersonalOrganization(
 		.select()
 		.from(schema.organizations)
 		.where(
-			and(
-				eq(schema.organizations.ownerId, user.id),
-				eq(schema.organizations.type, 'personal')
-			)
+			and(eq(schema.organizations.ownerId, user.id), eq(schema.organizations.type, 'personal'))
 		)
 		.get();
 

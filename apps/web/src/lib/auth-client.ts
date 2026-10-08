@@ -1,7 +1,11 @@
 import { createAuthClient } from 'better-auth/svelte';
-import { emailOTPClient } from 'better-auth/client/plugins';
 
+/**
+ * First-party Better-Auth client.
+ * In the browser, points to window.location.origin with basePath: '/v1/auth',
+ * which routes transparently through hooks.server.ts handleGateway to apps/api.
+ */
 export const authClient = createAuthClient({
-	baseURL: typeof window !== 'undefined' ? '/v1/auth' : 'http://localhost:8787/v1/auth',
-	plugins: [emailOTPClient()]
+	baseURL: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8787',
+	basePath: '/v1/auth'
 });

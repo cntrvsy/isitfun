@@ -17,9 +17,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
 	>
-		<div
-			class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
-		>
+		<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
 			<header class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
 				<h3 class="text-lg font-bold tracking-tight text-slate-900">Create Team Workspace</h3>
 				<button

@@ -22,12 +22,15 @@
 	<div class="relative z-10 w-full max-w-md">
 		{#if data.notFound}
 			<div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 text-center shadow-xl">
-				<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400">
+				<div
+					class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400"
+				>
 					<AlertCircle class="h-6 w-6" />
 				</div>
 				<h1 class="text-xl font-bold tracking-tight text-white">Playtest Unavailable</h1>
 				<p class="mt-2 text-xs text-slate-400">
-					This playtest link is missing or no longer active. Please request an updated access key from the game developer.
+					This playtest link is missing or no longer active. Please request an updated access key
+					from the game developer.
 				</p>
 				<a
 					href={resolve('/(website)')}
@@ -40,12 +43,15 @@
 			<div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl">
 				<!-- Header -->
 				<div class="mb-6 text-center">
-					<div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-400">
+					<div
+						class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-400"
+					>
 						<Lock class="h-6 w-6" />
 					</div>
 					<h1 class="text-xl font-bold tracking-tight text-white">Private Playtest</h1>
 					<p class="mt-1 text-xs text-slate-400">
-						This build of <span class="font-semibold text-purple-300">{data.projectName}</span> requires access authorization.
+						This build of <span class="font-semibold text-purple-300">{data.projectName}</span> requires
+						access authorization.
 					</p>
 				</div>
 
@@ -64,7 +70,10 @@
 					<input type="hidden" name="projectId" value={data.projectId} />
 
 					<div>
-						<label class="mb-1.5 block text-xs font-semibold text-slate-300" for="playtest-password">
+						<label
+							class="mb-1.5 block text-xs font-semibold text-slate-300"
+							for="playtest-password"
+						>
 							Access Password / Code
 						</label>
 						<input

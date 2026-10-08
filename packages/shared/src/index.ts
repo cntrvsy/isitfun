@@ -109,19 +109,19 @@ export const CreateProjectSchema = v.object({
 	name: v.pipe(v.string(), v.nonEmpty('Project name is required')),
 	passwordProtected: v.optional(v.boolean(), false),
 	password: v.optional(v.string()),
-	organizationId: v.optional(v.nullable(v.string()))
+	organizationId: v.optional(v.string())
 });
 
 export const UpdateProjectSchema = v.object({
 	name: v.optional(v.pipe(v.string(), v.nonEmpty('Project name is required'))),
-	passwordProtected: v.optional(v.boolean()),
+	passwordProtected: v.optional(v.boolean(), false),
 	password: v.optional(v.string())
 });
 
 export const CreateAccessKeySchema = v.object({
 	name: v.pipe(v.string(), v.nonEmpty('Key name is required')),
-	maxUses: v.optional(v.nullable(v.number())),
-	expiresAt: v.optional(v.nullable(v.string()))
+	maxUses: v.optional(v.number()),
+	expiresAt: v.optional(v.string())
 });
 
 export const CreateOrgSchema = v.object({
@@ -136,7 +136,7 @@ export const InviteMemberSchema = v.object({
 export const UpdateProfileSchema = v.object({
 	firstName: v.pipe(v.string(), v.minLength(2, 'Must be at least 2 characters')),
 	lastName: v.pipe(v.string(), v.minLength(2, 'Must be at least 2 characters')),
-	organizationName: v.optional(v.nullable(v.string()))
+	organizationName: v.optional(v.string())
 });
 
 export type CreateProjectInput = v.InferOutput<typeof CreateProjectSchema>;

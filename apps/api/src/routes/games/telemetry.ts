@@ -26,4 +26,3 @@ telemetryRouter.post('/', vValidator('json', TelemetryPayloadSchema), async (c) 
 	const result = (await response.json()) as Record<string, unknown>;
 	return c.json(result, response.status as 200 | 400 | 500);
 });
-

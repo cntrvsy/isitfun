@@ -60,7 +60,8 @@
 			logs = json.logs || [];
 			sessionData = json.session || null;
 		} catch (err: unknown) {
-			fetchError = err instanceof Error ? err.message : 'Error retrieving telemetry from edge storage';
+			fetchError =
+				err instanceof Error ? err.message : 'Error retrieving telemetry from edge storage';
 		} finally {
 			isLoading = false;
 		}
@@ -89,7 +90,12 @@
 			} else if (selectedFilter === 'feedback') {
 				if (log.event !== 'feedback') return false;
 			} else if (selectedFilter === 'log') {
-				if (log.event.startsWith('console.error') || log.event === 'console.warn' || log.event === 'feedback') return false;
+				if (
+					log.event.startsWith('console.error') ||
+					log.event === 'console.warn' ||
+					log.event === 'feedback'
+				)
+					return false;
 			}
 
 			if (searchQuery.trim()) {
@@ -104,7 +110,12 @@
 
 	function formatTimestamp(ts: number) {
 		const d = new Date(ts);
-		return d.toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+		return d.toLocaleTimeString([], {
+			hour12: false,
+			minute: '2-digit',
+			second: '2-digit',
+			fractionalSecondDigits: 3
+		});
 	}
 </script>
 
@@ -112,7 +123,9 @@
 	{#if log.event === 'console.error' || log.event === 'error' || log.event === 'unhandledrejection'}
 		<div class="rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-rose-300 shadow-xs">
 			<div class="flex items-center justify-between pb-2">
-				<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-rose-400">
+				<span
+					class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-rose-400"
+				>
 					<span class="h-2 w-2 rounded-full bg-rose-500"></span>
 					{log.event.toUpperCase()}
 				</span>
@@ -123,17 +136,23 @@
 			</div>
 			{#if log.data?.stack}
 				<details class="mt-3">
-					<summary class="cursor-pointer font-sans text-[11px] font-semibold text-rose-400 hover:underline">
+					<summary
+						class="cursor-pointer font-sans text-[11px] font-semibold text-rose-400 hover:underline"
+					>
 						View Stack Trace
 					</summary>
-					<pre class="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-3 text-[10px] text-slate-400">{log.data.stack}</pre>
+					<pre
+						class="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-3 text-[10px] text-slate-400">{log
+							.data.stack}</pre>
 				</details>
 			{/if}
 		</div>
 	{:else if log.event === 'console.warn'}
 		<div class="rounded-xl border border-amber-500/20 bg-amber-950/20 p-3 text-amber-300">
 			<div class="flex items-center justify-between">
-				<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-amber-400">
+				<span
+					class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-amber-400"
+				>
 					<span class="h-2 w-2 rounded-full bg-amber-500"></span>
 					WARN
 				</span>
@@ -146,14 +165,18 @@
 	{:else if log.event === 'feedback'}
 		<div class="rounded-xl border border-purple-500/30 bg-purple-950/30 p-4 text-purple-200">
 			<div class="flex items-center justify-between">
-				<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-purple-300">
+				<span
+					class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-purple-300"
+				>
 					<span class="h-2 w-2 rounded-full bg-purple-400"></span>
 					PLAYTESTER FEEDBACK
 				</span>
 				<span class="font-mono text-[10px] text-slate-400">{formatTimestamp(log.timestamp)}</span>
 			</div>
 			<div class="mt-2 flex items-center gap-2">
-				<span class="rounded-md bg-purple-900/60 px-2 py-0.5 font-mono text-xs font-bold text-purple-200 uppercase">
+				<span
+					class="rounded-md bg-purple-900/60 px-2 py-0.5 font-mono text-xs font-bold text-purple-200 uppercase"
+				>
 					Rating: {log.data?.sentiment || 'Neutral'}
 				</span>
 			</div>
@@ -164,41 +187,60 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="flex items-start gap-3 rounded-lg border border-slate-800/60 bg-slate-900/40 p-2.5 font-mono text-xs text-slate-300 hover:bg-slate-900">
+		<div
+			class="flex items-start gap-3 rounded-lg border border-slate-800/60 bg-slate-900/40 p-2.5 font-mono text-xs text-slate-300 hover:bg-slate-900"
+		>
 			<span class="text-slate-500">[{formatTimestamp(log.timestamp)}]</span>
 			<span class="font-bold text-blue-400">{log.event}:</span>
-			<span class="flex-1 whitespace-pre-wrap text-slate-200">{log.data?.message || JSON.stringify(log.data)}</span>
+			<span class="flex-1 whitespace-pre-wrap text-slate-200"
+				>{log.data?.message || JSON.stringify(log.data)}</span
+			>
 		</div>
 	{/if}
 {/snippet}
 
 {#if isOpen}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-		<div class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+	>
+		<div
+			class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+		>
 			<!-- Header -->
 			<div class="flex items-center justify-between border-b border-slate-100 p-6">
 				<div>
 					<div class="flex items-center gap-3">
 						<h3 class="text-lg font-bold tracking-tight text-slate-900">Session Inspector</h3>
-						<span class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-600">
+						<span
+							class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-xs text-slate-600"
+						>
 							ID: {sessionId.slice(0, 12)}
 						</span>
 					</div>
 					{#if sessionData}
 						<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
 							{#if sessionData.avgFps}
-								<span class="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 font-semibold text-purple-700">
-									<Activity class="h-3 w-3" /> {sessionData.avgFps} FPS
+								<span
+									class="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 font-semibold text-purple-700"
+								>
+									<Activity class="h-3 w-3" />
+									{sessionData.avgFps} FPS
 								</span>
 							{/if}
 							{#if sessionData.sentiment}
-								<span class="rounded bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 uppercase">
+								<span
+									class="rounded bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 uppercase"
+								>
 									{sessionData.sentiment}
 								</span>
 							{/if}
 							{#if sessionData.gpuRenderer}
-								<span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-slate-600" title={sessionData.gpuRenderer}>
-									<Monitor class="h-3 w-3" /> {sessionData.gpuRenderer.slice(0, 24)}...
+								<span
+									class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-slate-600"
+									title={sessionData.gpuRenderer}
+								>
+									<Monitor class="h-3 w-3" />
+									{sessionData.gpuRenderer.slice(0, 24)}...
 								</span>
 							{/if}
 						</div>
@@ -215,45 +257,52 @@
 			</div>
 
 			<!-- Filter Ribbon -->
-			<div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 p-4">
+			<div
+				class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 p-4"
+			>
 				<div class="flex items-center gap-1.5">
 					<button
 						onclick={() => (selectedFilter = 'all')}
-						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter === 'all'
+						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter ===
+						'all'
 							? 'bg-slate-900 text-white'
-							: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}"
+							: 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 					>
 						All Logs ({logs.length})
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'error')}
-						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter === 'error'
+						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter ===
+						'error'
 							? 'bg-rose-600 text-white'
-							: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}"
+							: 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 					>
 						Errors
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'warn')}
-						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter === 'warn'
+						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter ===
+						'warn'
 							? 'bg-amber-600 text-white'
-							: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}"
+							: 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 					>
 						Warnings
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'log')}
-						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter === 'log'
+						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter ===
+						'log'
 							? 'bg-blue-600 text-white'
-							: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}"
+							: 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 					>
 						Console Logs
 					</button>
 					<button
 						onclick={() => (selectedFilter = 'feedback')}
-						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter === 'feedback'
+						class="rounded-lg px-3 py-1 text-xs font-semibold transition-all {selectedFilter ===
+						'feedback'
 							? 'bg-purple-600 text-white'
-							: 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}"
+							: 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}"
 					>
 						Feedback
 					</button>
@@ -275,7 +324,9 @@
 						<p class="font-sans text-xs">Loading session telemetry from R2...</p>
 					</div>
 				{:else if fetchError}
-					<div class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-rose-400">
+					<div
+						class="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-rose-400"
+					>
 						<p class="font-sans font-bold">Failed to load session details</p>
 						<p class="mt-1 text-xs opacity-80">{fetchError}</p>
 					</div>
@@ -293,7 +344,9 @@
 			</div>
 
 			<!-- Modal Footer -->
-			<div class="flex items-center justify-between border-t border-slate-100 p-4 text-xs text-slate-500">
+			<div
+				class="flex items-center justify-between border-t border-slate-100 p-4 text-xs text-slate-500"
+			>
 				<span>Showing {filteredLogs.length} events</span>
 				<button
 					onclick={onClose}

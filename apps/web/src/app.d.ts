@@ -8,6 +8,7 @@ declare global {
 		interface Platform {
 			env: Env & {
 				API: Fetcher;
+				DRIFTER_CONTROL?: KVNamespace;
 			};
 			cf: CfProperties;
 			ctx: ExecutionContext;
@@ -17,8 +18,6 @@ declare global {
 			user: (User & { role: 'game_developer' | 'admin' }) | null;
 			session: Session | null;
 			api: ApiClient;
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			auth?: any;
 		}
 
 		// interface Error {}

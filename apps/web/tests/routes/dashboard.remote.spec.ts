@@ -49,7 +49,8 @@ describe('dashboard.remote', () => {
 							ok: false,
 							status: 400,
 							json: async () => ({
-								error: 'Free tier is limited to 1 active project. Delete your existing project or upgrade.'
+								error:
+									'Free tier is limited to 1 active project. Delete your existing project or upgrade.'
 							})
 						})
 					}

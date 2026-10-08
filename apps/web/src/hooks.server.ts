@@ -1,6 +1,7 @@
 import { redirect, error } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { createApiClient } from '#lib/api/client.js';
+import { getApiBaseUrl } from '#lib/api/config.js';
 
 // 1. Service Binding Gateway: transparently reverse-proxy /v1/*, /play/*, and legacy endpoints to Hono worker
 export const handleGateway: Handle = async ({ event, resolve }) => {
@@ -12,9 +13,7 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 		pathname.startsWith('/play') ||
 		pathname.startsWith('/api/auth') ||
 		pathname.startsWith('/api/telemetry') ||
-		pathname.startsWith('/api/webhooks') ||
-		pathname.startsWith('/api/games') ||
-		pathname.startsWith('/api/portal/projects')
+		pathname.startsWith('/api/webhooks')
 	) {
 		const apiBinding = event.platform?.env?.API;
 
@@ -26,17 +25,11 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 			targetPath = targetPath.replace('/api/telemetry', '/v1/telemetry');
 		} else if (targetPath.startsWith('/api/webhooks')) {
 			targetPath = targetPath.replace('/api/webhooks', '/v1/webhooks');
-		} else if (/^\/api\/games\/([^/]+)\/upload/.test(targetPath)) {
-			targetPath = targetPath.replace(/^\/api\/games\/([^/]+)\/upload/, '/v1/projects/$1/upload');
-		} else if (/^\/api\/(?:games|portal\/projects)\/([^/]+)\/sessions\/([^/]+)/.test(targetPath)) {
-			targetPath = targetPath.replace(
-				/^\/api\/(?:games|portal\/projects)\/([^/]+)\/sessions\/([^/]+)/,
-				'/v1/projects/$1/sessions/$2'
-			);
 		}
 
 		if (import.meta.env.DEV) {
-			const targetUrl = `http://localhost:8787${targetPath}${event.url.search}`;
+			const apiBase = getApiBaseUrl(event.platform);
+			const targetUrl = `${apiBase}${targetPath}${event.url.search}`;
 			const res = await fetch(targetUrl, {
 				method: event.request.method,
 				headers: event.request.headers,
@@ -51,6 +44,24 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 			const responseHeaders = new Headers(res.headers);
 			responseHeaders.delete('content-encoding');
 			responseHeaders.delete('content-length');
+
+			// Development Cookie Sanitization:
+			// When proxying to a remote or local API on plain HTTP, strip Domain and Secure so localhost can accept cookies.
+			const rawSetCookie = res.headers.getSetCookie
+				? res.headers.getSetCookie()
+				: ([res.headers.get('set-cookie')].filter(Boolean) as string[]);
+
+			if (rawSetCookie.length > 0) {
+				responseHeaders.delete('set-cookie');
+				const isHttps = event.url.protocol === 'https:';
+				for (const cookieStr of rawSetCookie) {
+					let sanitized = cookieStr.replace(/;\s*Domain=[^;]+/gi, '');
+					if (!isHttps) {
+						sanitized = sanitized.replace(/;\s*Secure/gi, '');
+					}
+					responseHeaders.append('set-cookie', sanitized);
+				}
+			}
 
 			return new Response(res.body, {
 				status: res.status,
@@ -87,16 +98,12 @@ export const handleSession: Handle = async ({ event, resolve }) => {
 		}
 		return rawFetch(req);
 	};
-	const baseUrl = !isDev && event.platform?.env?.API ? 'https://api.internal' : 'http://localhost:8787';
+	const baseUrl = getApiBaseUrl(event.platform);
 	event.locals.api = createApiClient(serviceFetch, baseUrl);
 
 	// Fetch active session from Hono Better-Auth via Service Binding
 	try {
-		const sessionUrl =
-			!isDev && event.platform?.env?.API
-				? 'https://api.internal/v1/auth/get-session'
-				: 'http://localhost:8787/v1/auth/get-session';
-
+		const sessionUrl = `${baseUrl}/v1/auth/get-session`;
 		const sessionRes = await serviceFetch(sessionUrl, {
 			headers: { cookie: cookieHeader }
 		});
@@ -200,7 +207,7 @@ export const handleSecurity: Handle = async ({ event, resolve }) => {
 
 // 4. Drifter Maintenance Kill Switch
 export const handleDrifter: Handle = async ({ event, resolve }) => {
-	const drifterControl = (event.platform?.env as Record<string, any> | undefined)?.DRIFTER_CONTROL;
+	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
 	if (drifterControl) {
 		const isDisabled = await drifterControl.get('DISABLED');
 		if (isDisabled === 'true') {
@@ -224,9 +231,4 @@ export const handleDrifter: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(
-	handleGateway,
-	handleSession,
-	handleDrifter,
-	handleSecurity
-);
+export const handle: Handle = sequence(handleGateway, handleSession, handleDrifter, handleSecurity);

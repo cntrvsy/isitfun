@@ -79,7 +79,9 @@
 		</div>
 
 		{#if statusMessage}
-			<div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-800">
+			<div
+				class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-800"
+			>
 				{statusMessage}
 			</div>
 		{/if}
@@ -87,7 +89,7 @@
 		<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 			<!-- Subscription Billing -->
 			<div class="space-y-6 rounded-xl border border-slate-100 bg-slate-50/70 p-6">
-				<h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+				<h3 class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
 					Subscription & Plan
 				</h3>
 				<div class="flex flex-wrap items-center justify-between gap-4">
@@ -122,7 +124,9 @@
 							</button>
 						</form>
 					{:else}
-						<span class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+						<span
+							class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+						>
 							<CreditCard class="h-3.5 w-3.5" /> Active Subscription
 						</span>
 					{/if}
@@ -132,7 +136,7 @@
 			<!-- Invites and Members -->
 			<div class="space-y-6">
 				<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-6">
-					<h3 class="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+					<h3 class="mb-3 text-xs font-semibold tracking-wider text-slate-500 uppercase">
 						Invite Teammate
 					</h3>
 					<form
@@ -170,7 +174,7 @@
 							<span class="block text-[10px] font-bold text-purple-800 uppercase">
 								Direct Invite Link:
 							</span>
-							<code class="mt-1 block font-mono text-[11px] text-slate-800 break-all select-all">
+							<code class="mt-1 block font-mono text-[11px] break-all text-slate-800 select-all">
 								{generatedInviteUrl}
 							</code>
 						</div>
@@ -179,18 +183,22 @@
 
 				<!-- Members List -->
 				<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-6">
-					<h3 class="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+					<h3 class="mb-3 text-xs font-semibold tracking-wider text-slate-500 uppercase">
 						Team Members ({activeOrg.memberships.length})
 					</h3>
 					<div class="divide-y divide-slate-100">
 						{#each activeOrg.memberships as mem (mem.id)}
 							<div class="flex items-center justify-between py-2.5">
 								<div>
-									<span class="block text-xs font-bold text-slate-900">{mem.user.name || 'Anonymous User'}</span>
+									<span class="block text-xs font-bold text-slate-900"
+										>{mem.user.name || 'Anonymous User'}</span
+									>
 									<span class="block font-mono text-[11px] text-slate-500">{mem.user.email}</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<span class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase">
+									<span
+										class="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase"
+									>
 										{mem.role}
 									</span>
 									{#if activeOrg.ownerId !== mem.userId && activeOrg.ownerId === userId}
@@ -204,7 +212,11 @@
 										>
 											<input {...removeMember.fields.organizationId.as('hidden', activeOrg.id)} />
 											<input {...removeMember.fields.userId.as('hidden', mem.userId)} />
-											<button type="submit" class="p-1 text-slate-400 hover:text-rose-600" aria-label="Remove member">
+											<button
+												type="submit"
+												class="p-1 text-slate-400 hover:text-rose-600"
+												aria-label="Remove member"
+											>
 												<Trash2 class="h-3.5 w-3.5" />
 											</button>
 										</form>
@@ -218,14 +230,16 @@
 				<!-- Pending Invites List -->
 				{#if activeOrg.invites && activeOrg.invites.length > 0}
 					<div class="rounded-xl border border-slate-100 bg-slate-50/70 p-6">
-						<h3 class="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+						<h3 class="mb-3 text-xs font-semibold tracking-wider text-slate-500 uppercase">
 							Pending Invites
 						</h3>
 						<div class="divide-y divide-slate-100">
 							{#each activeOrg.invites as inv (inv.id)}
 								<div class="flex items-center justify-between py-2.5">
 									<div>
-										<span class="block font-mono text-xs font-semibold text-slate-900">{inv.email}</span>
+										<span class="block font-mono text-xs font-semibold text-slate-900"
+											>{inv.email}</span
+										>
 										<span class="block text-[10px] text-slate-400">
 											Expires {new Date(inv.expiresAt).toLocaleDateString()}
 										</span>
@@ -259,7 +273,9 @@
 						<div class="flex items-center justify-between">
 							<div>
 								<span class="block text-xs font-bold text-rose-900">Leave Team</span>
-								<span class="block text-[11px] text-rose-700">Remove yourself from this workspace</span>
+								<span class="block text-[11px] text-rose-700"
+									>Remove yourself from this workspace</span
+								>
 							</div>
 							<form
 								{...leaveOrganization.enhance(async ({ submit }: any) => {
@@ -271,9 +287,7 @@
 									}
 								})}
 							>
-								<input
-									{...leaveOrganization.fields.organizationId.as('hidden', activeOrg.id)}
-								/>
+								<input {...leaveOrganization.fields.organizationId.as('hidden', activeOrg.id)} />
 								<button
 									type="submit"
 									class="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"

@@ -95,9 +95,7 @@
 			<header class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
 				<div>
 					<h3 class="text-lg font-bold tracking-tight text-slate-900">Upload HTML5 Export</h3>
-					<span class="text-xs text-slate-500">
-						HTML5 / WebGL ZIP archive deployment
-					</span>
+					<span class="text-xs text-slate-500"> HTML5 / WebGL ZIP archive deployment </span>
 				</div>
 				<button
 					onclick={handleClose}
@@ -121,12 +119,16 @@
 							class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
 							aria-label="Upload ZIP archive"
 						/>
-						<UploadCloud class="mx-auto h-10 w-10 text-slate-400 transition-colors group-hover:text-purple-600" />
+						<UploadCloud
+							class="mx-auto h-10 w-10 text-slate-400 transition-colors group-hover:text-purple-600"
+						/>
 						<p class="mt-3 text-xs font-bold text-slate-900">
 							Drag and drop your game ZIP archive here
 						</p>
 						<p class="mt-1 text-[11px] text-slate-500">
-							Must contain index.html and assets ({isFree ? 'max 40MB per build on Free tier' : 'max 250MB per build on Pro tier'})
+							Must contain index.html and assets ({isFree
+								? 'max 40MB per build on Free tier'
+								: 'max 250MB per build on Pro tier'})
 						</p>
 					</div>
 				{:else if isUploading}
@@ -142,14 +144,16 @@
 								style="width: {uploadProgress}%"
 							></div>
 						</div>
-						<p class="font-mono text-[11px] text-slate-500 truncate">
+						<p class="truncate font-mono text-[11px] text-slate-500">
 							{currentUploadingFile || 'Processing files...'}
 						</p>
 					</div>
 				{:else if isUploadSuccess}
 					<!-- Success State -->
-					<div class="space-y-4 text-center py-2">
-						<div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-50 text-emerald-600">
+					<div class="space-y-4 py-2 text-center">
+						<div
+							class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-50 text-emerald-600"
+						>
 							<CheckCircle2 class="h-6 w-6" />
 						</div>
 						<div>
@@ -159,7 +163,9 @@
 							</p>
 						</div>
 
-						<div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left">
+						<div
+							class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-left"
+						>
 							<input
 								type="text"
 								readonly
@@ -181,7 +187,9 @@
 				{/if}
 
 				{#if uploadError}
-					<div class="mt-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+					<div
+						class="mt-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700"
+					>
 						<AlertCircle class="h-4 w-4 shrink-0 text-rose-500" />
 						<span>{uploadError}</span>
 					</div>

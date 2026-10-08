@@ -24,7 +24,7 @@ interface __BaseEnv_Env {
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
-		mainModule: typeof import("../.svelte-kit/cloudflare/_worker");
+		mainModule: typeof import('../.svelte-kit/cloudflare/_worker');
 	}
 	interface Env extends __BaseEnv_Env {}
 }
@@ -33,7 +33,28 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DATABASE_URL" | "ORIGIN" | "BETTER_AUTH_SECRET" | "GITHUB_CLIENT_ID" | "GITHUB_CLIENT_SECRET" | "BETTER_AUTH_URL" | "TRUSTED_ORIGINS" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "CREEM_API_KEY" | "CREEM_PRODUCT_ID_PROJECT_PASS" | "CREEM_PRODUCT_ID_TEAM_PLAN" | "CREEM_TEST_MODE" | "CREEM_WEBHOOK_SECRET" | "RESEND_API_KEY" | "RESEND_WEBHOOK_SECRET" | "RESEND_FROM_EMAIL">> {}
+	interface ProcessEnv extends StringifyValues<
+		Pick<
+			Cloudflare.Env,
+			| 'DATABASE_URL'
+			| 'ORIGIN'
+			| 'BETTER_AUTH_SECRET'
+			| 'GITHUB_CLIENT_ID'
+			| 'GITHUB_CLIENT_SECRET'
+			| 'BETTER_AUTH_URL'
+			| 'TRUSTED_ORIGINS'
+			| 'GOOGLE_CLIENT_ID'
+			| 'GOOGLE_CLIENT_SECRET'
+			| 'CREEM_API_KEY'
+			| 'CREEM_PRODUCT_ID_PROJECT_PASS'
+			| 'CREEM_PRODUCT_ID_TEAM_PLAN'
+			| 'CREEM_TEST_MODE'
+			| 'CREEM_WEBHOOK_SECRET'
+			| 'RESEND_API_KEY'
+			| 'RESEND_WEBHOOK_SECRET'
+			| 'RESEND_FROM_EMAIL'
+		>
+	> {}
 }
 
 // Begin runtime types

@@ -81,54 +81,55 @@ export const billingRouter = new Hono<AppEnv>()
 			await requireProjectAccess(db, projectId, user, 'admin');
 
 			const body = c.req.valid('json');
-		const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';
-		const successUrl =
-			body.successUrl ||
-			`${originHeader}/portal/dashboard?upgrade_success=true&project_id=${projectId}`;
+			const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';
+			const successUrl =
+				body.successUrl ||
+				`${originHeader}/portal/dashboard?upgrade_success=true&project_id=${projectId}`;
 
-		const creemApiKey = c.env.CREEM_API_KEY;
-		const creemProductId = c.env.CREEM_PRODUCT_ID_PROJECT_PASS || c.env.CREEM_PRODUCT_ID;
-		const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
+			const creemApiKey = c.env.CREEM_API_KEY;
+			const creemProductId = c.env.CREEM_PRODUCT_ID_PROJECT_PASS || c.env.CREEM_PRODUCT_ID;
+			const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
 
-		if (creemApiKey && creemProductId) {
-			const baseUrl = isTestMode
-				? 'https://test-api.creem.io/v1/checkouts'
-				: 'https://api.creem.io/v1/checkouts';
-			try {
-				const res = await fetch(baseUrl, {
-					method: 'POST',
-					headers: {
-						'x-api-key': creemApiKey,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						product_id: creemProductId,
-						request_id: projectId,
-						success_url: successUrl
-					})
-				});
+			if (creemApiKey && creemProductId) {
+				const baseUrl = isTestMode
+					? 'https://test-api.creem.io/v1/checkouts'
+					: 'https://api.creem.io/v1/checkouts';
+				try {
+					const res = await fetch(baseUrl, {
+						method: 'POST',
+						headers: {
+							'x-api-key': creemApiKey,
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							product_id: creemProductId,
+							request_id: projectId,
+							success_url: successUrl
+						})
+					});
 
-				if (!res.ok) {
-					const errorText = await res.text();
-					throw new Error(`Creem API returned ${res.status}: ${errorText}`);
+					if (!res.ok) {
+						const errorText = await res.text();
+						throw new Error(`Creem API returned ${res.status}: ${errorText}`);
+					}
+
+					const checkoutData = (await res.json()) as { checkout_url: string };
+					return c.json({ redirectUrl: checkoutData.checkout_url });
+				} catch (err) {
+					console.error('[Billing] Failed to create Creem checkout:', err);
+					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
+			} else {
+				// Mock upgrade in development
+				await db
+					.update(schema.projects)
+					.set({ tier: 'pro' })
+					.where(eq(schema.projects.id, projectId));
 
-				const checkoutData = (await res.json()) as { checkout_url: string };
-				return c.json({ redirectUrl: checkoutData.checkout_url });
-			} catch (err) {
-				console.error('[Billing] Failed to create Creem checkout:', err);
-				return c.json({ error: 'Failed to initialize payment gateway' }, 500);
+				return c.json({ success: true, mockUpgraded: true });
 			}
-		} else {
-			// Mock upgrade in development
-			await db
-				.update(schema.projects)
-				.set({ tier: 'pro' })
-				.where(eq(schema.projects.id, projectId));
-
-			return c.json({ success: true, mockUpgraded: true });
 		}
-	})
+	)
 	// POST /v1/billing/checkout/org/:id - Initialize Creem checkout session for Team Plan
 	.post(
 		'/checkout/org/:id',
@@ -141,54 +142,54 @@ export const billingRouter = new Hono<AppEnv>()
 			await requireOrgAccess(db, orgId, user, 'admin');
 
 			const body = c.req.valid('json');
-		const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';
-		const successUrl =
-			body.successUrl ||
-			`${originHeader}/portal/dashboard?upgrade_success=true&org_id=${orgId}`;
+			const originHeader = c.req.header('origin') || 'https://isitfun.frstudios.co.ke';
+			const successUrl =
+				body.successUrl || `${originHeader}/portal/dashboard?upgrade_success=true&org_id=${orgId}`;
 
-		const creemApiKey = c.env.CREEM_API_KEY;
-		const creemProductId = c.env.CREEM_PRODUCT_ID_TEAM_SEAT;
-		const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
+			const creemApiKey = c.env.CREEM_API_KEY;
+			const creemProductId = c.env.CREEM_PRODUCT_ID_TEAM_SEAT;
+			const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
 
-		if (creemApiKey && creemProductId) {
-			const baseUrl = isTestMode
-				? 'https://test-api.creem.io/v1/checkouts'
-				: 'https://api.creem.io/v1/checkouts';
-			try {
-				const res = await fetch(baseUrl, {
-					method: 'POST',
-					headers: {
-						'x-api-key': creemApiKey,
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						product_id: creemProductId,
-						request_id: orgId,
-						success_url: successUrl
-					})
-				});
+			if (creemApiKey && creemProductId) {
+				const baseUrl = isTestMode
+					? 'https://test-api.creem.io/v1/checkouts'
+					: 'https://api.creem.io/v1/checkouts';
+				try {
+					const res = await fetch(baseUrl, {
+						method: 'POST',
+						headers: {
+							'x-api-key': creemApiKey,
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({
+							product_id: creemProductId,
+							request_id: orgId,
+							success_url: successUrl
+						})
+					});
 
-				if (!res.ok) {
-					const errorText = await res.text();
-					throw new Error(`Creem API returned ${res.status}: ${errorText}`);
+					if (!res.ok) {
+						const errorText = await res.text();
+						throw new Error(`Creem API returned ${res.status}: ${errorText}`);
+					}
+
+					const checkoutData = (await res.json()) as { checkout_url: string };
+					return c.json({ redirectUrl: checkoutData.checkout_url });
+				} catch (err) {
+					console.error('[Billing] Failed to create Creem team checkout:', err);
+					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
+			} else {
+				// Mock upgrade in development
+				await db
+					.update(schema.organizations)
+					.set({ tier: 'team' })
+					.where(eq(schema.organizations.id, orgId));
 
-				const checkoutData = (await res.json()) as { checkout_url: string };
-				return c.json({ redirectUrl: checkoutData.checkout_url });
-			} catch (err) {
-				console.error('[Billing] Failed to create Creem team checkout:', err);
-				return c.json({ error: 'Failed to initialize payment gateway' }, 500);
+				return c.json({ success: true, mockUpgraded: true });
 			}
-		} else {
-			// Mock upgrade in development
-			await db
-				.update(schema.organizations)
-				.set({ tier: 'team' })
-				.where(eq(schema.organizations.id, orgId));
-
-			return c.json({ success: true, mockUpgraded: true });
 		}
-	})
+	)
 	// POST /v1/billing/sync-seats/:orgId - Sync Creem subscription seats
 	.post('/sync-seats/:orgId', async (c) => {
 		const orgId = c.req.param('orgId');

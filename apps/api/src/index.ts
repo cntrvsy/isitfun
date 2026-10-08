@@ -52,11 +52,7 @@ const v1 = new Hono<AppEnv>()
 	.route('/billing', billingRouter);
 
 // 4. Mount routes with types preserved
-const routes = app
-	.route('/v1', v1)
-	.route('/play', playRouter)
-	.route('/v1/play', playRouter);
+const routes = app.route('/v1', v1).route('/play', playRouter).route('/v1/play', playRouter);
 
 export default routes;
 export type AppType = typeof routes;
-

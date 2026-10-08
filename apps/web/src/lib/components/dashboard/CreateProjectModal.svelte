@@ -13,9 +13,7 @@
 			class="relative w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
 		>
 			<header class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-				<h3 class="text-lg font-bold tracking-tight text-slate-900">
-					Create New Playtest
-				</h3>
+				<h3 class="text-lg font-bold tracking-tight text-slate-900">Create New Playtest</h3>
 				<button
 					onclick={() => (show = false)}
 					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -55,10 +53,7 @@
 				</div>
 
 				<div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-					<label
-						class="flex cursor-pointer items-center justify-between"
-						for="password-toggle"
-					>
+					<label class="flex cursor-pointer items-center justify-between" for="password-toggle">
 						<div>
 							<span class="block text-xs font-bold text-slate-900">Password Protection</span>
 							<span class="mt-0.5 block text-[11px] text-slate-500">
@@ -74,7 +69,10 @@
 
 					{#if createProject.fields.passwordProtected.value()}
 						<div class="mt-3 border-t border-slate-200 pt-3">
-							<label class="mb-1 block text-xs font-semibold text-slate-700" for="playtest-password">
+							<label
+								class="mb-1 block text-xs font-semibold text-slate-700"
+								for="playtest-password"
+							>
 								Access Password
 							</label>
 							<input

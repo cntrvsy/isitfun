@@ -5,4 +5,3 @@ export {
 	signSession,
 	verifySession
 } from '@isitfun/shared';
-

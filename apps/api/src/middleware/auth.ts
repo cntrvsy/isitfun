@@ -33,6 +33,7 @@ export const requireRole = (role: 'admin' | 'game_developer') =>
 			return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401);
 		}
 		if (user.role !== role && user.role !== 'admin') {
+			// we'll change this later with proper project role system
 			return c.json({ error: 'Forbidden', message: `Access requires ${role} role` }, 403);
 		}
 		await next();

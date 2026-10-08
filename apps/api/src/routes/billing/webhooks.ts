@@ -144,9 +144,7 @@ webhooksRouter.post('/creem', async (c) => {
 					processedAt: new Date()
 				});
 			}
-			const subscriptionId = (objectData.subscription_id || objectData.id || null) as
-				| string
-				| null;
+			const subscriptionId = (objectData.subscription_id || objectData.id || null) as string | null;
 			await db
 				.update(schema.organizations)
 				.set({ tier: 'team', creemSubscriptionId: subscriptionId })

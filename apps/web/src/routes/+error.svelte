@@ -8,9 +8,15 @@
 	<title>{page.status} | IsItFun</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 font-sans text-slate-900 selection:bg-purple-100 selection:text-purple-900">
-	<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl">
-		<div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-600">
+<div
+	class="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 font-sans text-slate-900 selection:bg-purple-100 selection:text-purple-900"
+>
+	<div
+		class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl"
+	>
+		<div
+			class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-600"
+		>
 			<AlertTriangle class="h-6 w-6" />
 		</div>
 

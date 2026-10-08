@@ -118,10 +118,15 @@ export class TelemetrySessionDO implements DurableObject {
 
 		await this.state.storage.put(storageData);
 
-		const storedAvgFps = (storageData.avgFps as number) ?? (await this.state.storage.get<number>('avgFps'));
-		const storedGpuRenderer = (storageData.gpuRenderer as string) ?? (await this.state.storage.get<string>('gpuRenderer'));
-		const storedSentiment = (storageData.sentiment as 'fun' | 'neutral' | 'unfun') ?? (await this.state.storage.get<'fun' | 'neutral' | 'unfun'>('sentiment'));
-		const storedUserComment = (storageData.userComment as string) ?? (await this.state.storage.get<string>('userComment'));
+		const storedAvgFps =
+			(storageData.avgFps as number) ?? (await this.state.storage.get<number>('avgFps'));
+		const storedGpuRenderer =
+			(storageData.gpuRenderer as string) ?? (await this.state.storage.get<string>('gpuRenderer'));
+		const storedSentiment =
+			(storageData.sentiment as 'fun' | 'neutral' | 'unfun') ??
+			(await this.state.storage.get<'fun' | 'neutral' | 'unfun'>('sentiment'));
+		const storedUserComment =
+			(storageData.userComment as string) ?? (await this.state.storage.get<string>('userComment'));
 
 		// 3. Set inactivity alarm (only if no alarm exists or expiring within 2 mins)
 		const existingAlarm =

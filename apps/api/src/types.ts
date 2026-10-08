@@ -1,4 +1,9 @@
-import type { D1Database, KVNamespace, R2Bucket, DurableObjectNamespace } from '@cloudflare/workers-types';
+import type {
+	D1Database,
+	KVNamespace,
+	R2Bucket,
+	DurableObjectNamespace
+} from '@cloudflare/workers-types';
 import type { User, Session } from 'better-auth/types';
 
 export interface Bindings {

@@ -1,4 +1,4 @@
-import type { R2Object, R2ObjectBody } from '@cloudflare/workers-types';
+import type { R2ObjectBody } from '@cloudflare/workers-types';
 
 export function guessContentType(filePath: string): string {
 	let contentType = 'application/octet-stream';
