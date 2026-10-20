@@ -1,70 +1,69 @@
 import type { R2ObjectBody } from '@cloudflare/workers-types';
 
+export function guessContentEncoding(filePath: string): string | null {
+	const lower = filePath.toLowerCase();
+	if (lower.endsWith('.gz')) return 'gzip';
+	if (lower.endsWith('.br')) return 'br';
+	return null;
+}
+
 export function guessContentType(filePath: string): string {
-	let contentType = 'application/octet-stream';
-	const ext = filePath.split('.').pop()?.toLowerCase();
+	const lower = filePath.toLowerCase();
+	if (lower.endsWith('.wasm.gz') || lower.endsWith('.wasm.br')) return 'application/wasm';
+	if (lower.endsWith('.js.gz') || lower.endsWith('.js.br')) return 'application/javascript';
+	if (lower.endsWith('.data.gz') || lower.endsWith('.data.br')) return 'application/octet-stream';
+
+	const cleanPath =
+		lower.endsWith('.gz') || lower.endsWith('.br') ? lower.slice(0, lower.lastIndexOf('.')) : lower;
+
+	const ext = cleanPath.split('.').pop()?.toLowerCase();
 	switch (ext) {
 		case 'html':
 		case 'htm':
-			contentType = 'text/html';
-			break;
+			return 'text/html';
 		case 'css':
-			contentType = 'text/css';
-			break;
+			return 'text/css';
 		case 'js':
 		case 'mjs':
-			contentType = 'application/javascript';
-			break;
+			return 'application/javascript';
 		case 'wasm':
-			contentType = 'application/wasm';
-			break;
+			return 'application/wasm';
 		case 'json':
-			contentType = 'application/json';
-			break;
+			return 'application/json';
 		case 'png':
-			contentType = 'image/png';
-			break;
+			return 'image/png';
 		case 'jpg':
 		case 'jpeg':
-			contentType = 'image/jpeg';
-			break;
+			return 'image/jpeg';
 		case 'svg':
-			contentType = 'image/svg+xml';
-			break;
+			return 'image/svg+xml';
 		case 'mp3':
-			contentType = 'audio/mpeg';
-			break;
+			return 'audio/mpeg';
 		case 'ogg':
-			contentType = 'audio/ogg';
-			break;
+			return 'audio/ogg';
 		case 'wav':
-			contentType = 'audio/wav';
-			break;
+			return 'audio/wav';
 		case 'webm':
-			contentType = 'video/webm';
-			break;
+			return 'video/webm';
 		case 'mp4':
-			contentType = 'video/mp4';
-			break;
+			return 'video/mp4';
 		case 'gltf':
-			contentType = 'model/gltf+json';
-			break;
+			return 'model/gltf+json';
 		case 'glb':
-			contentType = 'model/gltf-binary';
-			break;
+			return 'model/gltf-binary';
 		case 'data':
 		case 'bin':
 		case 'pck':
-			contentType = 'application/octet-stream';
-			break;
+		default:
+			return 'application/octet-stream';
 	}
-	return contentType;
 }
 
 export function createR2Response(
 	object: R2ObjectBody,
 	filePath: string,
 	rangeHeader?: string | null,
+	ifNoneMatchHeader?: string | null,
 	customHeaders?: Record<string, string>
 ): Response {
 	const headers = new Headers();
@@ -73,6 +72,18 @@ export function createR2Response(
 		headers.set('Content-Type', object.httpMetadata.contentType);
 	} else {
 		headers.set('Content-Type', guessContentType(filePath));
+	}
+
+	const encoding = object.httpMetadata?.contentEncoding || guessContentEncoding(filePath);
+	if (encoding) {
+		headers.set('Content-Encoding', encoding);
+	}
+
+	if (object.httpEtag) {
+		headers.set('ETag', object.httpEtag);
+		if (ifNoneMatchHeader && ifNoneMatchHeader.trim() === object.httpEtag.trim()) {
+			return new Response(null, { status: 304, headers });
+		}
 	}
 
 	headers.set('Cross-Origin-Opener-Policy', 'same-origin');

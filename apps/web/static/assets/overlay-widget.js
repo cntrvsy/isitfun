@@ -2,6 +2,7 @@
 	// 1. Identify active project from script context
 	const scriptTag = document.currentScript;
 	const projectId = scriptTag ? scriptTag.getAttribute('data-project') : null;
+	const sessionToken = scriptTag ? scriptTag.getAttribute('data-session-token') : null;
 	if (!projectId) {
 		console.warn('[IsItFun] Telemetry disabled: data-project attribute missing on script tag.');
 		return;
@@ -99,6 +100,7 @@
 		const payload = {
 			projectId,
 			sessionId,
+			sessionToken,
 			logs: logQueue,
 			hasCrashed,
 			isExiting,
@@ -119,9 +121,9 @@
 		isFlushing = true;
 		try {
 			if (isExiting && navigator.sendBeacon) {
-				navigator.sendBeacon('/api/telemetry', body);
+				navigator.sendBeacon('/v1/telemetry', new Blob([body], { type: 'application/json' }));
 			} else {
-				fetch('/api/telemetry', {
+				fetch('/v1/telemetry', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body,

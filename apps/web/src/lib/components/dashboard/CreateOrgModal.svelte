@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
 	import { createOrganization } from '../../../routes/(app)/portal/dashboard/dashboard.remote';
-	import { X } from '@lucide/svelte';
+	import { X, AlertCircle } from '@lucide/svelte';
 
 	interface Props {
 		show: boolean;
@@ -11,6 +11,7 @@
 
 	let { show, onClose, onCreated }: Props = $props();
 	let orgNameInput = $state('');
+	let errorMessage = $state<string | null>(null);
 </script>
 
 {#if show}
@@ -21,7 +22,10 @@
 			<header class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
 				<h3 class="text-lg font-bold tracking-tight text-slate-900">Create Team Workspace</h3>
 				<button
-					onclick={onClose}
+					onclick={() => {
+						errorMessage = null;
+						onClose();
+					}}
 					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
 					aria-label="Close modal"
 				>
@@ -30,18 +34,35 @@
 			</header>
 			<form
 				{...createOrganization.enhance(async ({ submit }: any) => {
-					if (await submit()) {
-						const res = createOrganization.result;
-						if (res && typeof res === 'object' && 'organizationId' in res && res.organizationId) {
-							onCreated(String(res.organizationId));
+					errorMessage = null;
+					try {
+						if (await submit()) {
+							const res = createOrganization.result;
+							if (res && typeof res === 'object' && 'organizationId' in res && res.organizationId) {
+								onCreated(String(res.organizationId));
+							}
+							orgNameInput = '';
+							onClose();
+							await refreshAll();
+						} else {
+							errorMessage =
+								'Failed to create team workspace. Please check the name and try again.';
 						}
-						orgNameInput = '';
-						onClose();
-						await refreshAll();
+					} catch (e: any) {
+						errorMessage = e?.message || 'An error occurred while creating the team workspace.';
 					}
 				})}
 				class="space-y-4"
 			>
+				{#if errorMessage}
+					<div
+						class="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"
+					>
+						<AlertCircle class="h-4 w-4 shrink-0" />
+						<span>{errorMessage}</span>
+					</div>
+				{/if}
+
 				<div>
 					<label class="mb-1.5 block text-xs font-semibold text-slate-700" for="org-name-input">
 						Team / Studio Name
@@ -58,7 +79,10 @@
 				<div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
 					<button
 						type="button"
-						onclick={onClose}
+						onclick={() => {
+							errorMessage = null;
+							onClose();
+						}}
 						class="rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
 					>
 						Cancel

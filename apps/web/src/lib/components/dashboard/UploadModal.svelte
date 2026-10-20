@@ -136,7 +136,7 @@
 					<div class="space-y-4 py-2">
 						<div class="flex items-center justify-between text-xs font-semibold text-slate-700">
 							<span>Uploading assets to edge...</span>
-							<span class="font-mono">{uploadProgress}%</span>
+							<span class="font-mono">{uploadProgress}% ({uploadedCount}/{totalFiles})</span>
 						</div>
 						<div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
 							<div

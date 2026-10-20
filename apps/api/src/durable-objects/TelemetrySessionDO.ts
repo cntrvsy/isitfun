@@ -1,4 +1,5 @@
-import { createD1Client, telemetrySessions } from '@isitfun/db';
+import { eq, sql } from 'drizzle-orm';
+import { createD1Client, telemetrySessions, schema } from '@isitfun/db';
 
 export interface Env {
 	DB: D1Database;
@@ -15,6 +16,7 @@ export interface TelemetryLog {
 export class TelemetrySessionDO implements DurableObject {
 	state: DurableObjectState;
 	env: Env;
+	private eventTimestamps: number[] = [];
 
 	constructor(state: DurableObjectState, env: Env) {
 		this.state = state;
@@ -25,6 +27,18 @@ export class TelemetrySessionDO implements DurableObject {
 		if (request.method !== 'POST') {
 			return new Response('Method not allowed', { status: 405 });
 		}
+
+		// Sliding window rate limiter: max 120 ingestion events per minute
+		const now = Date.now();
+		const windowStart = now - 60_000;
+		this.eventTimestamps = this.eventTimestamps.filter((t) => t > windowStart);
+		if (this.eventTimestamps.length >= 120) {
+			return new Response(
+				JSON.stringify({ error: 'Too Many Requests: telemetry rate limit exceeded (max 120/min)' }),
+				{ status: 429, headers: { 'Content-Type': 'application/json' } }
+			);
+		}
+		this.eventTimestamps.push(now);
 
 		let body: {
 			projectId: string;
@@ -156,12 +170,38 @@ export class TelemetrySessionDO implements DurableObject {
 					userComment: storedUserComment
 				});
 				await this.state.storage.deleteAll();
+				await this.state.storage.deleteAlarm();
 				return new Response(JSON.stringify({ success: true, status: 'flushed' }), {
 					headers: { 'Content-Type': 'application/json' }
 				});
 			} catch (err) {
 				console.error('[TelemetrySessionDO] Failed immediate exit flush:', err);
-				await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+				const errStr = String(err).toLowerCase();
+				const isFatalConstraint =
+					errStr.includes('foreign key') ||
+					errStr.includes('constraint failed') ||
+					errStr.includes('no such table');
+
+				if (isFatalConstraint) {
+					console.warn(
+						'[TelemetrySessionDO] Fatal database constraint error (project deleted or invalid). Abandoning buffer immediately.'
+					);
+					await this.state.storage.deleteAll();
+					await this.state.storage.deleteAlarm();
+					return new Response(JSON.stringify({ success: false, status: 'project_not_found' }), {
+						status: 404,
+						headers: { 'Content-Type': 'application/json' }
+					});
+				}
+
+				const retryCount = ((await this.state.storage.get<number>('alarmRetryCount')) || 0) + 1;
+				if (retryCount >= 3) {
+					await this.state.storage.deleteAll();
+					await this.state.storage.deleteAlarm();
+				} else {
+					await this.state.storage.put('alarmRetryCount', retryCount);
+					await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+				}
 				return new Response(JSON.stringify({ success: false, status: 'flush_error' }), {
 					status: 500,
 					headers: { 'Content-Type': 'application/json' }
@@ -208,12 +248,39 @@ export class TelemetrySessionDO implements DurableObject {
 					userComment: storedUserComment
 				});
 				await this.state.storage.deleteAll();
+				await this.state.storage.deleteAlarm();
 			} catch (err) {
-				console.error('[TelemetrySessionDO] Alarm flush failed, rescheduling retry:', err);
-				await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+				console.error('[TelemetrySessionDO] Alarm flush failed:', err);
+				const errStr = String(err).toLowerCase();
+				const isFatalConstraint =
+					errStr.includes('foreign key') ||
+					errStr.includes('constraint failed') ||
+					errStr.includes('no such table');
+
+				if (isFatalConstraint) {
+					console.warn(
+						'[TelemetrySessionDO] Fatal database constraint error (project deleted or invalid). Abandoning buffer immediately.'
+					);
+					await this.state.storage.deleteAll();
+					await this.state.storage.deleteAlarm();
+					return;
+				}
+
+				const retryCount = ((await this.state.storage.get<number>('alarmRetryCount')) || 0) + 1;
+				if (retryCount >= 3) {
+					console.error(
+						'[TelemetrySessionDO] Max retry attempts (3) exceeded, deleting storage and alarm'
+					);
+					await this.state.storage.deleteAll();
+					await this.state.storage.deleteAlarm();
+				} else {
+					await this.state.storage.put('alarmRetryCount', retryCount);
+					await this.state.storage.setAlarm(Date.now() + 2 * 60 * 1000);
+				}
 			}
 		} else {
 			await this.state.storage.deleteAll();
+			await this.state.storage.deleteAlarm();
 		}
 	}
 
@@ -272,7 +339,7 @@ export class TelemetrySessionDO implements DurableObject {
 			});
 		}
 
-		// 2. Save session summary metrics to D1
+		// 2. Save session summary metrics and increment quota in D1
 		if (this.env.DB) {
 			const db = createD1Client(this.env.DB);
 			const durationSec = Math.floor((Date.now() - createdAt) / 1000);
@@ -306,6 +373,20 @@ export class TelemetrySessionDO implements DurableObject {
 						r2LogPath: r2Key
 					}
 				});
+
+			// Increment monthly write quota
+			if (logCount > 0) {
+				try {
+					await db
+						.update(schema.projectQuotas)
+						.set({
+							monthlyWriteCount: sql`${schema.projectQuotas.monthlyWriteCount} + ${logCount}`
+						})
+						.where(eq(schema.projectQuotas.projectId, projectId));
+				} catch (qErr) {
+					console.warn('[TelemetrySessionDO] Failed to update quota monthlyWriteCount:', qErr);
+				}
+			}
 		}
 	}
 }

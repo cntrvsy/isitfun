@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	});
 
 	if (!res.ok) {
-		const status = (res as any).status || 500;
+		const status = (res.status as number) || 500;
 		if (status === 404) throw error(404, 'Project not found');
 		if (status === 403) throw error(403, 'Forbidden: You do not have access to this project');
 		throw error(status, 'Failed to export project JSON');

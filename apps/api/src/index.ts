@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { createD1Client, sql } from '@isitfun/db';
 import { TelemetrySessionDO } from './durable-objects/TelemetrySessionDO';
 import type { AppEnv } from './types';
 import { authRouter, profileRouter } from './routes/identity';
@@ -7,6 +8,7 @@ import { projectsRouter, playRouter, telemetryRouter } from './routes/games';
 import { orgsRouter, dashboardRouter } from './routes/workspace';
 import { billingRouter, webhooksRouter } from './routes/billing';
 import { adminRouter } from './routes/admin';
+import { runLogDecay } from './lib/log-decay';
 
 // 1. Native Durable Object export for Cloudflare Workers
 export { TelemetrySessionDO };
@@ -38,8 +40,43 @@ app.use('*', async (c, next) => {
 
 // 3. Mount modular routes under /v1
 const v1 = new Hono<AppEnv>()
-	.get('/health', (c) => {
-		return c.json({ status: 'ok', timestamp: Date.now() });
+	.get('/health', async (c) => {
+		const isDeep = c.req.query('deep') === 'true';
+		if (!isDeep) {
+			return c.json({ status: 'ok', timestamp: Date.now() });
+		}
+		const db = createD1Client(c.env.DB);
+		let dbOk = false;
+		let kvOk = false;
+		let r2Ok = false;
+		try {
+			await db.run(sql`SELECT 1`);
+			dbOk = true;
+		} catch (_e) {
+			// DB check failed
+		}
+		try {
+			await c.env.ISITFUN_KV.get('__health_probe__');
+			kvOk = true;
+		} catch (_e) {
+			// KV check failed
+		}
+		try {
+			await c.env.GAMES_BUCKET.list({ limit: 1 });
+			r2Ok = true;
+		} catch (_e) {
+			// R2 check failed
+		}
+
+		const allOk = dbOk && kvOk && r2Ok;
+		return c.json(
+			{
+				status: allOk ? 'healthy' : 'degraded',
+				checks: { db: dbOk, kv: kvOk, r2: r2Ok },
+				timestamp: Date.now()
+			},
+			allOk ? 200 : 503
+		);
 	})
 	.route('/auth', authRouter)
 	.route('/telemetry', telemetryRouter)
@@ -54,5 +91,15 @@ const v1 = new Hono<AppEnv>()
 // 4. Mount routes with types preserved
 const routes = app.route('/v1', v1).route('/play', playRouter).route('/v1/play', playRouter);
 
-export default routes;
+const handler = Object.assign(routes, {
+	scheduled: async (
+		_event: ScheduledEvent,
+		env: AppEnv['Bindings'],
+		ctx: ExecutionContext
+	): Promise<void> => {
+		ctx.waitUntil(runLogDecay(env));
+	}
+});
+
+export default handler;
 export type AppType = typeof routes;

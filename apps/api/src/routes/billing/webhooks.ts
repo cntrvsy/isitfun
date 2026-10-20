@@ -21,7 +21,13 @@ webhooksRouter.post('/creem', async (c) => {
 			return c.json({ error: 'Invalid webhook signature' }, 400);
 		}
 	} else {
-		console.warn('[Creem Webhook] CREEM_WEBHOOK_SECRET missing, bypassed for testing');
+		const isDev = c.env.ENVIRONMENT === 'development';
+		if (!isDev) {
+			return c.json({ error: 'Webhook secret unconfigured' }, 401);
+		}
+		console.warn(
+			'[Creem Webhook] CREEM_WEBHOOK_SECRET missing, bypassed for testing in development'
+		);
 	}
 
 	let body: Record<string, unknown>;
@@ -168,6 +174,25 @@ webhooksRouter.post('/creem', async (c) => {
 						processedAt: new Date()
 					});
 				}
+
+				// Insert payment transaction record into payments table
+				try {
+					await db.insert(schema.payments).values({
+						id: crypto.randomUUID(),
+						projectId,
+						userId: project.userId,
+						creemCheckoutId: String(objectData.checkout_id || objectData.id || crypto.randomUUID()),
+						creemOrderId: String(orderData.id || objectData.order_id || objectData.id || ''),
+						creemCustomerId: String(objectData.customer_id || orderData.customer_id || ''),
+						amount: Number(orderData.amount || objectData.amount || 1900),
+						currency: String(orderData.currency || objectData.currency || 'usd').toLowerCase(),
+						status: 'completed',
+						createdAt: new Date()
+					});
+				} catch (payErr) {
+					console.error('[Billing Webhook] Failed to record payment in DB:', payErr);
+				}
+
 				await db
 					.update(schema.projects)
 					.set({ tier: 'pro' })

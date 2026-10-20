@@ -2,24 +2,41 @@ import * as v from 'valibot';
 
 export type UserRole = 'game_developer' | 'admin';
 export type OrgRole = 'owner' | 'admin' | 'member';
-export type SubscriptionTier = 'free' | 'pro_pass' | 'team';
+export type SubscriptionTier = 'free' | 'pro' | 'pro_pass' | 'team';
 export type FeedbackSentiment = 'fun' | 'neutral' | 'unfun';
 
 export const TierLimits = {
 	free: {
 		maxUsesPerKey: 20,
 		maxMonthlyWrites: 5000,
-		maxActiveProjects: 1
+		maxActiveProjects: 1,
+		maxStorageMb: 40,
+		maxFileSizeMb: 40,
+		buildRetentionDays: 30
+	},
+	pro: {
+		maxUsesPerKey: 100,
+		maxMonthlyWrites: 50000,
+		maxActiveProjects: 5,
+		maxStorageMb: 100,
+		maxFileSizeMb: 100,
+		buildRetentionDays: 90
 	},
 	pro_pass: {
 		maxUsesPerKey: 100,
 		maxMonthlyWrites: 50000,
-		maxActiveProjects: 5
+		maxActiveProjects: 5,
+		maxStorageMb: 100,
+		maxFileSizeMb: 100,
+		buildRetentionDays: 90
 	},
 	team: {
 		maxUsesPerKey: 1000,
 		maxMonthlyWrites: 500000,
-		maxActiveProjects: 50
+		maxActiveProjects: 50,
+		maxStorageMb: 100,
+		maxFileSizeMb: 100,
+		buildRetentionDays: 365
 	}
 } as const;
 
@@ -45,6 +62,7 @@ export const TelemetryLogSchema = v.object({
 export const TelemetryPayloadSchema = v.object({
 	projectId: v.string(),
 	sessionId: v.string(),
+	sessionToken: v.optional(v.string()),
 	logs: v.array(TelemetryLogSchema),
 	hasCrashed: v.optional(v.boolean()),
 	isExiting: v.optional(v.boolean()),
@@ -107,21 +125,25 @@ export function validateAccessKey<
 
 export const CreateProjectSchema = v.object({
 	name: v.pipe(v.string(), v.nonEmpty('Project name is required')),
-	passwordProtected: v.optional(v.boolean(), false),
-	password: v.optional(v.string()),
 	organizationId: v.optional(v.string())
 });
 
 export const UpdateProjectSchema = v.object({
-	name: v.optional(v.pipe(v.string(), v.nonEmpty('Project name is required'))),
-	passwordProtected: v.optional(v.boolean(), false),
-	password: v.optional(v.string())
+	name: v.optional(v.pipe(v.string(), v.nonEmpty('Project name is required')))
 });
 
 export const CreateAccessKeySchema = v.object({
 	name: v.pipe(v.string(), v.nonEmpty('Key name is required')),
-	maxUses: v.optional(v.number()),
-	expiresAt: v.optional(v.string())
+	maxUses: v.optional(v.nullable(v.number())),
+	expiresAt: v.optional(v.nullable(v.string()))
+});
+
+export const InitBuildSchema = v.object({
+	versionString: v.optional(v.string(), '1.0.0')
+});
+
+export const PublishBuildSchema = v.object({
+	totalSizeBytes: v.optional(v.number(), 0)
 });
 
 export const CreateOrgSchema = v.object({
@@ -142,6 +164,8 @@ export const UpdateProfileSchema = v.object({
 export type CreateProjectInput = v.InferOutput<typeof CreateProjectSchema>;
 export type UpdateProjectInput = v.InferOutput<typeof UpdateProjectSchema>;
 export type CreateAccessKeyInput = v.InferOutput<typeof CreateAccessKeySchema>;
+export type InitBuildInput = v.InferOutput<typeof InitBuildSchema>;
+export type PublishBuildInput = v.InferOutput<typeof PublishBuildSchema>;
 export type CreateOrgInput = v.InferOutput<typeof CreateOrgSchema>;
 export type InviteMemberInput = v.InferOutput<typeof InviteMemberSchema>;
 export type UpdateProfileInput = v.InferOutput<typeof UpdateProfileSchema>;

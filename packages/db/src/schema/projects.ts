@@ -1,8 +1,9 @@
 import { relations } from 'drizzle-orm';
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { user } from './auth';
 import { organizations } from './orgs';
 import { payments } from './payments';
+import { gameBuilds } from './builds';
 import { generateNanoID } from './utils';
 
 export const projects = sqliteTable(
@@ -18,8 +19,6 @@ export const projects = sqliteTable(
 			onDelete: 'cascade'
 		}),
 		name: text('name').notNull(),
-		passwordProtected: integer('password_protected', { mode: 'boolean' }).default(false),
-		passwordHash: text('password_hash'),
 		tier: text('tier').$type<'free' | 'pro'>().default('free'),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
@@ -42,7 +41,7 @@ export const projectAccessKeys = sqliteTable(
 			.references(() => projects.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
 		code: text('code').notNull().unique(),
-		maxUses: integer('max_uses').notNull().default(20),
+		maxUses: integer('max_uses').default(20),
 		usedCount: integer('used_count').notNull().default(0),
 		expiresAt: integer('expires_at', { mode: 'timestamp' }),
 		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
@@ -56,20 +55,24 @@ export const projectAccessKeys = sqliteTable(
 	]
 );
 
-export const projectQuotas = sqliteTable('project_quotas', {
-	id: text('id')
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	projectId: text('project_id')
-		.notNull()
-		.references(() => projects.id, { onDelete: 'cascade' }),
-	monthlyWriteCount: integer('monthly_write_count').notNull().default(0),
-	maxWriteLimit: integer('max_write_limit').notNull().default(100000),
-	storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
-	lastResetAt: integer('last_reset_at', { mode: 'timestamp' })
-		.notNull()
-		.$defaultFn(() => new Date())
-});
+export const projectQuotas = sqliteTable(
+	'project_quotas',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => projects.id, { onDelete: 'cascade' }),
+		monthlyWriteCount: integer('monthly_write_count').notNull().default(0),
+		maxWriteLimit: integer('max_write_limit').notNull().default(100000),
+		storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
+		lastResetAt: integer('last_reset_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [uniqueIndex('project_quotas_projectId_idx').on(table.projectId)]
+);
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
 	user: one(user, {
@@ -81,9 +84,9 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 		references: [organizations.id]
 	}),
 	accessKeys: many(projectAccessKeys),
-	quotas: many(projectQuotas),
 	projectQuotas: many(projectQuotas),
-	payments: many(payments)
+	payments: many(payments),
+	builds: many(gameBuilds)
 }));
 
 export const projectAccessKeysRelations = relations(projectAccessKeys, ({ one }) => ({

@@ -4,7 +4,6 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
 	plugins: [

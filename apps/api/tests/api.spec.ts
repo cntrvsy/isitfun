@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import { signSession } from '@isitfun/shared';
 import app from '../src/index';
+import { injectPlayOverlay } from '../src/routes/games/play';
 
 describe('IsItFun Hono API Service', () => {
 	const mockEnv = {
@@ -54,7 +56,7 @@ describe('IsItFun Hono API Service', () => {
 		expect(html).toContain('<canvas id="gameCanvas"');
 	});
 
-	it('POST /v1/telemetry validates telemetry payloads with Valibot schema', async () => {
+	it('POST /v1/telemetry validates telemetry payloads with Valibot schema and requires valid signed sessionToken', async () => {
 		// Test invalid payload (empty object)
 		const invalidReq = new Request('http://localhost/v1/telemetry', {
 			method: 'POST',
@@ -64,10 +66,27 @@ describe('IsItFun Hono API Service', () => {
 		const invalidRes = await app.request(invalidReq, {}, mockEnv as any);
 		expect(invalidRes.status).toBe(400);
 
-		// Test valid payload routed to DO
+		// Test payload missing valid sessionToken rejected with 401
+		const unauthPayload = {
+			projectId: 'proj_demo',
+			sessionId: 'sess_123',
+			logs: [{ event: 'start', data: {}, timestamp: Date.now() }],
+			deviceHash: 'hash_abc123'
+		};
+		const unauthReq = new Request('http://localhost/v1/telemetry', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(unauthPayload)
+		});
+		const unauthRes = await app.request(unauthReq, {}, mockEnv as any);
+		expect(unauthRes.status).toBe(401);
+
+		// Test valid payload with signed sessionToken routed to DO
+		const sessionToken = await signSession('proj_demo', mockEnv.BETTER_AUTH_SECRET);
 		const validPayload = {
 			projectId: 'proj_demo',
 			sessionId: 'sess_123',
+			sessionToken,
 			logs: [{ event: 'start', data: {}, timestamp: Date.now() }],
 			deviceHash: 'hash_abc123'
 		};
@@ -127,5 +146,33 @@ describe('IsItFun Hono API Service', () => {
 			const res = await app.request(req, {}, mockEnv as any);
 			expect(res.status).toBe(401);
 		}
+	});
+
+	describe('injectPlayOverlay resilience', () => {
+		it('correctly injects base href and overlay script into standard HTML', () => {
+			const html =
+				'<!DOCTYPE html><html><head><title>Game</title></head><body><div id="game"></div></body></html>';
+			const res = injectPlayOverlay(html, 'proj_123', 'tok_abc', 'pro');
+			expect(res).toContain('<head><base href="/play/proj_123/"><title>Game</title>');
+			expect(res).toContain(
+				'<script src="/assets/overlay-widget.js" data-project="proj_123" data-session-token="tok_abc" data-tier="pro"></script></body>'
+			);
+		});
+
+		it('handles uppercase HEAD and BODY tags from legacy or custom game engines', () => {
+			const html = '<HTML><HEAD><TITLE>Game</TITLE></HEAD><BODY><CANVAS></CANVAS></BODY></HTML>';
+			const res = injectPlayOverlay(html, 'proj_456', 'tok_def', 'free');
+			expect(res).toContain('<HEAD><base href="/play/proj_456/"><TITLE>Game</TITLE>');
+			expect(res).toContain(
+				'<script src="/assets/overlay-widget.js" data-project="proj_456" data-session-token="tok_def" data-tier="free"></script></BODY>'
+			);
+		});
+
+		it('gracefully prepends base href and appends overlay script if tags are missing', () => {
+			const html = '<canvas id="bareCanvas"></canvas>';
+			const res = injectPlayOverlay(html, 'proj_789');
+			expect(res.startsWith('<base href="/play/proj_789/">')).toBe(true);
+			expect(res.endsWith('data-tier="free"></script>')).toBe(true);
+		});
 	});
 });

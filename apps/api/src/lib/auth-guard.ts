@@ -159,6 +159,12 @@ export async function requireProjectAccess(
 			}
 		}
 
+		if (minRole === 'editor') {
+			if (!hasMinRole(role, 'member')) {
+				throw new AuthGuardError(403, 'Forbidden: Workspace member role required for this action');
+			}
+		}
+
 		return { project, organization: org, membershipRole: role };
 	}
 

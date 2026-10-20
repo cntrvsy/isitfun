@@ -1,7 +1,7 @@
 import { form, getRequestEvent } from '$app/server';
 import * as v from 'valibot';
 import { error } from '@sveltejs/kit';
-import { CreateProjectSchema, CreateOrgSchema} from '@isitfun/shared';
+import { CreateProjectSchema, CreateOrgSchema } from '@isitfun/shared';
 
 function requireAuthContext() {
 	const event = getRequestEvent();
@@ -29,8 +29,6 @@ export const createProject = form(CreateProjectSchema, async (data) => {
 		locals.api.v1.projects.$post({
 			json: {
 				name: data.name.trim(),
-				passwordProtected: data.passwordProtected,
-				password: data.password,
 				organizationId: data.organizationId || undefined
 			}
 		}),
@@ -123,7 +121,7 @@ export const inviteMember = form(
 	}),
 	async (data) => {
 		const { locals } = requireAuthContext();
-		const json = await unwrapResponse<{ inviteId: string }>(
+		const json = await unwrapResponse<{ inviteId: string; inviteUrl?: string }>(
 			locals.api.v1.orgs[':id'].invites.$post({
 				param: { id: data.organizationId },
 				json: {
@@ -134,7 +132,24 @@ export const inviteMember = form(
 			'Failed to send invite'
 		);
 
-		return { success: true, inviteId: json.inviteId };
+		return { success: true, inviteId: json.inviteId, inviteUrl: json.inviteUrl };
+	}
+);
+
+export const manageSubscription = form(
+	v.object({
+		organizationId: v.pipe(v.string(), v.nonEmpty('Organization ID is required'))
+	}),
+	async (data) => {
+		const { locals } = requireAuthContext();
+		const json = await unwrapResponse<{ portalUrl: string }>(
+			locals.api.v1.billing.portal[':orgId'].$post({
+				param: { orgId: data.organizationId }
+			}),
+			'Failed to access billing portal'
+		);
+
+		return { success: true, portalUrl: json.portalUrl };
 	}
 );
 

@@ -19,9 +19,7 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 	}
 
 	const project = await res.json();
-
 	const keyCookie = cookies.get(`play_key_${projectId}`);
-	const legacyCookie = cookies.get(`play_auth_${projectId}`);
 
 	if (project.keys && project.keys.length > 0) {
 		const matchingKey = project.keys.find(
@@ -38,8 +36,15 @@ export const load: PageServerLoad = async ({ url, locals, cookies }) => {
 				throw redirect(302, `/play/${projectId}`);
 			}
 		}
-	} else if (!project.passwordProtected || legacyCookie === project.passwordHash) {
-		throw redirect(302, `/play/${projectId}`);
+	} else {
+		// No active keys configured for this project
+		return {
+			unconfigured: true,
+			notFound: false,
+			projectId: project.id,
+			projectName: project.name,
+			urlError: 'Playtesting is currently closed. No active access keys have been issued.'
+		};
 	}
 
 	let errorMessage: string | null = null;
@@ -62,15 +67,19 @@ export const actions: Actions = {
 	verify: async ({ request, locals, cookies }) => {
 		const formData = await request.formData();
 		const projectId = formData.get('projectId') as string;
-		const passwordInput = ((formData.get('password') as string) || '').trim();
+		const keyInput = (
+			(formData.get('key') as string) ||
+			(formData.get('password') as string) ||
+			''
+		).trim();
 
-		if (!projectId || !passwordInput) {
+		if (!projectId || !keyInput) {
 			return fail(400, { missing: true });
 		}
 
 		const res = await locals.api.v1.projects[':id']['verify-key'].$post({
 			param: { id: projectId },
-			json: { password: passwordInput }
+			json: { password: keyInput }
 		});
 
 		if (!res.ok) {
@@ -98,24 +107,17 @@ export const actions: Actions = {
 			valid: boolean;
 			isKey?: boolean;
 			key?: string;
-			isStatic?: boolean;
-			hash?: string;
 		};
 
-		if (data.valid) {
-			if (data.isKey && data.key) {
-				throw redirect(302, `/play/${projectId}?key=${encodeURIComponent(data.key)}`);
-			}
-			if (data.isStatic && data.hash) {
-				cookies.set(`play_auth_${projectId}`, data.hash, {
-					path: `/play/${projectId}`,
-					maxAge: 60 * 60 * 24 * 7, // 7 days
-					sameSite: 'lax',
-					httpOnly: true,
-					secure: true
-				});
-				throw redirect(302, `/play/${projectId}`);
-			}
+		if (data.valid && data.key) {
+			cookies.set(`play_key_${projectId}`, data.key, {
+				path: `/play/${projectId}`,
+				maxAge: 60 * 60 * 24 * 7, // 7 days
+				sameSite: 'lax',
+				httpOnly: true,
+				secure: true
+			});
+			throw redirect(302, `/play/${projectId}?key=${encodeURIComponent(data.key)}`);
 		}
 
 		return fail(400, { incorrect: true });

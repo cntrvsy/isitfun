@@ -27,6 +27,8 @@ export interface Bindings {
 	CREEM_PRODUCT_ID?: string;
 	CREEM_PRODUCT_ID_PROJECT_PASS?: string;
 	CREEM_PRODUCT_ID_TEAM_SEAT?: string;
+	ENVIRONMENT?: string;
+	SESSION_SIGNING_SECRET?: string;
 }
 
 export type AuthUser = User & {

@@ -120,7 +120,12 @@ export const billingRouter = new Hono<AppEnv>()
 					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
 			} else {
-				// Mock upgrade in development
+				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_KEY;
+				if (!isDev) {
+					return c.json({ error: 'Payment gateway unconfigured' }, 503);
+				}
+
+				// Mock upgrade in local development
 				await db
 					.update(schema.projects)
 					.set({ tier: 'pro' })
@@ -180,7 +185,12 @@ export const billingRouter = new Hono<AppEnv>()
 					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
 			} else {
-				// Mock upgrade in development
+				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_KEY;
+				if (!isDev) {
+					return c.json({ error: 'Payment gateway unconfigured' }, 503);
+				}
+
+				// Mock upgrade in local development
 				await db
 					.update(schema.organizations)
 					.set({ tier: 'team' })
@@ -190,6 +200,53 @@ export const billingRouter = new Hono<AppEnv>()
 			}
 		}
 	)
+	// POST /v1/billing/portal/:orgId - Creem customer billing portal
+	.post('/portal/:orgId', async (c) => {
+		const user = c.get('user')!;
+		const orgId = c.req.param('orgId');
+		const db = createD1Client(c.env.DB);
+		await requireOrgAccess(db, orgId, user, 'admin');
+
+		const org = await db
+			.select()
+			.from(schema.organizations)
+			.where(eq(schema.organizations.id, orgId))
+			.get();
+
+		if (!org) {
+			return c.json({ error: 'Organization not found' }, 404);
+		}
+
+		const creemApiKey = c.env.CREEM_API_KEY;
+		const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
+		const baseUrl = isTestMode ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1';
+
+		if (creemApiKey && org.creemCustomerId) {
+			try {
+				const res = await fetch(`${baseUrl}/customers/${org.creemCustomerId}/billing_portal`, {
+					method: 'POST',
+					headers: {
+						'x-api-key': creemApiKey,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						return_url: c.req.header('origin') || 'https://isitfun.frstudios.co.ke'
+					})
+				});
+				if (res.ok) {
+					const portalData = (await res.json()) as { url?: string; portal_url?: string };
+					const portalUrl = portalData.url || portalData.portal_url;
+					if (portalUrl) return c.json({ portalUrl });
+				}
+			} catch (err) {
+				console.error('[Billing] Failed to create customer portal link:', err);
+			}
+		}
+
+		return c.json({
+			portalUrl: '/portal/dashboard?billing_notice=portal_unavailable'
+		});
+	})
 	// POST /v1/billing/sync-seats/:orgId - Sync Creem subscription seats
 	.post('/sync-seats/:orgId', async (c) => {
 		const orgId = c.req.param('orgId');

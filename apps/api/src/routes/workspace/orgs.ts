@@ -237,18 +237,22 @@ export const orgsRouter = new Hono<AppEnv>()
 		});
 
 		const baseURL = c.env.BETTER_AUTH_URL || 'https://isitfun.frstudios.co.ke';
-		const inviteUrl = `${baseURL}/auth?invite=${token}`;
+		const inviteUrl = `${baseURL}/invites/accept?token=${token}`;
 
-		await sendOrganizationInviteEmail({
-			apiKey: c.env.RESEND_API_KEY,
-			from: c.env.RESEND_FROM_EMAIL,
-			to: data.email.trim().toLowerCase(),
-			inviterName: user.name,
-			orgName: org.name,
-			inviteUrl
-		});
+		try {
+			await sendOrganizationInviteEmail({
+				apiKey: c.env.RESEND_API_KEY,
+				from: c.env.RESEND_FROM_EMAIL,
+				to: data.email.trim().toLowerCase(),
+				inviterName: user.name,
+				orgName: org.name,
+				inviteUrl
+			});
+		} catch (emailErr) {
+			console.error('[Orgs] Failed to send invite email:', emailErr);
+		}
 
-		return c.json({ success: true, inviteId }, 201);
+		return c.json({ success: true, inviteId, inviteUrl }, 201);
 	})
 	// DELETE /v1/orgs/:id/invites/:inviteId - Cancel invite
 	.delete('/:id/invites/:inviteId', async (c) => {
@@ -307,6 +311,37 @@ export const orgsRouter = new Hono<AppEnv>()
 			if (user.role !== 'admin') {
 				return c.json({ error: 'Forbidden' }, 403);
 			}
+		}
+
+		const targetMember = await db
+			.select()
+			.from(schema.organizationMemberships)
+			.where(
+				and(
+					eq(schema.organizationMemberships.organizationId, orgId),
+					or(
+						eq(schema.organizationMemberships.id, memberId),
+						eq(schema.organizationMemberships.userId, memberId)
+					)
+				)
+			)
+			.get();
+
+		if (!targetMember) {
+			return c.json({ error: 'Member not found' }, 404);
+		}
+
+		if (targetMember.role === 'owner') {
+			return c.json({ error: 'Cannot remove organization owner' }, 400);
+		}
+
+		if (
+			myMembership &&
+			myMembership.role === 'admin' &&
+			targetMember.role === 'admin' &&
+			targetMember.userId !== user.id
+		) {
+			return c.json({ error: 'Admins cannot remove other admins' }, 403);
 		}
 
 		await db

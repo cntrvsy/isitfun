@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TelemetrySessionDO } from '../../src/durable-objects/TelemetrySessionDO';
 
@@ -24,7 +23,8 @@ describe('TelemetrySessionDO Resilience', () => {
 				}),
 				deleteAll: vi.fn(async () => mockStorageMap.clear()),
 				getAlarm: vi.fn(async () => null),
-				setAlarm: vi.fn(async () => {})
+				setAlarm: vi.fn(async () => {}),
+				deleteAlarm: vi.fn(async () => {})
 			}
 		};
 
@@ -120,5 +120,56 @@ describe('TelemetrySessionDO Resilience', () => {
 		// Verify storage is preserved and alarm rescheduled
 		expect(mockState.storage.deleteAll).not.toHaveBeenCalled();
 		expect(mockState.storage.setAlarm).toHaveBeenCalled();
+	});
+
+	it('enforces in-memory rate limiting when exceeding 120 events in a minute', async () => {
+		const doInstance = new TelemetrySessionDO(mockState, mockEnv);
+
+		const makeReq = () =>
+			new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					projectId: 'proj_1',
+					sessionId: 'sess_rate_123',
+					logs: [{ event: 'spam', timestamp: Date.now() }],
+					hasCrashed: false,
+					isExiting: false,
+					deviceHash: 'dev_123',
+					browserInfo: 'Chrome'
+				})
+			});
+
+		// Send 120 valid requests
+		for (let i = 0; i < 120; i++) {
+			const res = await doInstance.fetch(makeReq());
+			expect(res.status).toBe(200);
+		}
+
+		// 121st request should be rate-limited
+		const blockedRes = await doInstance.fetch(makeReq());
+		expect(blockedRes.status).toBe(429);
+		const json = (await blockedRes.json()) as { error: string };
+		expect(json.error).toContain('telemetry rate limit exceeded');
+	});
+
+	it('immediately abandons buffer and deletes alarm on foreign key constraint error in alarm', async () => {
+		mockEnv.GAMES_BUCKET.put.mockRejectedValue(
+			new Error('FOREIGN KEY constraint failed: project deleted')
+		);
+		const doInstance = new TelemetrySessionDO(mockState, mockEnv);
+
+		mockStorageMap.set('sessionId', 'sess_orphan_uuid');
+		mockStorageMap.set('projectId', 'proj_deleted');
+		mockStorageMap.set('createdAt', Date.now());
+		mockStorageMap.set('logs', [{ event: 'late_event', timestamp: Date.now() }]);
+		mockStorageMap.set('logCount', 1);
+
+		await doInstance.alarm();
+
+		// Should delete all storage and delete alarm immediately, without rescheduling
+		expect(mockState.storage.deleteAll).toHaveBeenCalled();
+		expect(mockState.storage.deleteAlarm).toHaveBeenCalled();
+		expect(mockState.storage.setAlarm).not.toHaveBeenCalled();
 	});
 });

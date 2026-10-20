@@ -21,7 +21,10 @@ export const organizations = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
-	(table) => [index('org_owner_type_idx').on(table.ownerId, table.type)]
+	(table) => [
+		index('org_owner_type_idx').on(table.ownerId, table.type),
+		index('org_creem_sub_idx').on(table.creemSubscriptionId)
+	]
 );
 
 export const organizationMemberships = sqliteTable(

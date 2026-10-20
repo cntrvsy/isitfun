@@ -22,7 +22,7 @@ test.describe('Platform E2E Smoke Test Suite', () => {
 	});
 
 	test('playgame route renders safely with project query', async ({ page }) => {
-		await page.goto('/playgame?project=demo');
+		await page.goto('/playgame?projectId=demo');
 		await expect(page.locator('body')).toBeVisible();
 	});
 });

@@ -2,12 +2,13 @@
 	import { refreshAll } from '$app/navigation';
 	import {
 		upgradeOrganization,
+		manageSubscription,
 		inviteMember,
 		cancelInvite,
 		removeMember,
 		leaveOrganization
 	} from '../../../routes/(app)/portal/dashboard/dashboard.remote';
-	import { X, UserPlus, CreditCard, Users, Trash2, LogOut } from '@lucide/svelte';
+	import { X, CreditCard, Trash2, LogOut, Copy } from '@lucide/svelte';
 
 	interface MemberUser {
 		id: string;
@@ -124,11 +125,33 @@
 							</button>
 						</form>
 					{:else}
-						<span
-							class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
-						>
-							<CreditCard class="h-3.5 w-3.5" /> Active Subscription
-						</span>
+						<div class="flex flex-wrap items-center gap-2">
+							<span
+								class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+							>
+								<CreditCard class="h-3.5 w-3.5" /> Active Subscription
+							</span>
+							{#if activeOrg.ownerId === userId}
+								<form
+									{...manageSubscription.enhance(async ({ submit }: any) => {
+										if (await submit()) {
+											const res = manageSubscription.result;
+											if (res && typeof res === 'object' && 'portalUrl' in res && res.portalUrl) {
+												window.location.href = String(res.portalUrl);
+											}
+										}
+									})}
+								>
+									<input {...manageSubscription.fields.organizationId.as('hidden', activeOrg.id)} />
+									<button
+										type="submit"
+										class="rounded-lg border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+									>
+										Manage Subscription
+									</button>
+								</form>
+							{/if}
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -171,10 +194,24 @@
 
 					{#if generatedInviteUrl}
 						<div class="mt-3 rounded-lg border border-purple-200 bg-purple-50 p-3">
-							<span class="block text-[10px] font-bold text-purple-800 uppercase">
-								Direct Invite Link:
-							</span>
-							<code class="mt-1 block font-mono text-[11px] break-all text-slate-800 select-all">
+							<div class="mb-1 flex items-center justify-between">
+								<span class="text-[10px] font-bold text-purple-800 uppercase">
+									Direct Invite Link:
+								</span>
+								<button
+									type="button"
+									onclick={() => {
+										if (generatedInviteUrl) {
+											navigator.clipboard.writeText(generatedInviteUrl);
+											showStatus('Invite link copied to clipboard!');
+										}
+									}}
+									class="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 hover:underline"
+								>
+									<Copy class="h-3 w-3" /> Copy Link
+								</button>
+							</div>
+							<code class="block font-mono text-[11px] break-all text-slate-800 select-all">
 								{generatedInviteUrl}
 							</code>
 						</div>

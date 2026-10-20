@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and, isNull, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { vValidator } from '@hono/valibot-validator';
 import * as v from 'valibot';
 import { createD1Client, schema } from '@isitfun/db';
@@ -7,14 +7,16 @@ import {
 	CreateProjectSchema,
 	UpdateProjectSchema,
 	CreateAccessKeySchema,
+	InitBuildSchema,
+	PublishBuildSchema,
 	TierLimits,
 	validateAccessKey
 } from '@isitfun/shared';
 import type { AppEnv } from '../../types';
 import type { ReadableStream as CFReadableStream } from '@cloudflare/workers-types';
 import { sessionMiddleware, requireAuth } from '../../middleware/auth';
-import { hashPassword } from '../../lib/crypto';
-import { guessContentType } from '../../lib/r2';
+import { guessContentType, guessContentEncoding } from '../../lib/r2';
+import { getEffectiveTier } from '../../lib/billing/entitlements';
 import { zipSync, strToU8 } from 'fflate';
 import { requireProjectAccess, requireOrgAccess } from '../../lib/auth-guard';
 import { getUserPersonalOrg } from '../../lib/orgs';
@@ -64,15 +66,7 @@ export const projectsRouter = new Hono<AppEnv>()
 				return c.json({ valid: true, isKey: true, key: matchingKey.code });
 			}
 
-			// Fallback to static password
-			if (project.passwordProtected && project.passwordHash) {
-				const hashed = await hashPassword(passwordInput, projectId);
-				if (hashed === project.passwordHash) {
-					return c.json({ valid: true, isStatic: true, hash: project.passwordHash });
-				}
-			}
-
-			return c.json({ valid: false, reason: 'incorrect_password' }, 400);
+			return c.json({ valid: false, reason: 'incorrect_key' }, 400);
 		}
 	)
 	// GET /v1/projects/:id/public - Public metadata for playtesters & launch screen
@@ -84,8 +78,7 @@ export const projectsRouter = new Hono<AppEnv>()
 			.select({
 				id: schema.projects.id,
 				name: schema.projects.name,
-				passwordProtected: schema.projects.passwordProtected,
-				passwordHash: schema.projects.passwordHash
+				tier: schema.projects.tier
 			})
 			.from(schema.projects)
 			.where(eq(schema.projects.id, projectId))
@@ -114,8 +107,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		return c.json({
 			id: project.id,
 			name: project.name,
-			passwordProtected: project.passwordProtected,
-			passwordHash: project.passwordHash,
+			tier: project.tier,
 			hasActiveKeys: activeKeys.length > 0,
 			keys: activeKeys
 		});
@@ -182,19 +174,13 @@ export const projectsRouter = new Hono<AppEnv>()
 		}
 
 		const projectId = schema.generateNanoID(12);
-		let passwordHash: string | null = null;
-		if (data.passwordProtected && data.password) {
-			passwordHash = await hashPassword(data.password, projectId);
-		}
-
 		const now = new Date();
+
 		await db.insert(schema.projects).values({
 			id: projectId,
 			userId: user.id,
 			organizationId,
 			name: data.name.trim(),
-			passwordProtected: Boolean(data.passwordProtected),
-			passwordHash,
 			tier: 'free',
 			createdAt: now
 		});
@@ -208,7 +194,19 @@ export const projectsRouter = new Hono<AppEnv>()
 			lastResetAt: now
 		});
 
-		return c.json({ success: true, projectId }, 201);
+		// Auto-generate default playtest access key (20 uses)
+		const defaultKey = schema.generateNanoID(6).toUpperCase();
+		await db.insert(schema.projectAccessKeys).values({
+			projectId,
+			name: 'Default Playtest Key',
+			code: defaultKey,
+			maxUses: 20,
+			usedCount: 0,
+			isActive: true,
+			createdAt: now
+		});
+
+		return c.json({ success: true, projectId, defaultKey }, 201);
 	})
 	// GET /v1/projects/:id - Get project details with access keys and quotas
 	.get('/:id', async (c) => {
@@ -239,20 +237,14 @@ export const projectsRouter = new Hono<AppEnv>()
 		const data = c.req.valid('json');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'editor');
+		await requireProjectAccess(db, projectId, user, 'editor');
 
 		const updates: Partial<typeof schema.projects.$inferInsert> = {};
 		if (data.name) updates.name = data.name.trim();
-		if (data.passwordProtected !== undefined) {
-			updates.passwordProtected = data.passwordProtected;
-			if (data.passwordProtected && data.password) {
-				updates.passwordHash = await hashPassword(data.password, projectId);
-			} else if (!data.passwordProtected) {
-				updates.passwordHash = null;
-			}
-		}
 
-		await db.update(schema.projects).set(updates).where(eq(schema.projects.id, projectId));
+		if (Object.keys(updates).length > 0) {
+			await db.update(schema.projects).set(updates).where(eq(schema.projects.id, projectId));
+		}
 
 		return c.json({ success: true });
 	})
@@ -262,7 +254,26 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'admin');
+		await requireProjectAccess(db, projectId, user, 'admin');
+
+		// Purge all R2 game assets and session logs
+		const bucket = c.env.GAMES_BUCKET;
+		if (bucket) {
+			try {
+				let truncated = true;
+				let cursor: string | undefined = undefined;
+				while (truncated) {
+					const listResult = await bucket.list({ prefix: `games/${projectId}/`, cursor });
+					if (listResult.objects && listResult.objects.length > 0) {
+						await bucket.delete(listResult.objects.map((o) => o.key));
+					}
+					truncated = listResult.truncated;
+					cursor = listResult.truncated ? listResult.cursor : undefined;
+				}
+			} catch (r2Err) {
+				console.error('[Projects] Failed to purge R2 bucket objects on delete:', r2Err);
+			}
+		}
 
 		// Delete from D1 (cascades related tables)
 		await db.delete(schema.projects).where(eq(schema.projects.id, projectId));
@@ -276,14 +287,18 @@ export const projectsRouter = new Hono<AppEnv>()
 		const data = c.req.valid('json');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'editor');
+		const { project, organization } = await requireProjectAccess(db, projectId, user, 'editor');
+		const effectiveTier = getEffectiveTier(
+			project.tier,
+			organization?.tier,
+			organization?.subscriptionStatus
+		);
 
 		const code = schema.generateNanoID(8).toUpperCase();
 		const keyId = crypto.randomUUID();
 		const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
 		const maxUses =
-			data.maxUses ??
-			(TierLimits[project.tier as 'free' | 'pro_pass' | 'team']?.maxUsesPerKey || 20);
+			data.maxUses !== undefined ? data.maxUses : TierLimits[effectiveTier].maxUsesPerKey;
 
 		await db.insert(schema.projectAccessKeys).values({
 			id: keyId,
@@ -368,7 +383,194 @@ export const projectsRouter = new Hono<AppEnv>()
 
 		return c.json({ success: true });
 	})
-	// POST /v1/projects/:id/upload - Stream game asset file directly to R2
+	// GET /v1/projects/:id/builds - List all versioned builds for a project
+	.get('/:id/builds', async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const db = createD1Client(c.env.DB);
+
+		await requireProjectAccess(db, projectId, user, 'viewer');
+
+		const builds = await db
+			.select()
+			.from(schema.gameBuilds)
+			.where(eq(schema.gameBuilds.projectId, projectId))
+			.orderBy(desc(schema.gameBuilds.uploadedAt))
+			.all();
+
+		return c.json({ builds });
+	})
+	// POST /v1/projects/:id/builds/init - Initialize a new versioned game build
+	.post('/:id/builds/init', vValidator('json', InitBuildSchema), async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const body = c.req.valid('json');
+		const db = createD1Client(c.env.DB);
+
+		await requireProjectAccess(db, projectId, user, 'editor');
+
+		const buildId = crypto.randomUUID();
+		const r2FolderPath = `games/${projectId}/builds/${buildId}`;
+
+		await db.insert(schema.gameBuilds).values({
+			id: buildId,
+			projectId,
+			versionString: body.versionString || '1.0.0',
+			r2FolderPath,
+			totalSizeBytes: 0,
+			isActive: false,
+			uploadedAt: new Date()
+		});
+
+		return c.json({ success: true, buildId, r2FolderPath }, 201);
+	})
+	// POST /v1/projects/:id/builds/:buildId/upload - Stream file chunk to versioned build
+	.post('/:id/builds/:buildId/upload', async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const buildId = c.req.param('buildId');
+		const rawPath = c.req.query('path');
+		const db = createD1Client(c.env.DB);
+
+		if (!rawPath) {
+			return c.json({ error: 'Missing path query parameter' }, 400);
+		}
+
+		const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+		if (
+			normalizedPath.includes('..') ||
+			normalizedPath.includes('\0') ||
+			normalizedPath.startsWith('/') ||
+			!normalizedPath.trim()
+		) {
+			return c.json({ error: 'Invalid or unsafe file path' }, 400);
+		}
+
+		const { project, organization } = await requireProjectAccess(db, projectId, user, 'editor');
+		const effectiveTier = getEffectiveTier(
+			project.tier,
+			organization?.tier,
+			organization?.subscriptionStatus
+		);
+		const limits = TierLimits[effectiveTier];
+
+		const contentLengthHeader = c.req.header('content-length');
+		if (!contentLengthHeader || isNaN(Number(contentLengthHeader))) {
+			return c.json({ error: 'Length Required: Content-Length header is missing or invalid' }, 411);
+		}
+
+		const contentLength = Number(contentLengthHeader);
+		if (contentLength <= 0 || contentLength > limits.maxFileSizeMb * 1024 * 1024) {
+			return c.json({ error: `File size exceeds ${limits.maxFileSizeMb} MB tier limit` }, 413);
+		}
+
+		const bucket = c.env.GAMES_BUCKET;
+		if (!bucket) {
+			return c.json({ error: 'GAMES_BUCKET binding missing' }, 500);
+		}
+
+		const r2Key = `games/${projectId}/builds/${buildId}/${normalizedPath}`;
+		const body = c.req.raw.body;
+		if (!body) {
+			return c.json({ error: 'Empty file body' }, 400);
+		}
+
+		const contentType = guessContentType(normalizedPath);
+		const contentEncoding = guessContentEncoding(normalizedPath);
+
+		try {
+			await bucket.put(r2Key, body as unknown as CFReadableStream, {
+				httpMetadata: {
+					contentType,
+					...(contentEncoding ? { contentEncoding } : {})
+				}
+			});
+
+			return c.json({ success: true, key: r2Key, size: contentLength });
+		} catch (err) {
+			console.error('[Build Upload] Failed to upload chunk to R2:', err);
+			return c.json({ error: 'R2 chunk upload failed' }, 500);
+		}
+	})
+	// POST /v1/projects/:id/builds/:buildId/publish - Atomically activate build and auto-prune prior builds
+	.post('/:id/builds/:buildId/publish', vValidator('json', PublishBuildSchema), async (c) => {
+		const user = c.get('user')!;
+		const projectId = c.req.param('id');
+		const buildId = c.req.param('buildId');
+		const body = c.req.valid('json');
+		const db = createD1Client(c.env.DB);
+
+		await requireProjectAccess(db, projectId, user, 'editor');
+
+		// Check if build exists
+		const build = await db
+			.select()
+			.from(schema.gameBuilds)
+			.where(and(eq(schema.gameBuilds.id, buildId), eq(schema.gameBuilds.projectId, projectId)))
+			.get();
+
+		if (!build) {
+			return c.json({ error: 'Build not found' }, 404);
+		}
+
+		// Deactivate all builds for this project
+		await db
+			.update(schema.gameBuilds)
+			.set({ isActive: false })
+			.where(eq(schema.gameBuilds.projectId, projectId));
+
+		// Activate this build
+		await db
+			.update(schema.gameBuilds)
+			.set({
+				isActive: true,
+				totalSizeBytes: body.totalSizeBytes || 0,
+				uploadedAt: new Date()
+			})
+			.where(eq(schema.gameBuilds.id, buildId));
+
+		// Update project quota storage
+		if (body.totalSizeBytes) {
+			await db
+				.update(schema.projectQuotas)
+				.set({ storageBytesUsed: body.totalSizeBytes })
+				.where(eq(schema.projectQuotas.projectId, projectId));
+		}
+
+		// Background: Auto-prune builds older than the 5 most recent builds
+		const bucket = c.env.GAMES_BUCKET;
+		const allBuilds = await db
+			.select()
+			.from(schema.gameBuilds)
+			.where(eq(schema.gameBuilds.projectId, projectId))
+			.orderBy(desc(schema.gameBuilds.uploadedAt))
+			.all();
+
+		const buildsToPrune = allBuilds.slice(5);
+
+		if (bucket && buildsToPrune.length > 0) {
+			c.executionCtx.waitUntil(
+				(async () => {
+					for (const pb of buildsToPrune) {
+						try {
+							const listResult = await bucket.list({
+								prefix: `games/${projectId}/builds/${pb.id}/`
+							});
+							if (listResult.objects.length > 0) {
+								await bucket.delete(listResult.objects.map((o) => o.key));
+							}
+							await db.delete(schema.gameBuilds).where(eq(schema.gameBuilds.id, pb.id));
+						} catch (pruneErr) {
+							console.warn('[Builds] Failed auto-pruning prior build:', pruneErr);
+						}
+					}
+				})()
+			);
+		}
+
+		return c.json({ success: true, activeBuildId: buildId });
+	})
+	// POST /v1/projects/:id/upload - Direct upload fallback with atomic quota update
 	.post('/:id/upload', async (c) => {
 		const user = c.get('user')!;
 		const projectId = c.req.param('id');
@@ -391,7 +593,13 @@ export const projectsRouter = new Hono<AppEnv>()
 		}
 		const filePath = normalizedPath;
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'editor');
+		const { project, organization } = await requireProjectAccess(db, projectId, user, 'editor');
+		const effectiveTier = getEffectiveTier(
+			project.tier,
+			organization?.tier,
+			organization?.subscriptionStatus
+		);
+		const limits = TierLimits[effectiveTier];
 
 		const contentLengthHeader = c.req.header('content-length');
 		if (!contentLengthHeader || isNaN(Number(contentLengthHeader))) {
@@ -399,16 +607,8 @@ export const projectsRouter = new Hono<AppEnv>()
 		}
 
 		const contentLength = Number(contentLengthHeader);
-		if (contentLength <= 0) {
-			return c.json({ error: 'Invalid file content length' }, 400);
-		}
-
-		if (contentLength > 100 * 1024 * 1024) {
-			return c.json({ error: 'File size exceeds maximum 100 MB limit' }, 413);
-		}
-
-		if (project.tier === 'free' && contentLength > 40 * 1024 * 1024) {
-			return c.json({ error: 'File size exceeds 40 MB free limit' }, 413);
+		if (contentLength <= 0 || contentLength > limits.maxFileSizeMb * 1024 * 1024) {
+			return c.json({ error: `File size exceeds ${limits.maxFileSizeMb} MB tier limit` }, 413);
 		}
 
 		const bucket = c.env.GAMES_BUCKET;
@@ -433,7 +633,7 @@ export const projectsRouter = new Hono<AppEnv>()
 				id: crypto.randomUUID(),
 				projectId,
 				monthlyWriteCount: 0,
-				maxWriteLimit: 100000,
+				maxWriteLimit: limits.maxMonthlyWrites,
 				storageBytesUsed: 0,
 				lastResetAt: new Date()
 			};
@@ -446,32 +646,36 @@ export const projectsRouter = new Hono<AppEnv>()
 			const existingObject = await bucket.head(r2Key);
 			if (existingObject) existingSize = existingObject.size;
 		} catch {
-			// Object does not exist yet or head failed; default existingSize to 0
+			// Object does not exist yet; default to 0
 		}
 
 		const sizeDifference = contentLength - existingSize;
-		const newStorageBytesUsed = quota.storageBytesUsed + sizeDifference;
-
-		const maxStorageLimit = project.tier === 'free' ? 250 * 1024 * 1024 : 5000 * 1024 * 1024;
-		if (newStorageBytesUsed > maxStorageLimit) {
+		const maxStorageLimit = limits.maxStorageMb * 1024 * 1024;
+		if (quota.storageBytesUsed + sizeDifference > maxStorageLimit) {
 			return c.json(
 				{
-					error: `Upload would exceed project storage limit of ${maxStorageLimit / (1024 * 1024)} MB`
+					error: `Upload would exceed project storage limit of ${limits.maxStorageMb} MB`
 				},
 				413
 			);
 		}
 
 		const contentType = guessContentType(filePath);
+		const contentEncoding = guessContentEncoding(filePath);
 
 		try {
 			await bucket.put(r2Key, body as unknown as CFReadableStream, {
-				httpMetadata: { contentType }
+				httpMetadata: {
+					contentType,
+					...(contentEncoding ? { contentEncoding } : {})
+				}
 			});
 
 			await db
 				.update(schema.projectQuotas)
-				.set({ storageBytesUsed: newStorageBytesUsed })
+				.set({
+					storageBytesUsed: sql`${schema.projectQuotas.storageBytesUsed} + ${sizeDifference}`
+				})
 				.where(eq(schema.projectQuotas.projectId, projectId));
 
 			return c.json({ success: true, key: r2Key });
@@ -487,7 +691,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const sessionId = c.req.param('sessionId');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
+		await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		const r2Key = `games/${projectId}/sessions/${sessionId}.json`;
@@ -530,7 +734,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const sessionId = c.req.param('sessionId');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'editor');
+		await requireProjectAccess(db, projectId, user, 'editor');
 
 		const bucket = c.env.GAMES_BUCKET;
 		if (bucket) {
@@ -559,7 +763,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
+		await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		type SessionPayload = {
@@ -681,7 +885,7 @@ export const projectsRouter = new Hono<AppEnv>()
 		const projectId = c.req.param('id');
 		const db = createD1Client(c.env.DB);
 
-		const { project } = await requireProjectAccess(db, projectId, user, 'viewer');
+		await requireProjectAccess(db, projectId, user, 'viewer');
 
 		const bucket = c.env.GAMES_BUCKET;
 		type SessionPayload = {

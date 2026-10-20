@@ -74,14 +74,14 @@
 							class="mb-1.5 block text-xs font-semibold text-slate-300"
 							for="playtest-password"
 						>
-							Access Password / Code
+							Playtest Access Key
 						</label>
 						<input
 							id="playtest-password"
-							type="password"
+							type="text"
 							name="password"
-							placeholder="Enter password..."
-							class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-center font-mono text-sm tracking-wider text-white placeholder-slate-600 focus:border-purple-500 focus:outline-none"
+							placeholder="e.g. ALPHA-TEST-2026"
+							class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-center font-mono text-sm tracking-wider text-white uppercase placeholder-slate-600 focus:border-purple-500 focus:outline-none"
 							required
 						/>
 
@@ -97,7 +97,7 @@
 								id="error-message"
 								class="mt-2 rounded-lg border border-rose-800/40 bg-rose-950/40 p-2.5 text-center text-xs font-medium text-rose-300"
 							>
-								Incorrect password or access key. Please verify with the developer.
+								Invalid, inactive, or expired access key. Please verify with the developer.
 							</p>
 						{/if}
 					</div>

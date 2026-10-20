@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Footer from '#lib/components/Footer.svelte';
 	import {
 		Users,
@@ -8,8 +7,7 @@
 		BarChart3,
 		Database,
 		HardDrive,
-		ShieldCheck,
-		ArrowLeft
+		ShieldCheck
 	} from '@lucide/svelte';
 
 	let { data } = $props();

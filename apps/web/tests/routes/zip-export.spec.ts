@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '../../src/routes/(app)/portal/dashboard/projects/[projectId]/export/zip/+server';
 

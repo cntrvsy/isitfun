@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createProject } from '../../src/routes/(app)/portal/dashboard/dashboard.remote';
 import { hashPassword } from '@isitfun/shared';
@@ -18,8 +17,7 @@ vi.mock('$app/server', () => {
 			formAction.enhance = () => ({});
 			formAction.fields = {
 				name: { as: () => ({}) },
-				passwordProtected: { as: () => ({}), value: () => false },
-				password: { as: () => ({}) },
+				organizationId: { as: () => ({}) },
 				id: { as: () => ({}) }
 			};
 			return formAction;
@@ -69,8 +67,7 @@ describe('dashboard.remote', () => {
 
 			await expect(
 				(createProject as any)({
-					name: 'New Free Project',
-					passwordProtected: false
+					name: 'New Free Project'
 				})
 			).rejects.toThrow();
 		});
@@ -102,8 +99,7 @@ describe('dashboard.remote', () => {
 			vi.mocked(getRequestEvent).mockReturnValue(mockEvent as any);
 
 			const result = await (createProject as any)({
-				name: 'First Free Project',
-				passwordProtected: false
+				name: 'First Free Project'
 			});
 
 			expect(result).toEqual({ success: true, projectId: 'new_proj_123' });

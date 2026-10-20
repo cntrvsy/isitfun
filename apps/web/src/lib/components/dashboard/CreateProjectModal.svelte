@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { createProject } from '../../../routes/(app)/portal/dashboard/dashboard.remote';
-	import { X } from '@lucide/svelte';
+	import { X, KeyRound, AlertCircle } from '@lucide/svelte';
 
 	let { show = $bindable(false), organizationId = '' } = $props();
+	let errorMessage = $state<string | null>(null);
 </script>
 
 {#if show}
@@ -15,7 +16,10 @@
 			<header class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
 				<h3 class="text-lg font-bold tracking-tight text-slate-900">Create New Playtest</h3>
 				<button
-					onclick={() => (show = false)}
+					onclick={() => {
+						show = false;
+						errorMessage = null;
+					}}
 					class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
 					aria-label="Close modal"
 				>
@@ -25,17 +29,29 @@
 
 			<form
 				{...createProject.enhance(async ({ submit, element }: any) => {
+					errorMessage = null;
 					try {
 						if (await submit()) {
 							show = false;
 							element.reset();
+						} else {
+							errorMessage = 'Failed to create project. Free tier is limited to 1 active project.';
 						}
-					} catch (e) {
-						console.error(e);
+					} catch (e: any) {
+						errorMessage = e?.message || 'An unexpected error occurred while creating project.';
 					}
 				})}
 				class="space-y-5 p-6"
 			>
+				{#if errorMessage}
+					<div
+						class="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"
+					>
+						<AlertCircle class="h-4 w-4 shrink-0" />
+						<span>{errorMessage}</span>
+					</div>
+				{/if}
+
 				{#if organizationId}
 					<input type="hidden" name="organizationId" value={organizationId} />
 				{/if}
@@ -52,44 +68,27 @@
 					/>
 				</div>
 
-				<div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-					<label class="flex cursor-pointer items-center justify-between" for="password-toggle">
+				<div class="rounded-xl border border-purple-100 bg-purple-50/60 p-4">
+					<div class="flex items-start gap-3">
+						<KeyRound class="mt-0.5 h-4 w-4 shrink-0 text-purple-600" />
 						<div>
-							<span class="block text-xs font-bold text-slate-900">Password Protection</span>
-							<span class="mt-0.5 block text-[11px] text-slate-500">
-								Require testers to enter a password to access the build
+							<span class="block text-xs font-bold text-slate-900">Access Key Protection</span>
+							<span class="mt-0.5 block text-[11px] leading-relaxed text-slate-600">
+								A default playtest access key with 20 uses will be generated automatically. You can
+								create custom keys, set expiry dates, or allow unlimited testers in the project
+								settings.
 							</span>
 						</div>
-						<input
-							id="password-toggle"
-							class="h-4 w-4 rounded border-slate-300 text-purple-600 focus:ring-purple-500"
-							{...createProject.fields.passwordProtected.as('checkbox')}
-						/>
-					</label>
-
-					{#if createProject.fields.passwordProtected.value()}
-						<div class="mt-3 border-t border-slate-200 pt-3">
-							<label
-								class="mb-1 block text-xs font-semibold text-slate-700"
-								for="playtest-password"
-							>
-								Access Password
-							</label>
-							<input
-								id="playtest-password"
-								placeholder="••••••••"
-								class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-purple-600 focus:outline-none"
-								required={createProject.fields.passwordProtected.value()}
-								{...createProject.fields.password.as('password')}
-							/>
-						</div>
-					{/if}
+					</div>
 				</div>
 
 				<footer class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
 					<button
 						type="button"
-						onclick={() => (show = false)}
+						onclick={() => {
+							show = false;
+							errorMessage = null;
+						}}
 						class="rounded-lg px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
 					>
 						Cancel

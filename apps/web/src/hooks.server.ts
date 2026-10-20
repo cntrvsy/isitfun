@@ -8,18 +8,14 @@ export const handleGateway: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
 
 	// Support /v1/*, /play/*, and legacy /api endpoints routing to the API worker
-	if (
-		pathname.startsWith('/v1') ||
-		pathname.startsWith('/play') ||
-		pathname.startsWith('/api/auth') ||
-		pathname.startsWith('/api/telemetry') ||
-		pathname.startsWith('/api/webhooks')
-	) {
+	if (pathname.startsWith('/v1') || pathname.startsWith('/play') || pathname.startsWith('/api')) {
 		const apiBinding = event.platform?.env?.API;
 
 		// Map legacy /api paths to /v1
 		let targetPath = pathname;
-		if (targetPath.startsWith('/api/auth')) {
+		if (targetPath.startsWith('/api/games')) {
+			targetPath = targetPath.replace('/api/games', '/v1/projects');
+		} else if (targetPath.startsWith('/api/auth')) {
 			targetPath = targetPath.replace('/api/auth', '/v1/auth');
 		} else if (targetPath.startsWith('/api/telemetry')) {
 			targetPath = targetPath.replace('/api/telemetry', '/v1/telemetry');

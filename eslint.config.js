@@ -40,6 +40,15 @@ export default defineConfig(
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser
 			}
+		},
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'warn'
+		}
+	},
+	{
+		files: ['**/*.spec.ts', '**/*.test.ts'],
+		rules: {
+			'@typescript-eslint/no-explicit-any': 'off'
 		}
 	}
 );

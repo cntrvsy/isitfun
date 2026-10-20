@@ -4,7 +4,7 @@
 		deleteProject,
 		upgradeProject
 	} from '../../../routes/(app)/portal/dashboard/dashboard.remote';
-	import { Lock, Check, Trash2, BarChart2, Upload, Copy } from '@lucide/svelte';
+	import { Check, Trash2, BarChart2, Upload, Copy, History } from '@lucide/svelte';
 
 	interface Quota {
 		monthlyWriteCount: number | null;
@@ -16,8 +16,6 @@
 		id: string;
 		name: string;
 		tier: string | null;
-		passwordProtected: boolean | null;
-		createdAt: Date | string | null;
 		stats?: {
 			totalSessions: number;
 			totalEvents: number;
@@ -27,12 +25,15 @@
 
 	interface Props {
 		project: Project;
-		origin?: string;
+		orgTier?: string | null;
 		onUpload: (id: string) => void;
 		onViewAnalytics: (id: string) => void;
+		onViewBuilds?: (id: string) => void;
 	}
 
-	let { project, onUpload, onViewAnalytics }: Props = $props();
+	let { project, orgTier = 'free', onUpload, onViewAnalytics, onViewBuilds }: Props = $props();
+
+	const isFree = $derived(project.tier === 'free' && orgTier !== 'team');
 
 	const del = deleteProject;
 	const upgrade = upgradeProject;
@@ -66,15 +67,7 @@
 			</div>
 
 			<div class="flex items-center gap-1.5">
-				{#if project.passwordProtected}
-					<span
-						class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
-					>
-						<Lock class="h-3 w-3" /> Protected
-					</span>
-				{/if}
-
-				{#if project.tier === 'free'}
+				{#if isFree}
 					<span
 						class="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600 uppercase"
 					>
@@ -84,7 +77,7 @@
 					<span
 						class="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 uppercase"
 					>
-						Pro
+						{orgTier === 'team' ? 'Team Plan' : 'Pro Pass'}
 					</span>
 				{/if}
 			</div>
@@ -143,8 +136,17 @@
 			>
 				<Upload class="h-3.5 w-3.5" /> Upload ZIP
 			</button>
+			{#if onViewBuilds}
+				<button
+					onclick={() => onViewBuilds?.(project.id)}
+					class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50"
+					aria-label="View build history"
+				>
+					<History class="h-3.5 w-3.5" /> Builds
+				</button>
+			{/if}
 
-			{#if project.tier === 'free'}
+			{#if isFree}
 				<form
 					{...upgrade.enhance(async ({ submit }: any) => {
 						try {

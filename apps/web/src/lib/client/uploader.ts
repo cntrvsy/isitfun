@@ -78,7 +78,29 @@ export class UploadManager {
 				let fileIndex = 0;
 				let encounteredError = false;
 
-				onProgress(0, 0, totalFiles, 'Starting upload...');
+				onProgress(0, 0, totalFiles, 'Initializing versioned build on server...');
+
+				// 1. Initialize atomic build on server
+				let buildId: string;
+				try {
+					const initRes = await fetch(`/v1/projects/${projectId}/builds/init`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ versionString: '1.0.0' })
+					});
+
+					if (!initRes.ok) {
+						throw new Error(`Server returned ${initRes.status} during build initialization`);
+					}
+					const initData = (await initRes.json()) as { buildId: string };
+					buildId = initData.buildId;
+				} catch (initErr) {
+					console.error('[UploadManager] Failed to init build:', initErr);
+					onError('Failed to initialize game build on server.');
+					return;
+				}
+
+				onProgress(0, 0, totalFiles, 'Starting chunked upload...');
 
 				// Parallel chunked streaming with concurrency of 3 workers
 				const concurrency = 3;
@@ -98,11 +120,12 @@ export class UploadManager {
 
 						try {
 							const response = await fetch(
-								`/api/games/${projectId}/upload?path=${encodeURIComponent(rawPath)}`,
+								`/v1/projects/${projectId}/builds/${buildId}/upload?path=${encodeURIComponent(rawPath)}`,
 								{
 									method: 'POST',
 									headers: {
-										'Content-Type': 'application/octet-stream'
+										'Content-Type': 'application/octet-stream',
+										'Content-Length': String(dataBytes.byteLength)
 									},
 									body: dataBytes
 								}
@@ -137,7 +160,24 @@ export class UploadManager {
 				await Promise.all(workers);
 
 				if (!encounteredError) {
-					onSuccess(totalFiles);
+					onProgress(100, totalFiles, totalFiles, 'Publishing and activating build...');
+					try {
+						const totalBytes = files.reduce((sum, [, bytes]) => sum + bytes.byteLength, 0);
+						const publishRes = await fetch(`/v1/projects/${projectId}/builds/${buildId}/publish`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ totalSizeBytes: totalBytes })
+						});
+
+						if (!publishRes.ok) {
+							throw new Error(`Server returned ${publishRes.status} during build publication`);
+						}
+
+						onSuccess(totalFiles);
+					} catch (pubErr) {
+						console.error('[UploadManager] Failed to publish build:', pubErr);
+						onError('All files uploaded, but failed to activate the build.');
+					}
 				}
 			});
 		};

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and, inArray, desc, or, isNull, sql, lt } from 'drizzle-orm';
+import { eq, inArray, desc, sql } from 'drizzle-orm';
 import { createD1Client, schema } from '@isitfun/db';
 import type { AppEnv } from '../../types';
 import { sessionMiddleware, requireAuth } from '../../middleware/auth';
@@ -72,7 +72,6 @@ export const dashboardRouter = new Hono<AppEnv>()
 						organizationId: personalOrg.id,
 						name: '🏓 Interactive Demo (Ping Pong)',
 						tier: 'free',
-						passwordProtected: false,
 						createdAt: new Date()
 					})
 					.onConflictDoNothing()
@@ -139,75 +138,6 @@ export const dashboardRouter = new Hono<AppEnv>()
 				totalEvents: logCounts[project.id] || 0
 			}
 		}));
-
-		// 5. Multi-Tiered Log Decay Routine (throttled background execution)
-		if (c.executionCtx?.waitUntil && Math.random() < 0.05) {
-			const bucket = c.env.GAMES_BUCKET;
-			const now = Date.now();
-			const freeProjectIds = userProjects
-				.filter((p) => !p.organizationId && (p.tier || 'free') === 'free')
-				.map((p) => p.id);
-			const proProjectIds = userProjects
-				.filter((p) => !p.organizationId && p.tier === 'pro')
-				.map((p) => p.id);
-			const teamProjectIds = userProjects.filter((p) => Boolean(p.organizationId)).map((p) => p.id);
-
-			const cleanupRoutine = async () => {
-				try {
-					const thresholds: Array<{ ids: string[]; date: Date }> = [];
-					if (freeProjectIds.length > 0) {
-						thresholds.push({ ids: freeProjectIds, date: new Date(now - 7 * 24 * 60 * 60 * 1000) });
-					}
-					if (proProjectIds.length > 0) {
-						thresholds.push({ ids: proProjectIds, date: new Date(now - 30 * 24 * 60 * 60 * 1000) });
-					}
-					if (teamProjectIds.length > 0) {
-						thresholds.push({
-							ids: teamProjectIds,
-							date: new Date(now - 90 * 24 * 60 * 60 * 1000)
-						});
-					}
-
-					for (const item of thresholds) {
-						const expiredSessions = await db
-							.select({
-								id: schema.telemetrySessions.id,
-								projectId: schema.telemetrySessions.projectId
-							})
-							.from(schema.telemetrySessions)
-							.where(
-								and(
-									lt(schema.telemetrySessions.createdAt, item.date),
-									inArray(schema.telemetrySessions.projectId, item.ids)
-								)
-							)
-							.all();
-
-						if (expiredSessions.length > 0) {
-							if (bucket) {
-								const keysToDelete = expiredSessions.map(
-									(sess) => `games/${sess.projectId}/sessions/${sess.id}.json`
-								);
-								try {
-									await bucket.delete(keysToDelete);
-								} catch (r2Err) {
-									console.error('[R2 Session Cleanup] Batch delete failed:', r2Err);
-								}
-							}
-
-							const expiredIds = expiredSessions.map((s) => s.id);
-							await db
-								.delete(schema.telemetrySessions)
-								.where(inArray(schema.telemetrySessions.id, expiredIds));
-						}
-					}
-				} catch (err) {
-					console.error('[Log Decay Cleanup Routine] Error:', err);
-				}
-			};
-
-			c.executionCtx.waitUntil(cleanupRoutine());
-		}
 
 		return c.json({
 			projects: projectsWithStats,

@@ -1,17 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { actions } from '../../src/routes/(app)/playgame/+page.server';
-import { hashPassword } from '@isitfun/shared';
 
-describe('Playgame Password Verification & Cookie Security', () => {
+describe('Playgame Access Key Verification & Cookie Security', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it('sets play_auth cookie and redirects when static password is valid', async () => {
+	it('sets play_key cookie and redirects when access key is valid', async () => {
 		const projectId = 'proj_secret_123';
-		const rawPassword = 'SuperSecretPassword!';
-		const passwordHash = await hashPassword(rawPassword, projectId);
+		const accessKey = 'ALPHA-TEST-2026';
 
 		const mockApi = {
 			v1: {
@@ -20,7 +17,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 						'verify-key': {
 							$post: vi.fn().mockResolvedValue({
 								ok: true,
-								json: async () => ({ valid: true, isStatic: true, hash: passwordHash })
+								json: async () => ({ valid: true, isKey: true, key: accessKey })
 							})
 						}
 					}
@@ -35,7 +32,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 
 		const formData = new FormData();
 		formData.append('projectId', projectId);
-		formData.append('password', rawPassword);
+		formData.append('key', accessKey);
 
 		const request = new Request('http://localhost/playgame', {
 			method: 'POST',
@@ -51,10 +48,10 @@ describe('Playgame Password Verification & Cookie Security', () => {
 			expect.fail('Expected redirect');
 		} catch (err: any) {
 			expect(err.status).toBe(302);
-			expect(err.location).toBe(`/play/${projectId}`);
+			expect(err.location).toBe(`/play/${projectId}?key=${encodeURIComponent(accessKey)}`);
 			expect(mockCookies.set).toHaveBeenCalledWith(
-				`play_auth_${projectId}`,
-				passwordHash,
+				`play_key_${projectId}`,
+				accessKey,
 				expect.objectContaining({
 					path: `/play/${projectId}`,
 					httpOnly: true,
@@ -65,7 +62,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 		}
 	});
 
-	it('fails when static password is wrong and does not set cookie', async () => {
+	it('fails when access key is wrong and does not set cookie', async () => {
 		const projectId = 'proj_secret_123';
 
 		const mockApi = {
@@ -76,7 +73,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 							$post: vi.fn().mockResolvedValue({
 								ok: false,
 								status: 400,
-								json: async () => ({ valid: false, reason: 'incorrect_password' })
+								json: async () => ({ valid: false, reason: 'not_found' })
 							})
 						}
 					}
@@ -91,7 +88,7 @@ describe('Playgame Password Verification & Cookie Security', () => {
 
 		const formData = new FormData();
 		formData.append('projectId', projectId);
-		formData.append('password', 'WrongPassword');
+		formData.append('key', 'INVALID-KEY');
 
 		const request = new Request('http://localhost/playgame', {
 			method: 'POST',

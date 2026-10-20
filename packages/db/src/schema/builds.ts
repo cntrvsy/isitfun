@@ -14,12 +14,15 @@ export const gameBuilds = sqliteTable(
 		versionString: text('version_string').notNull().default('1.0.0'),
 		r2FolderPath: text('r2_folder_path').notNull(),
 		totalSizeBytes: integer('total_size_bytes').notNull().default(0),
-		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+		isActive: integer('is_active', { mode: 'boolean' }).notNull().default(false),
 		uploadedAt: integer('uploaded_at', { mode: 'timestamp' })
 			.notNull()
 			.$defaultFn(() => new Date())
 	},
-	(table) => [index('game_builds_projectId_idx').on(table.projectId)]
+	(table) => [
+		index('game_builds_projectId_idx').on(table.projectId),
+		index('game_builds_project_active_idx').on(table.projectId, table.isActive)
+	]
 );
 
 export const gameBuildsRelations = relations(gameBuilds, ({ one }) => ({

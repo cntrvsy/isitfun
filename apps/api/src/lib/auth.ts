@@ -44,10 +44,19 @@ export function getAuth(env: Bindings, requestURL?: string) {
 		};
 	}
 
+	const isDev = env.ENVIRONMENT === 'development' || env.ENVIRONMENT === 'test';
+	const secret = env.BETTER_AUTH_SECRET;
+	if (!isDev && (!secret || secret === 'dev-secret-change-in-production')) {
+		throw new Error(
+			'[FATAL] BETTER_AUTH_SECRET must be securely configured in staging and production'
+		);
+	}
+	const authSecret = secret || 'dev-secret-change-in-production';
+
 	const instance = betterAuth({
 		basePath: '/v1/auth',
 		baseURL,
-		secret: env.BETTER_AUTH_SECRET || 'dev-secret-change-in-production',
+		secret: authSecret,
 		database: drizzleAdapter(db, {
 			provider: 'sqlite',
 			schema: {

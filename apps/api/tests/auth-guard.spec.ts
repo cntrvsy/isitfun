@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	RoleRanks,
-	hasMinRole,
-	AuthGuardError,
-	requireProjectAccess,
-	requireOrgAccess
-} from '../src/lib/auth-guard';
+import { RoleRanks, hasMinRole, AuthGuardError, requireProjectAccess } from '../src/lib/auth-guard';
 
 import { schema } from '@isitfun/db';
 

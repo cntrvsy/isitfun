@@ -22,16 +22,43 @@ function parseRange(header: string | undefined): { offset: number; length?: numb
 	return { offset: start, length };
 }
 
+export function injectPlayOverlay(
+	htmlText: string,
+	projectId: string,
+	sessionToken?: string,
+	tier: string = 'free'
+): string {
+	let injected = htmlText;
+
+	if (/<head[\s>]/i.test(injected)) {
+		injected = injected.replace(/(<head[^>]*>)/i, `$1<base href="/play/${projectId}/">`);
+	} else {
+		injected = `<base href="/play/${projectId}/">` + injected;
+	}
+
+	const tokenAttr = sessionToken ? ` data-session-token="${sessionToken}"` : '';
+	const widgetScript = `<script src="/assets/overlay-widget.js" data-project="${projectId}"${tokenAttr} data-tier="${tier}"></script>`;
+
+	if (/<\/body>/i.test(injected)) {
+		injected = injected.replace(/(<\/body>)/i, `${widgetScript}$1`);
+	} else {
+		injected += widgetScript;
+	}
+
+	return injected;
+}
+
 // Built-in Demo Route
 playRouter.get('/demo', async (c) => {
 	const htmlText = getDemoPingPongHtml('demo');
-	const secret = c.env.BETTER_AUTH_SECRET || 'dev-secret';
+	const isDev = c.env.ENVIRONMENT === 'development' || c.env.ENVIRONMENT === 'test';
+	const secret = c.env.BETTER_AUTH_SECRET || (isDev ? 'dev-secret' : '');
+	if (!secret) {
+		return c.json({ error: 'Server misconfiguration: missing BETTER_AUTH_SECRET' }, 500);
+	}
 	const sessionToken = await signSession('demo', secret);
 
-	const injectedText = htmlText.replace(
-		'</body>',
-		`<script src="/assets/overlay-widget.js" data-project="demo" data-tier="free"></script></body>`
-	);
+	const injectedText = injectPlayOverlay(htmlText, 'demo', sessionToken, 'free');
 
 	const res = c.html(injectedText);
 	res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
@@ -54,16 +81,28 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 		filePath = filePath ? `${filePath}index.html` : 'index.html';
 	}
 
+	// 1. Trailing slash redirect for base game route: /play/:projectId -> /play/:projectId/
+	const rawUrl = new URL(c.req.url);
+	if (!rawFile && !rawUrl.pathname.endsWith('/')) {
+		return c.redirect(`/play/${projectId}/${rawUrl.search}`);
+	}
+
 	// Handle built-in interactive demo
 	if (projectId === 'demo' || projectId.startsWith('demo_')) {
 		if (filePath === 'index.html') {
 			const htmlText = getDemoPingPongHtml(projectId);
 			const secret = c.env.BETTER_AUTH_SECRET || 'dev-secret';
 			const sessionToken = await signSession(projectId, secret);
-			const injectedText = htmlText.replace(
+
+			let injectedText = htmlText;
+			if (injectedText.includes('<head>')) {
+				injectedText = injectedText.replace('<head>', `<head><base href="/play/${projectId}/">`);
+			}
+			injectedText = injectedText.replace(
 				'</body>',
-				`<script src="/assets/overlay-widget.js" data-project="${projectId}" data-tier="free"></script></body>`
+				`<script src="/assets/overlay-widget.js" data-project="${projectId}" data-session-token="${sessionToken}" data-tier="free"></script></body>`
 			);
+
 			const res = c.html(injectedText);
 			res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 			res.headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
@@ -77,6 +116,7 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 
 	const isIndexHtml = filePath === 'index.html' || filePath.endsWith('/index.html');
 	const rangeHeader = c.req.header('range');
+	const ifNoneMatch = c.req.header('if-none-match');
 	const cookieHeader = c.req.header('cookie') || '';
 
 	// Parse cookies
@@ -86,7 +126,23 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 		if (k && v) cookies[k] = decodeURIComponent(v);
 	});
 
-	const secret = c.env.BETTER_AUTH_SECRET || 'dev-secret';
+	const isDev = c.env.ENVIRONMENT === 'development' || c.env.ENVIRONMENT === 'test';
+	const secret = c.env.BETTER_AUTH_SECRET || (isDev ? 'dev-secret' : '');
+	if (!secret) {
+		return c.json({ error: 'Server misconfiguration: missing BETTER_AUTH_SECRET' }, 500);
+	}
+	const db = createD1Client(c.env.DB);
+
+	// Find active build for versioned asset serving
+	const activeBuild = await db
+		.select()
+		.from(schema.gameBuilds)
+		.where(and(eq(schema.gameBuilds.projectId, projectId), eq(schema.gameBuilds.isActive, true)))
+		.get();
+
+	const buildPrefix = activeBuild
+		? `games/${projectId}/builds/${activeBuild.id}`
+		: `games/${projectId}/assets`;
 
 	if (!isIndexHtml) {
 		const sessionCookie = cookies[sessionCookieName(projectId)];
@@ -96,22 +152,28 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 				return c.json({ error: 'GAMES_BUCKET binding missing' }, 500);
 			}
 
-			const r2Key = `games/${projectId}/assets/${filePath}`;
+			const r2Key = `${buildPrefix}/${filePath}`;
 			const parsedRange = parseRange(rangeHeader);
 			const object = parsedRange
 				? await bucket.get(r2Key, { range: parsedRange })
 				: await bucket.get(r2Key);
 
 			if (!object) {
-				return c.notFound();
+				// Fallback to legacy unversioned path if active build doesn't have it
+				const fallbackKey = `games/${projectId}/assets/${filePath}`;
+				const fallbackObject = parsedRange
+					? await bucket.get(fallbackKey, { range: parsedRange })
+					: await bucket.get(fallbackKey);
+
+				if (!fallbackObject) return c.notFound();
+				return createR2Response(fallbackObject, filePath, rangeHeader, ifNoneMatch);
 			}
 
-			return createR2Response(object, filePath, rangeHeader);
+			return createR2Response(object, filePath, rangeHeader, ifNoneMatch);
 		}
 	}
 
 	// For index.html or unverified sessions, perform database checks
-	const db = createD1Client(c.env.DB);
 	const project = await db
 		.select()
 		.from(schema.projects)
@@ -139,28 +201,35 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 
 	let setKeyCookieHeader: string | null = null;
 
-	if (keys.length > 0) {
-		const matchingKey = keys.find((k) => k.code.toUpperCase() === (targetCode || '').toUpperCase());
-		const validation = validateAccessKey(matchingKey);
+	// Reload resilience: If player already has a valid session token, allow reload without re-checking maxUses
+	const activeSessionCookie = cookies[sessionCookieName(projectId)];
+	const hasVerifiedSession =
+		activeSessionCookie && (await verifySession(activeSessionCookie, projectId, secret));
 
-		if (!validation.valid) {
-			return c.redirect(
-				`/playgame?projectId=${projectId}&error=${validation.reason || 'invalid_key'}`
+	if (!hasVerifiedSession) {
+		if (keys.length > 0) {
+			const matchingKey = keys.find(
+				(k) => k.code.toUpperCase() === (targetCode || '').toUpperCase()
 			);
-		}
+			const validation = validateAccessKey(matchingKey);
 
-		if (keyParam && matchingKey && keyCookie !== matchingKey.code) {
-			await db
-				.update(schema.projectAccessKeys)
-				.set({ usedCount: sql`${schema.projectAccessKeys.usedCount} + 1` })
-				.where(eq(schema.projectAccessKeys.id, matchingKey.id));
+			if (!validation.valid) {
+				return c.redirect(
+					`/playgame?projectId=${projectId}&error=${validation.reason || 'invalid_key'}`
+				);
+			}
 
-			setKeyCookieHeader = `${keyCookieName(projectId)}=${matchingKey.code}; Path=/play/${projectId}; Max-Age=86400; SameSite=Lax; HttpOnly; Secure`;
-		}
-	} else if (project.passwordProtected) {
-		const authCookie = cookies[`play_auth_${projectId}`];
-		if (authCookie !== project.passwordHash) {
-			return c.redirect(`/playgame?projectId=${projectId}`);
+			if (keyParam && matchingKey && keyCookie !== matchingKey.code) {
+				await db
+					.update(schema.projectAccessKeys)
+					.set({ usedCount: sql`${schema.projectAccessKeys.usedCount} + 1` })
+					.where(eq(schema.projectAccessKeys.id, matchingKey.id));
+
+				setKeyCookieHeader = `${keyCookieName(projectId)}=${matchingKey.code}; Path=/play/${projectId}; Max-Age=86400; SameSite=Lax; HttpOnly; Secure`;
+			}
+		} else {
+			// Project has no active keys; it is private/unplayable
+			return c.redirect(`/playgame?projectId=${projectId}&error=not_found`);
 		}
 	}
 
@@ -170,24 +239,30 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 		return c.json({ error: 'GAMES_BUCKET binding missing' }, 500);
 	}
 
-	const r2Key = `games/${projectId}/assets/${filePath}`;
+	let r2Key = `${buildPrefix}/${filePath}`;
 	const parsedRange = parseRange(rangeHeader);
-	const object = parsedRange
+	let object = parsedRange
 		? await bucket.get(r2Key, { range: parsedRange })
 		: await bucket.get(r2Key);
 
 	if (!object) {
-		return c.notFound();
+		// Fallback to legacy unversioned path
+		r2Key = `games/${projectId}/assets/${filePath}`;
+		object = parsedRange
+			? await bucket.get(r2Key, { range: parsedRange })
+			: await bucket.get(r2Key);
+
+		if (!object) {
+			return c.notFound();
+		}
 	}
 
 	if (isIndexHtml) {
 		const sessionToken = await signSession(projectId, secret);
 		const htmlText = await object.text();
 		const tier = project.tier || 'free';
-		const injectedText = htmlText.replace(
-			'</body>',
-			`<script src="/assets/overlay-widget.js" data-project="${projectId}" data-tier="${tier}"></script></body>`
-		);
+
+		const injectedText = injectPlayOverlay(htmlText, projectId, sessionToken, tier);
 
 		const res = c.html(injectedText);
 		res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
@@ -203,5 +278,5 @@ playRouter.get('/:projectId/:file{.*}?', async (c) => {
 		return res;
 	}
 
-	return createR2Response(object, filePath, rangeHeader);
+	return createR2Response(object, filePath, rangeHeader, ifNoneMatch);
 });

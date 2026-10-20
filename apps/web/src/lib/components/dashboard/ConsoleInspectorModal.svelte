@@ -51,7 +51,7 @@
 		fetchError = null;
 
 		try {
-			const res = await fetch(`/api/games/${projectId}/sessions/${sessionId}`);
+			const res = await fetch(`/v1/projects/${projectId}/sessions/${sessionId}`);
 			if (!res.ok) {
 				const err = (await res.json().catch(() => ({}))) as { message?: string };
 				throw new Error(err.message || `Failed to fetch telemetry logs (HTTP ${res.status})`);

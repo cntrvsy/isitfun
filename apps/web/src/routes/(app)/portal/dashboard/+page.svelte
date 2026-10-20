@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import CreateProjectModal from '#lib/components/dashboard/CreateProjectModal.svelte';
 	import UploadModal from '#lib/components/dashboard/UploadModal.svelte';
+	import BuildHistoryModal from '#lib/components/dashboard/BuildHistoryModal.svelte';
 	import PlaytestChart from '#lib/components/charts/PlaytestChart.svelte';
 	import ConsoleInspectorModal from '#lib/components/dashboard/ConsoleInspectorModal.svelte';
 	import OnboardingTourModal from '#lib/components/dashboard/OnboardingTourModal.svelte';
@@ -11,6 +12,7 @@
 	import SdkIntegrationTabs from '#lib/components/dashboard/SdkIntegrationTabs.svelte';
 	import DataTable from '#lib/components/ui/DataTable.svelte';
 	import Footer from '#lib/components/Footer.svelte';
+	import { refreshAll } from '$app/navigation';
 	import {
 		Plus,
 		Download,
@@ -18,12 +20,11 @@
 		HardDrive,
 		Activity,
 		Inbox,
-		ExternalLink,
 		Settings,
 		Sparkles
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
-	import { renderSnippet, type ColumnDef } from '@tanstack/svelte-table';
+	import { renderSnippet } from '@tanstack/svelte-table';
 
 	let { data } = $props();
 
@@ -31,8 +32,15 @@
 	let showCreateModal = $state(false);
 	let selectedProjectId = $state('');
 	let showUploadModal = $state(false);
+	let showBuildsModal = $state(false);
+	let selectedBuildsProjectId = $state('');
 	let showOnboardingModal = $state(false);
 	let origin = $state('https://isitfun.frstudios.co.ke');
+
+	function handleOpenBuilds(id: string) {
+		selectedBuildsProjectId = id;
+		showBuildsModal = true;
+	}
 
 	// Multi-tenancy States
 	let selectedWorkspaceId = $state('');
@@ -107,8 +115,11 @@
 		showUploadModal = true;
 	}
 
+	const selectedProject = $derived(data.projects.find((p) => p.id === selectedProjectId));
 	const selectedProjectTier = $derived(
-		data.projects.find((p) => p.id === selectedProjectId)?.tier || 'free'
+		selectedProject?.tier === 'pro' || activeOrg?.tier === 'team'
+			? 'pro'
+			: selectedProject?.tier || 'free'
 	);
 
 	// TanStack Table Column Definitions with Svelte 5 Snippets
@@ -384,11 +395,11 @@
 							>
 								{activeProject.tier}
 							</span>
-							{#if activeProject.passwordProtected}
+							{#if activeProject.tier === 'pro' || activeOrg?.tier === 'team'}
 								<span
-									class="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+									class="rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700"
 								>
-									Protected
+									Pro Limits
 								</span>
 							{/if}
 						</div>
@@ -492,8 +503,10 @@
 				{#each activeWorkspaceProjects as project (project.id)}
 					<ProjectCard
 						{project}
+						orgTier={activeOrg?.tier}
 						onUpload={handleOpenUpload}
 						onViewAnalytics={(id) => (activeProjectAnalyticsId = id)}
+						onViewBuilds={handleOpenBuilds}
 					/>
 				{/each}
 			</div>
@@ -513,6 +526,12 @@
 	bind:show={showUploadModal}
 	projectId={selectedProjectId}
 	isFree={selectedProjectTier === 'free'}
+/>
+
+<BuildHistoryModal
+	bind:show={showBuildsModal}
+	projectId={selectedBuildsProjectId}
+	onRollbackComplete={() => refreshAll()}
 />
 
 <CreateOrgModal

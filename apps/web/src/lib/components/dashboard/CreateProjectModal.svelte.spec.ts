@@ -12,21 +12,13 @@ describe('CreateProjectModal.svelte', () => {
 		await expect.element(heading).toHaveTextContent('Create New Playtest');
 	});
 
-	it('toggles password protection input field visibility', async () => {
+	it('renders project name input and access key protection info', async () => {
 		render(CreateProjectModal, { show: true });
 
-		const checkbox = page.getByRole('checkbox');
-		await expect.element(checkbox).toBeInTheDocument();
+		const input = page.getByPlaceholder('e.g. My Amazing Platformer');
+		await expect.element(input).toBeInTheDocument();
 
-		// Password field should not be visible initially
-		const passwordInputInitial = page.getByPlaceholder('••••••••');
-		await expect.element(passwordInputInitial).not.toBeInTheDocument();
-
-		// Click the checkbox to toggle it on
-		await checkbox.click();
-
-		// Password field should now be in the document
-		const passwordInputAfter = page.getByPlaceholder('••••••••');
-		await expect.element(passwordInputAfter).toBeInTheDocument();
+		const bannerHeading = page.getByText('Access Key Protection');
+		await expect.element(bannerHeading).toBeInTheDocument();
 	});
 });
