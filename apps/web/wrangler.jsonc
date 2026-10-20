@@ -1,0 +1,25 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "isitfun",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-03-17",
+	"compatibility_flags": ["nodejs_compat", "nodejs_als"],
+	"route": { "pattern": "isitfun.frstudios.co.ke", "custom_domain": true },
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"services": [
+		{
+			"binding": "API",
+			"service": "isitfun-api"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
