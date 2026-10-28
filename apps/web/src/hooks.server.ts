@@ -1,0 +1,276 @@
+import { redirect, error } from '@sveltejs/kit';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import { createApiClient } from '#lib/api/client.js';
+import { getApiBaseUrl } from '#lib/api/config.js';
+
+// 0. Zero-Bill Drifter Cache & Early Edge Kill-Switch
+// Caches the KV lookup per Worker isolate instance for 60s (and uses KV edge cacheTtl: 60)
+// so traffic spikes do not generate billed KV reads, D1 session queries, R2 streams, or DO calls.
+const drifterCache = new WeakMap<object, { disabled: boolean; expiresAt: number }>();
+
+async function isDrifterDisabled(drifterControl?: KVNamespace): Promise<boolean> {
+	if (!drifterControl) return false;
+	const now = Date.now();
+	const cached = drifterCache.get(drifterControl);
+	if (cached && cached.expiresAt > now) {
+		return cached.disabled;
+	}
+	const val = await drifterControl.get('DISABLED', { cacheTtl: 60 });
+	const disabled = val === 'true';
+	drifterCache.set(drifterControl, { disabled, expiresAt: now + 60_000 });
+	return disabled;
+}
+
+const DRIFTER_503_MESSAGE =
+	'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.';
+
+export const handleDrifterEarly: Handle = async ({ event, resolve }) => {
+	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
+	if (await isDrifterDisabled(drifterControl)) {
+		const pathname = event.url.pathname;
+		const hasAdminBypassCandidate =
+			event.url.searchParams.get('override') === 'true' ||
+			pathname.startsWith('/portal/admin') ||
+			pathname.startsWith('/auth') ||
+			pathname.startsWith('/v1/auth') ||
+			pathname.startsWith('/api/auth') ||
+			pathname.startsWith('/v1/admin');
+
+		// Immediately drop traffic at the edge (including /play/* and /v1/telemetry/*)
+		// without invoking the API Worker, D1, R2, or Durable Objects.
+		if (!hasAdminBypassCandidate) {
+			return new Response(DRIFTER_503_MESSAGE, {
+				status: 503,
+				headers: { 'Retry-After': '3600' }
+			});
+		}
+	}
+	return resolve(event);
+};
+
+// 1. Service Binding Gateway: transparently reverse-proxy /v1/*, /play/*, and legacy endpoints to Hono worker
+export const handleGateway: Handle = async ({ event, resolve }) => {
+	const pathname = event.url.pathname;
+
+	// Support /v1/*, /play/*, and legacy /api endpoints routing to the API worker
+	if (pathname.startsWith('/v1') || pathname.startsWith('/play') || pathname.startsWith('/api')) {
+		const apiBinding = event.platform?.env?.API;
+
+		// Map legacy /api paths to /v1
+		let targetPath = pathname;
+		if (targetPath.startsWith('/api/games')) {
+			targetPath = targetPath.replace('/api/games', '/v1/projects');
+		} else if (targetPath.startsWith('/api/auth')) {
+			targetPath = targetPath.replace('/api/auth', '/v1/auth');
+		} else if (targetPath.startsWith('/api/telemetry')) {
+			targetPath = targetPath.replace('/api/telemetry', '/v1/telemetry');
+		} else if (targetPath.startsWith('/api/webhooks')) {
+			targetPath = targetPath.replace('/api/webhooks', '/v1/webhooks');
+		}
+
+		if (import.meta.env.DEV) {
+			const apiBase = getApiBaseUrl(event.platform);
+			const targetUrl = `${apiBase}${targetPath}${event.url.search}`;
+			const res = await fetch(targetUrl, {
+				method: event.request.method,
+				headers: event.request.headers,
+				body:
+					event.request.method !== 'GET' && event.request.method !== 'HEAD'
+						? event.request.body
+						: undefined,
+				// @ts-expect-error - duplex option required for streaming bodies in Node fetch
+				duplex: 'half'
+			});
+
+			const responseHeaders = new Headers(res.headers);
+			responseHeaders.delete('content-encoding');
+			responseHeaders.delete('content-length');
+
+			// Development Cookie Sanitization:
+			// When proxying to a remote or local API on plain HTTP, strip Domain and Secure so localhost can accept cookies.
+			const rawSetCookie = res.headers.getSetCookie
+				? res.headers.getSetCookie()
+				: ([res.headers.get('set-cookie')].filter(Boolean) as string[]);
+
+			if (rawSetCookie.length > 0) {
+				responseHeaders.delete('set-cookie');
+				const isHttps = event.url.protocol === 'https:';
+				for (const cookieStr of rawSetCookie) {
+					let sanitized = cookieStr.replace(/;\s*Domain=[^;]+/gi, '');
+					if (!isHttps) {
+						sanitized = sanitized.replace(/;\s*Secure/gi, '');
+					}
+					responseHeaders.append('set-cookie', sanitized);
+				}
+			}
+
+			return new Response(res.body, {
+				status: res.status,
+				statusText: res.statusText,
+				headers: responseHeaders
+			});
+		}
+
+		if (apiBinding) {
+			const targetUrl = new URL(event.request.url);
+			targetUrl.pathname = targetPath;
+			const proxyRequest = new Request(targetUrl.toString(), event.request);
+			return apiBinding.fetch(proxyRequest);
+		}
+	}
+
+	return resolve(event);
+};
+
+// 2. Session Context & Typed Hono RPC API Injection
+export const handleSession: Handle = async ({ event, resolve }) => {
+	const cookieHeader = event.request.headers.get('cookie') || '';
+
+	// Create typed Hono RPC client via Service Binding or dev server with cookie propagation
+	const isDev = import.meta.env.DEV;
+	const rawFetch =
+		!isDev && event.platform?.env?.API?.fetch
+			? event.platform.env.API.fetch.bind(event.platform.env.API)
+			: fetch;
+	const serviceFetch: typeof fetch = (input, init) => {
+		const req = new Request(input, init);
+		if (cookieHeader && !req.headers.has('cookie')) {
+			req.headers.set('cookie', cookieHeader);
+		}
+		return rawFetch(req);
+	};
+	const baseUrl = getApiBaseUrl(event.platform);
+	event.locals.api = createApiClient(serviceFetch, baseUrl);
+
+	// Fetch active session from Hono Better-Auth via Service Binding
+	try {
+		const sessionUrl = `${baseUrl}/v1/auth/get-session`;
+		const sessionRes = await serviceFetch(sessionUrl, {
+			headers: { cookie: cookieHeader }
+		});
+
+		if (sessionRes.ok) {
+			const sessionData = (await sessionRes.json()) as {
+				user: App.Locals['user'];
+				session: App.Locals['session'];
+			} | null;
+
+			if (sessionData && sessionData.user) {
+				event.locals.user = sessionData.user;
+				event.locals.session = sessionData.session;
+
+				// Resolve any pending organization invite token for authenticated users
+				const pendingInviteToken = event.cookies.get('pending_invite_token');
+				if (pendingInviteToken) {
+					try {
+						await event.locals.api.v1.orgs.invites.accept.$post({
+							json: { token: pendingInviteToken }
+						});
+					} catch (err) {
+						console.warn('[Invite] Failed to auto-accept pending invite token:', err);
+					} finally {
+						event.cookies.delete('pending_invite_token', { path: '/' });
+					}
+				}
+
+				// Redirect authenticated users away from /auth and /auth/login
+				const path = event.url.pathname.replace(/\/$/, '');
+				if (path === '/auth' || path === '/auth/login') {
+					if (event.locals.user.role === 'admin') {
+						return redirect(302, '/portal/admin');
+					} else {
+						return redirect(302, '/portal/dashboard');
+					}
+				}
+			} else {
+				event.locals.user = null;
+				event.locals.session = null;
+			}
+		} else {
+			event.locals.user = null;
+			event.locals.session = null;
+		}
+	} catch {
+		event.locals.user = null;
+		event.locals.session = null;
+	}
+
+	// 🔐 Centralized Sub-tree Route & RBAC Guards
+	if (event.url.pathname.startsWith('/portal')) {
+		if (!event.locals.user) {
+			return redirect(302, '/auth');
+		}
+
+		const userRole = event.locals.user.role;
+
+		// 1. Admin route guard
+		if (event.url.pathname.startsWith('/portal/admin')) {
+			if (userRole !== 'admin') {
+				return error(403, 'Forbidden: Administrator access required');
+			}
+		}
+
+		// 2. Developer dashboard guard
+		if (event.url.pathname.startsWith('/portal/dashboard')) {
+			if (userRole !== 'admin' && userRole !== 'game_developer') {
+				return error(403, 'Forbidden: Developer access required');
+			}
+		}
+	}
+
+	return resolve(event);
+};
+
+// 3. Security referer protection
+export const handleSecurity: Handle = async ({ event, resolve }) => {
+	const referer = event.request.headers.get('referer');
+	if (referer) {
+		try {
+			const refererUrl = new URL(referer);
+			if (refererUrl.origin === event.url.origin && refererUrl.pathname.startsWith('/play/')) {
+				const destPath = event.url.pathname;
+				if (
+					destPath.startsWith('/portal') ||
+					(destPath.startsWith('/api') && !destPath.startsWith('/api/telemetry'))
+				) {
+					return new Response(
+						'Forbidden: Direct access to developer portal or management APIs from game playtest environments is blocked.',
+						{ status: 403 }
+					);
+				}
+			}
+		} catch {
+			// Ignore invalid URLs in referer header
+		}
+	}
+	return resolve(event);
+};
+
+// 4. Drifter Maintenance Kill Switch (Post-Session RBAC Verification)
+export const handleDrifter: Handle = async ({ event, resolve }) => {
+	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
+	if (await isDrifterDisabled(drifterControl)) {
+		const isAdmin = event.locals.user?.role === 'admin';
+		const isOverride =
+			(isAdmin && event.url.searchParams.get('override') === 'true') ||
+			(isAdmin && event.url.pathname.startsWith('/portal/admin')) ||
+			event.url.pathname.startsWith('/auth');
+		if (!isOverride) {
+			return new Response(DRIFTER_503_MESSAGE, {
+				status: 503,
+				headers: {
+					'Retry-After': '3600'
+				}
+			});
+		}
+	}
+	return resolve(event);
+};
+
+export const handle: Handle = sequence(
+	handleDrifterEarly,
+	handleGateway,
+	handleSession,
+	handleDrifter,
+	handleSecurity
+);
