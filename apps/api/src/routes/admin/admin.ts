@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { sql } from 'drizzle-orm';
+import { vValidator } from '@hono/valibot-validator';
+import * as v from 'valibot';
 import { createD1Client, schema } from '@isitfun/db';
 import type { AppEnv } from '../../types';
 import { sessionMiddleware, requireAuth, requireRole } from '../../middleware/auth';
+import { invalidateDrifterCache } from '../../index';
 
 export const adminRouter = new Hono<AppEnv>()
 	.use('*', sessionMiddleware, requireAuth, requireRole('admin'))
@@ -61,4 +64,24 @@ export const adminRouter = new Hono<AppEnv>()
 				roleDistribution: []
 			});
 		}
-	});
+	})
+	// GET /v1/admin/kill-switch - Get current Drifter kill-switch state
+	.get('/kill-switch', async (c) => {
+		const val = c.env.DRIFTER_CONTROL
+			? await c.env.DRIFTER_CONTROL.get('DISABLED')
+			: null;
+		return c.json({ disabled: val === 'true' });
+	})
+	// POST /v1/admin/kill-switch - Toggle Drifter kill-switch state
+	.post(
+		'/kill-switch',
+		vValidator('json', v.object({ disabled: v.boolean() })),
+		async (c) => {
+			const { disabled } = c.req.valid('json');
+			if (c.env.DRIFTER_CONTROL) {
+				await c.env.DRIFTER_CONTROL.put('DISABLED', disabled ? 'true' : 'false');
+				invalidateDrifterCache(c.env.DRIFTER_CONTROL);
+			}
+			return c.json({ success: true, disabled });
+		}
+	);

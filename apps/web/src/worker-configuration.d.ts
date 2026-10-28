@@ -12,7 +12,7 @@ interface __BaseEnv_Env {
 	TRUSTED_ORIGINS: string;
 	GOOGLE_CLIENT_ID: string;
 	GOOGLE_CLIENT_SECRET: string;
-	CREEM_API_KEY: string;
+	CREEM_API_TEST_KEY: string;
 	CREEM_PRODUCT_ID_PROJECT_PASS: string;
 	CREEM_PRODUCT_ID_TEAM_PLAN: string;
 	CREEM_TEST_MODE: string;

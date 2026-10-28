@@ -206,9 +206,111 @@ webhooksRouter.post('/creem', async (c) => {
 	return c.json({ received: true, ignored: true });
 });
 
+async function verifySvixSignature(
+	payload: string,
+	svixId: string,
+	svixTimestamp: string,
+	svixSignature: string,
+	secret: string
+): Promise<boolean> {
+	const rawSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+	const secretBytes = Uint8Array.from(atob(rawSecret), (c) => c.charCodeAt(0));
+	const signedContent = new TextEncoder().encode(`${svixId}.${svixTimestamp}.${payload}`);
+
+	const key = await crypto.subtle.importKey(
+		'raw',
+		secretBytes,
+		{ name: 'HMAC', hash: 'SHA-256' },
+		false,
+		['sign']
+	);
+	const sigBuffer = await crypto.subtle.sign('HMAC', key, signedContent);
+	const expectedSig = btoa(String.fromCharCode(...new Uint8Array(sigBuffer)));
+
+	return svixSignature
+		.split(' ')
+		.some((part) => part.startsWith('v1,') && part.slice(3) === expectedSig);
+}
+
 // POST /v1/webhooks/resend - Resend email webhook
 webhooksRouter.post('/resend', async (c) => {
-	const body = await c.req.json();
-	console.log('[Resend Webhook Event]:', body);
-	return c.json({ received: true });
+	const webhookSecret = c.env.RESEND_WEBHOOK_SECRET;
+	const payload = await c.req.text();
+	const svixId = c.req.header('svix-id');
+	const svixTimestamp = c.req.header('svix-timestamp');
+	const svixSignature = c.req.header('svix-signature');
+
+	if (webhookSecret) {
+		if (!svixId || !svixTimestamp || !svixSignature) {
+			return c.json({ error: 'Missing Svix signature headers' }, 400);
+		}
+		try {
+			const isValid = await verifySvixSignature(
+				payload,
+				svixId,
+				svixTimestamp,
+				svixSignature,
+				webhookSecret
+			);
+			if (!isValid) {
+				return c.json({ error: 'Invalid webhook signature' }, 401);
+			}
+		} catch (err) {
+			console.error('[Resend Webhook] Signature verification failed:', err);
+			return c.json({ error: 'Invalid webhook signature' }, 401);
+		}
+	} else {
+		const isDev = c.env.ENVIRONMENT === 'development' || c.env.ENVIRONMENT === 'test' || !c.env.ENVIRONMENT;
+		if (!isDev) {
+			console.error('[Resend Webhook] RESEND_WEBHOOK_SECRET is not configured in production.');
+			return c.json(
+				{ error: 'Server configuration error: Webhook secret is not configured' },
+				500
+			);
+		}
+	}
+
+	try {
+		const event = JSON.parse(payload) as {
+			type: string;
+			created_at: string;
+			data?: {
+				email_id?: string;
+				to?: string[];
+				reason?: string;
+			};
+		};
+
+		const eventType = event.type;
+		const eventData = event.data || {};
+
+		switch (eventType) {
+			case 'email.sent':
+				console.log(`[Resend Webhook] Email sent to ${eventData.to?.join(', ')}`);
+				break;
+			case 'email.delivered':
+				console.log(`[Resend Webhook] Email delivered to ${eventData.to?.join(', ')}`);
+				break;
+			case 'email.bounced':
+				console.warn(
+					`[Resend Webhook WARNING] Email bounced for ${eventData.to?.join(', ')}. Reason: ${
+						eventData.reason || 'Unknown'
+					}`
+				);
+				break;
+			case 'email.complained':
+				console.warn(`[Resend Webhook ALERT] Spam complaint from ${eventData.to?.join(', ')}`);
+				break;
+			case 'email.failed':
+				console.error(`[Resend Webhook ERROR] Delivery failed for ${eventData.to?.join(', ')}`);
+				break;
+			default:
+				console.log(`[Resend Webhook] Received event: ${eventType}`);
+		}
+
+		return c.json({ received: true, type: eventType });
+	} catch (err) {
+		console.error('[Resend Webhook] Failed to parse event JSON:', err);
+		return c.json({ error: 'Invalid JSON payload' }, 400);
+	}
 });

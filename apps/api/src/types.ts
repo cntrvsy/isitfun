@@ -21,11 +21,13 @@ export interface Bindings {
 	GOOGLE_CLIENT_SECRET?: string;
 	RESEND_API_KEY?: string;
 	RESEND_FROM_EMAIL?: string;
-	CREEM_API_KEY?: string;
+	RESEND_WEBHOOK_SECRET?: string;
+	CREEM_API_TEST_KEY?: string;
 	CREEM_WEBHOOK_SECRET?: string;
 	CREEM_TEST_MODE?: string;
 	CREEM_PRODUCT_ID?: string;
 	CREEM_PRODUCT_ID_PROJECT_PASS?: string;
+	CREEM_PRODUCT_ID_TEAM_PLAN?: string;
 	CREEM_PRODUCT_ID_TEAM_SEAT?: string;
 	ENVIRONMENT?: string;
 	SESSION_SIGNING_SECRET?: string;

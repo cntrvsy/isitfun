@@ -3,6 +3,51 @@ import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { createApiClient } from '#lib/api/client.js';
 import { getApiBaseUrl } from '#lib/api/config.js';
 
+// 0. Zero-Bill Drifter Cache & Early Edge Kill-Switch
+// Caches the KV lookup per Worker isolate instance for 60s (and uses KV edge cacheTtl: 60)
+// so traffic spikes do not generate billed KV reads, D1 session queries, R2 streams, or DO calls.
+const drifterCache = new WeakMap<object, { disabled: boolean; expiresAt: number }>();
+
+async function isDrifterDisabled(drifterControl?: KVNamespace): Promise<boolean> {
+	if (!drifterControl) return false;
+	const now = Date.now();
+	const cached = drifterCache.get(drifterControl);
+	if (cached && cached.expiresAt > now) {
+		return cached.disabled;
+	}
+	const val = await drifterControl.get('DISABLED', { cacheTtl: 60 });
+	const disabled = val === 'true';
+	drifterCache.set(drifterControl, { disabled, expiresAt: now + 60_000 });
+	return disabled;
+}
+
+const DRIFTER_503_MESSAGE =
+	'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.';
+
+export const handleDrifterEarly: Handle = async ({ event, resolve }) => {
+	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
+	if (await isDrifterDisabled(drifterControl)) {
+		const pathname = event.url.pathname;
+		const hasAdminBypassCandidate =
+			event.url.searchParams.get('override') === 'true' ||
+			pathname.startsWith('/portal/admin') ||
+			pathname.startsWith('/auth') ||
+			pathname.startsWith('/v1/auth') ||
+			pathname.startsWith('/api/auth') ||
+			pathname.startsWith('/v1/admin');
+
+		// Immediately drop traffic at the edge (including /play/* and /v1/telemetry/*)
+		// without invoking the API Worker, D1, R2, or Durable Objects.
+		if (!hasAdminBypassCandidate) {
+			return new Response(DRIFTER_503_MESSAGE, {
+				status: 503,
+				headers: { 'Retry-After': '3600' }
+			});
+		}
+	}
+	return resolve(event);
+};
+
 // 1. Service Binding Gateway: transparently reverse-proxy /v1/*, /play/*, and legacy endpoints to Hono worker
 export const handleGateway: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
@@ -201,30 +246,31 @@ export const handleSecurity: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-// 4. Drifter Maintenance Kill Switch
+// 4. Drifter Maintenance Kill Switch (Post-Session RBAC Verification)
 export const handleDrifter: Handle = async ({ event, resolve }) => {
 	const drifterControl = event.platform?.env?.DRIFTER_CONTROL;
-	if (drifterControl) {
-		const isDisabled = await drifterControl.get('DISABLED');
-		if (isDisabled === 'true') {
-			const isAdmin = event.locals.user?.role === 'admin';
-			const isOverride =
-				(isAdmin && event.url.searchParams.get('override') === 'true') ||
-				event.url.pathname.startsWith('/portal/admin');
-			if (!isOverride) {
-				return new Response(
-					'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.',
-					{
-						status: 503,
-						headers: {
-							'Retry-After': '3600'
-						}
-					}
-				);
-			}
+	if (await isDrifterDisabled(drifterControl)) {
+		const isAdmin = event.locals.user?.role === 'admin';
+		const isOverride =
+			(isAdmin && event.url.searchParams.get('override') === 'true') ||
+			(isAdmin && event.url.pathname.startsWith('/portal/admin')) ||
+			event.url.pathname.startsWith('/auth');
+		if (!isOverride) {
+			return new Response(DRIFTER_503_MESSAGE, {
+				status: 503,
+				headers: {
+					'Retry-After': '3600'
+				}
+			});
 		}
 	}
 	return resolve(event);
 };
 
-export const handle: Handle = sequence(handleGateway, handleSession, handleDrifter, handleSecurity);
+export const handle: Handle = sequence(
+	handleDrifterEarly,
+	handleGateway,
+	handleSession,
+	handleDrifter,
+	handleSecurity
+);

@@ -16,6 +16,46 @@ export type { AppEnv };
 
 const app = new Hono<AppEnv>();
 
+// 1.5. Zero-Bill Drifter Kill-Switch Guard (protects direct API worker hits, R2, D1, and DOs)
+const drifterCache = new WeakMap<object, { disabled: boolean; expiresAt: number }>();
+
+export function invalidateDrifterCache(drifterControl?: object) {
+	if (drifterControl) {
+		drifterCache.delete(drifterControl);
+	}
+}
+
+app.use('*', async (c, next) => {
+	const drifterControl = c.env.DRIFTER_CONTROL;
+	if (drifterControl) {
+		const now = Date.now();
+		let cached = drifterCache.get(drifterControl);
+		if (!cached || cached.expiresAt <= now) {
+			const val = await drifterControl.get('DISABLED', { cacheTtl: 60 });
+			cached = { disabled: val === 'true', expiresAt: now + 60_000 };
+			drifterCache.set(drifterControl, cached);
+		}
+		if (cached.disabled) {
+			const path = c.req.path;
+			const isBypassAllowed =
+				path === '/v1/health' ||
+				path.startsWith('/v1/auth') ||
+				path.startsWith('/v1/admin');
+			if (!isBypassAllowed) {
+				return c.json(
+					{
+						error:
+							'The platform is temporarily disabled due to system maintenance or quota limits. Please try again later.'
+					},
+					503,
+					{ 'Retry-After': '3600' }
+				);
+			}
+		}
+	}
+	return next();
+});
+
 // 2. Global CORS with credentials support for frontend
 app.use('*', async (c, next) => {
 	const originHeader = c.req.header('origin') || '';

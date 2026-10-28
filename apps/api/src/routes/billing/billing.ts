@@ -34,7 +34,7 @@ export async function syncCreemSubscriptionSeats(
 		.all();
 
 	const totalSeats = memberships.length + invites.length;
-	const creemApiKey = env.CREEM_API_KEY;
+	const creemApiKey = env.CREEM_API_TEST_KEY;
 	const isTestMode = env.CREEM_TEST_MODE !== 'false';
 	const baseUrl = isTestMode ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1';
 
@@ -86,7 +86,7 @@ export const billingRouter = new Hono<AppEnv>()
 				body.successUrl ||
 				`${originHeader}/portal/dashboard?upgrade_success=true&project_id=${projectId}`;
 
-			const creemApiKey = c.env.CREEM_API_KEY;
+			const creemApiKey = c.env.CREEM_API_TEST_KEY;
 			const creemProductId = c.env.CREEM_PRODUCT_ID_PROJECT_PASS || c.env.CREEM_PRODUCT_ID;
 			const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
 
@@ -120,7 +120,7 @@ export const billingRouter = new Hono<AppEnv>()
 					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
 			} else {
-				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_KEY;
+				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_TEST_KEY;
 				if (!isDev) {
 					return c.json({ error: 'Payment gateway unconfigured' }, 503);
 				}
@@ -151,8 +151,8 @@ export const billingRouter = new Hono<AppEnv>()
 			const successUrl =
 				body.successUrl || `${originHeader}/portal/dashboard?upgrade_success=true&org_id=${orgId}`;
 
-			const creemApiKey = c.env.CREEM_API_KEY;
-			const creemProductId = c.env.CREEM_PRODUCT_ID_TEAM_SEAT;
+			const creemApiKey = c.env.CREEM_API_TEST_KEY;
+			const creemProductId = c.env.CREEM_PRODUCT_ID_TEAM_PLAN || c.env.CREEM_PRODUCT_ID_TEAM_SEAT;
 			const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
 
 			if (creemApiKey && creemProductId) {
@@ -185,7 +185,7 @@ export const billingRouter = new Hono<AppEnv>()
 					return c.json({ error: 'Failed to initialize payment gateway' }, 500);
 				}
 			} else {
-				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_KEY;
+				const isDev = c.env.ENVIRONMENT === 'development' || !c.env.CREEM_API_TEST_KEY;
 				if (!isDev) {
 					return c.json({ error: 'Payment gateway unconfigured' }, 503);
 				}
@@ -217,7 +217,7 @@ export const billingRouter = new Hono<AppEnv>()
 			return c.json({ error: 'Organization not found' }, 404);
 		}
 
-		const creemApiKey = c.env.CREEM_API_KEY;
+		const creemApiKey = c.env.CREEM_API_TEST_KEY;
 		const isTestMode = c.env.CREEM_TEST_MODE !== 'false';
 		const baseUrl = isTestMode ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1';
 

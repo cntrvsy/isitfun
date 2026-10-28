@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import app from '@isitfun/api';
 
-vi.mock('$env/dynamic/private', () => ({
-	env: {}
-}));
-
-import { POST } from '../../src/routes/api/webhooks/resend/+server';
-
-describe('POST /api/webhooks/resend', () => {
+describe('POST /v1/webhooks/resend', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
@@ -21,12 +16,14 @@ describe('POST /api/webhooks/resend', () => {
 			}
 		};
 
-		const request = new Request('http://localhost/api/webhooks/resend', {
-			method: 'POST',
-			body: JSON.stringify(payload)
-		});
-
-		const res = await POST({ request } as any);
+		const res = await app.request(
+			'/v1/webhooks/resend',
+			{
+				method: 'POST',
+				body: JSON.stringify(payload)
+			},
+			{ ENVIRONMENT: 'test' } as any
+		);
 		expect(res.status).toBe(200);
 		const json = (await res.json()) as { received: boolean; type: string };
 		expect(json.received).toBe(true);
@@ -44,12 +41,14 @@ describe('POST /api/webhooks/resend', () => {
 			}
 		};
 
-		const request = new Request('http://localhost/api/webhooks/resend', {
-			method: 'POST',
-			body: JSON.stringify(payload)
-		});
-
-		const res = await POST({ request } as any);
+		const res = await app.request(
+			'/v1/webhooks/resend',
+			{
+				method: 'POST',
+				body: JSON.stringify(payload)
+			},
+			{ ENVIRONMENT: 'test' } as any
+		);
 		expect(res.status).toBe(200);
 		const json = (await res.json()) as { received: boolean; type: string };
 		expect(json.received).toBe(true);
@@ -57,12 +56,14 @@ describe('POST /api/webhooks/resend', () => {
 	});
 
 	it('returns 400 when body payload is invalid JSON', async () => {
-		const request = new Request('http://localhost/api/webhooks/resend', {
-			method: 'POST',
-			body: 'invalid-json-body'
-		});
-
-		const res = await POST({ request } as any);
+		const res = await app.request(
+			'/v1/webhooks/resend',
+			{
+				method: 'POST',
+				body: 'invalid-json-body'
+			},
+			{ ENVIRONMENT: 'test' } as any
+		);
 		expect(res.status).toBe(400);
 		const json = (await res.json()) as { error: string };
 		expect(json.error).toBe('Invalid JSON payload');

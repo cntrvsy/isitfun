@@ -19,7 +19,18 @@
 			"service": "isitfun-api"
 		}
 	],
+	"kv_namespaces": [
+		{
+			"binding": "DRIFTER_CONTROL",
+			"id": "9e69dd1ba52b453183fe69f07b719604"
+		}
+	],
 	"observability": {
 		"enabled": true
-	}
+	},
+	"vars": {
+    "CREEM_TEST_MODE": "true",
+    "RESEND_FROM_EMAIL": "IsItFun <noreply@frstudios.co.ke>",
+    "TRUSTED_ORIGINS": "https://isitfun.frstudios.co.ke"
+  }
 }

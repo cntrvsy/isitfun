@@ -8,7 +8,7 @@ vi.mock('better-auth/svelte-kit', () => ({
 	svelteKitHandler: vi.fn(({ resolve, event }: any) => resolve(event))
 }));
 
-import { handleSecurity, handleDrifter } from '../../src/hooks.server';
+import { handleSecurity, handleDrifter, handleDrifterEarly } from '../../src/hooks.server';
 
 describe('Server Security & Referer Hook', () => {
 	it('blocks game playtest iframe referers from targeting developer portal routes', async () => {
@@ -88,5 +88,33 @@ describe('Drifter Platform Maintenance Kill-Switch', () => {
 
 		expect(response.status).toBe(200);
 		expect(resolve).toHaveBeenCalled();
+	});
+
+	it('immediately blocks /play/* and /v1/telemetry at the early edge gate before touching API/D1/R2', async () => {
+		const kvGet = vi.fn().mockResolvedValue('true');
+		const drifterNamespace = { get: kvGet };
+
+		const playEvent: any = {
+			request: new Request('http://localhost/play/proj_1/index.html'),
+			url: new URL('http://localhost/play/proj_1/index.html'),
+			locals: {},
+			platform: { env: { DRIFTER_CONTROL: drifterNamespace } }
+		};
+		const resolve = vi.fn().mockResolvedValue(new Response('OK', { status: 200 }));
+
+		const res1 = await handleDrifterEarly({ event: playEvent, resolve });
+		expect(res1.status).toBe(503);
+		expect(resolve).not.toHaveBeenCalled();
+
+		// Second request on same KV binding uses in-isolate 60s cache (no extra KV read!)
+		const telemetryEvent: any = {
+			request: new Request('http://localhost/v1/telemetry'),
+			url: new URL('http://localhost/v1/telemetry'),
+			locals: {},
+			platform: { env: { DRIFTER_CONTROL: drifterNamespace } }
+		};
+		const res2 = await handleDrifterEarly({ event: telemetryEvent, resolve });
+		expect(res2.status).toBe(503);
+		expect(kvGet).toHaveBeenCalledTimes(1);
 	});
 });
