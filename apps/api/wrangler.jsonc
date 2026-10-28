@@ -47,5 +47,10 @@
 	},
 	"triggers": {
 		"crons": ["0 3 * * *"]
+	},
+	"vars": {
+		"CREEM_TEST_MODE": "true",
+		"RESEND_FROM_EMAIL": "IsItFun <noreply@frstudios.co.ke>",
+		"TRUSTED_ORIGINS": "https://isitfun.frstudios.co.ke"
 	}
 }

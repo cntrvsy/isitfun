@@ -25,6 +25,16 @@
 			"id": "9e69dd1ba52b453183fe69f07b719604"
 		}
 	],
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["TelemetrySessionDO"]
+		},
+		{
+			"tag": "v2",
+			"deleted_classes": ["TelemetrySessionDO"]
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
