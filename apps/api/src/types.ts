@@ -31,6 +31,7 @@ export interface Bindings {
 	CREEM_PRODUCT_ID_TEAM_SEAT?: string;
 	ENVIRONMENT?: string;
 	SESSION_SIGNING_SECRET?: string;
+	SENTRY_DSN?: string;
 }
 
 export type AuthUser = User & {

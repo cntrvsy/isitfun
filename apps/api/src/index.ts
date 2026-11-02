@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { sentry } from '@sentry/hono/cloudflare';
 import { createD1Client, sql } from '@isitfun/db';
 import { TelemetrySessionDO } from './durable-objects/TelemetrySessionDO';
 import type { AppEnv } from './types';
@@ -13,6 +14,9 @@ import { runLogDecay } from './lib/log-decay';
 // 1. Native Durable Object export for Cloudflare Workers
 export { TelemetrySessionDO };
 export type { AppEnv };
+
+const DEFAULT_SENTRY_DSN =
+	'https://52b6021f8a6d08db031cd2689e11301c@o4512364209569792.ingest.de.sentry.io/4512364286443600';
 
 const app = new Hono<AppEnv>();
 
@@ -55,6 +59,22 @@ app.use('*', async (c, next) => {
 	}
 	return next();
 });
+
+// 1.8. Sentry Error Monitoring & Tracing (after Drifter gate so blocked traffic costs 0 Sentry quota)
+app.use(
+	'*',
+	sentry(app, (env) => ({
+		dsn: env.SENTRY_DSN ?? DEFAULT_SENTRY_DSN,
+		enabled: env.ENVIRONMENT !== 'test',
+		environment: env.ENVIRONMENT || 'production',
+		tracesSampleRate: 1.0,
+		initialScope: {
+			tags: {
+				service: 'api'
+			}
+		}
+	}))
+);
 
 // 2. Global CORS with credentials support for frontend
 app.use('*', async (c, next) => {
@@ -117,6 +137,9 @@ const v1 = new Hono<AppEnv>()
 			},
 			allOk ? 200 : 503
 		);
+	})
+	.get('/debug-sentry', () => {
+		throw new Error('My first Sentry error from @isitfun/api!');
 	})
 	.route('/auth', authRouter)
 	.route('/telemetry', telemetryRouter)

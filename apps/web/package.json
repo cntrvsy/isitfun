@@ -67,6 +67,8 @@
 		"@isitfun/db": "*",
 		"@isitfun/shared": "*",
 		"@lucide/svelte": "^1.16.0",
+		"@sentry/cloudflare": "^11.10.0",
+		"@sentry/sveltekit": "^11.10.0",
 		"@tanstack/svelte-table": "^9.1.2",
 		"better-sqlite3": "^12.6.2",
 		"d3-scale": "^4.0.2",

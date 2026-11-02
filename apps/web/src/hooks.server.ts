@@ -1,7 +1,15 @@
 import { redirect, error } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import {
+	initCloudflareSentryHandle,
+	sentryHandle,
+	handleErrorWithSentry
+} from '@sentry/sveltekit';
 import { createApiClient } from '#lib/api/client.js';
 import { getApiBaseUrl } from '#lib/api/config.js';
+
+const SENTRY_DSN =
+	'https://52b6021f8a6d08db031cd2689e11301c@o4512364209569792.ingest.de.sentry.io/4512364286443600';
 
 // 0. Zero-Bill Drifter Cache & Early Edge Kill-Switch
 // Caches the KV lookup per Worker isolate instance for 60s (and uses KV edge cacheTtl: 60)
@@ -269,8 +277,21 @@ export const handleDrifter: Handle = async ({ event, resolve }) => {
 
 export const handle: Handle = sequence(
 	handleDrifterEarly,
+	initCloudflareSentryHandle({
+		dsn: SENTRY_DSN,
+		environment: import.meta.env.DEV ? 'development' : 'production',
+		tracesSampleRate: 1.0,
+		initialScope: {
+			tags: {
+				service: 'web-ssr'
+			}
+		}
+	}),
+	sentryHandle(),
 	handleGateway,
 	handleSession,
 	handleDrifter,
 	handleSecurity
 );
+
+export const handleError = handleErrorWithSentry();

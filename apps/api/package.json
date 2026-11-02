@@ -19,6 +19,8 @@
 		"@hono/valibot-validator": "^0.5.1",
 		"@isitfun/db": "*",
 		"@isitfun/shared": "*",
+		"@sentry/cloudflare": "^11.10.0",
+		"@sentry/hono": "^11.10.0",
 		"better-auth": "^1.6.23",
 		"fflate": "^0.8.3",
 		"hono": "^4.7.4",
